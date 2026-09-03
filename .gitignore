@@ -1,0 +1,14 @@
+# === secrets ===
+.env
+.env.local
+*.key
+*.pem
+
+# === heavy local data - never commit ===
+volumes/
+juicefs/juicefs-bin
+decoder/decoder
+
+# === generic ===
+*.log
+.DS_Store

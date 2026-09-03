@@ -1,0 +1,13 @@
+
+The hermes will be running this every few days :
+
+https://github.com/TauricResearch/TradingAgents
+
+https://github.com/virattt/ai-hedge-fund
+
+https://github.com/virattt/dexter
+
+https://ta-lib.org/
+
+
+https://data.binance.vision/?prefix=data/spot/monthly/trades/BTCUSDT/
