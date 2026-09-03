@@ -40,4 +40,5 @@ def get_series(metric_id: str, frm: str, to: str):
     if m is None or m.get("disabled"):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown metric")
     points = ch.query_series(m["sql"], {"from": frm, "to": to})
-    return {"points": points, "unit": m["unit"]}
+    stale = (len(points) == 0) or any(p.get("v") is None for p in points)
+    return {"points": points, "unit": m["unit"], "stale": stale}
