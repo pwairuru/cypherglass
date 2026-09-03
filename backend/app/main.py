@@ -24,5 +24,7 @@ try:
     from app.metrics.router import router as metrics_router
 
     app.include_router(metrics_router)
-except ImportError:
-    pass
+except ImportError as exc:
+    import logging
+
+    logging.getLogger(__name__).warning("metrics router not loaded: %s", exc)

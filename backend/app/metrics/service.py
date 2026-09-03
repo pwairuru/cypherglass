@@ -3,9 +3,6 @@ from fastapi import HTTPException, status
 from app import ch
 from app.metrics.registry import METRICS
 
-# Exposed for tests to patch: app.metrics.service.query_series
-query_series = ch.query_series
-
 
 def _by_id(metric_id: str):
     for m in METRICS:
@@ -42,5 +39,5 @@ def get_series(metric_id: str, frm: str, to: str):
     m = _by_id(metric_id)
     if m is None or m.get("disabled"):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown metric")
-    points = query_series(m["sql"], {"from": frm, "to": to})
+    points = ch.query_series(m["sql"], {"from": frm, "to": to})
     return {"points": points, "unit": m["unit"]}
