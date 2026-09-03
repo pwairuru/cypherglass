@@ -18,3 +18,9 @@ def test_price_tables():
     assert "price_ohlc_hourly" in SQL
     assert "price_ohlc_daily" in SQL
     assert "ORDER BY (source, symbol, ts)" in SQL
+
+def test_projections():
+    sql = (Path(__file__).resolve().parents[2] / "clickhouse/init/04_projections.sql").read_text()
+    for name in ["p_height", "p_addr_time", "p_prev", "p_seen", "p_txid", "p_value"]:
+        assert name in sql
+    assert "MATERIALIZE PROJECTION" in sql
