@@ -41,8 +41,8 @@ Write `freegoup/.env`:
 
 ```bash
 # === S3 Credentials (for juicefs and clickhouse) ===
-AWS_ACCESS_KEY_ID=rustfsadmin
-AWS_SECRET_ACCESS_KEY=rustfsadmin
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
 S3_ENDPOINT=http://rustfs:9000
 # S3_ENDPOINT=https://s3.amazonaws.com     # uncomment for prod
 S3_REGION=us-east-1
@@ -56,7 +56,7 @@ VALKEY_PASSWORD=
 
 # === Bitcoin Knots ===
 BITCOIN_RPC_USER=bitcoin
-BITCOIN_RPC_PASSWORD=bitcoinrpc
+BITCOIN_RPC_PASSWORD=your_rpc_password
 ```
 
 - [ ] **Step 3: Create .env.example**
@@ -518,7 +518,7 @@ dbcache=450
 
 # RPC
 rpcuser=bitcoin
-rpcpassword=bitcoinrpc
+rpcpassword=your_rpc_password
 rpcallowip=0.0.0.0/0
 rpcbind=0.0.0.0
 
@@ -574,8 +574,8 @@ services:
       - "9000:9000"
       - "9001:9001"
     environment:
-      RUSTFS_ACCESS_KEY: ${AWS_ACCESS_KEY_ID:-rustfsadmin}
-      RUSTFS_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_ACCESS_KEY: ${AWS_ACCESS_KEY_ID:-your_access_key}
+      RUSTFS_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY:-your_secret_key}
     volumes:
       - ./volumes/rustfs:/data
     command: server /data --console-address :9001
@@ -595,7 +595,7 @@ services:
     entrypoint: /bin/sh
     command: >
       -c "
-      mc alias set local http://rustfs:9000 ${AWS_ACCESS_KEY_ID:-rustfsadmin} ${AWS_SECRET_ACCESS_KEY:-rustfsadmin};
+      mc alias set local http://rustfs:9000 ${AWS_ACCESS_KEY_ID:-your_access_key} ${AWS_SECRET_ACCESS_KEY:-your_secret_key};
       mc mb --ignore-existing local/${JUICE_BUCKET:-juicefs-blockchain};
       mc mb --ignore-existing local/${CLICKHOUSE_BUCKET:-clickhouse-storage};
       echo 'Buckets created.';
