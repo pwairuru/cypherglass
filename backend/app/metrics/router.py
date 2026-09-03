@@ -11,6 +11,11 @@ def list_all(_user: str = Depends(get_current_user)):
     return service.list_metrics()
 
 
+@router.get("/coverage")
+def coverage(_user: str = Depends(get_current_user)):
+    return service.get_coverage()
+
+
 @router.get("/{metric_id}/series")
 def series(
     metric_id: str,

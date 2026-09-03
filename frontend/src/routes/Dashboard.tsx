@@ -18,19 +18,39 @@ export default function Dashboard() {
   const [selected, setSelected] = useState<string | null>(null);
   const [rangeDays, setRangeDays] = useState<number>(7);
 
-  const { to, from } = useMemo(() => {
-    const to = new Date().toISOString();
-    const from = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000).toISOString();
-    return { to, from };
-  }, [rangeDays]);
-
   const metricsQuery = useQuery({
     queryKey: ["metrics"],
     queryFn: () => apiFetch<MetricSummary[]>("/api/v1/metrics", token ?? undefined),
     enabled: token !== null,
   });
 
+  const coverageQuery = useQuery({
+    queryKey: ["coverage"],
+    queryFn: () =>
+      apiFetch<{ min_day: string; max_day: string }>(
+        "/api/v1/metrics/coverage",
+        token ?? undefined,
+      ),
+    enabled: token !== null,
+    retry: false,
+  });
+
   const metrics = metricsQuery.data ?? [];
+
+  // Anchor range to data era (decoder still syncing early chain).
+  const { to, from } = useMemo(() => {
+    const anchor = coverageQuery.data?.max_day
+      ? new Date(`${coverageQuery.data.max_day}T23:59:59Z`).getTime()
+      : Date.now();
+    const to = new Date(anchor).toISOString();
+    const minT = coverageQuery.data?.min_day
+      ? new Date(`${coverageQuery.data.min_day}T00:00:00Z`).getTime()
+      : 0;
+    const from = new Date(
+      Math.max(anchor - rangeDays * 24 * 60 * 60 * 1000, minT),
+    ).toISOString();
+    return { to, from };
+  }, [rangeDays, coverageQuery.data]);
 
   useEffect(() => {
     if (selected === null && metrics.length > 0) {
