@@ -22,7 +22,7 @@ def health():
 
 
 # TASK3-REPLACE: minimal guarded placeholder so auth guard is testable
-# before the real metrics router lands. Task 3 must delete this route when
+# before the real metrics router lands. Task 3 MUST delete this route when
 # adding app/metrics/router.py (duplicate paths: first registered wins).
 @app.get("/api/v1/metrics")
 def metrics_placeholder(_user: str = Depends(get_current_user)):
