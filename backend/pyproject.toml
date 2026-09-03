@@ -1,0 +1,28 @@
+[project]
+name = "cypherglass-backend"
+version = "0.1.0"
+description = "CypherGlass Analytics API (FastAPI + SQLModel + ClickHouse read + Valkey)"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "sqlmodel",
+    "sqlalchemy[asyncio]",
+    "asyncpg",
+    "clickhouse-connect",
+    "pydantic-settings",
+    "PyJWT",
+    "bcrypt",
+    "python-multipart",
+    "celery",
+    "valkey",
+    "redis",
+    "httpx",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
