@@ -7,6 +7,7 @@ export interface MetricSummary {
   unit?: string;
   interval?: string;
   disabled?: boolean;
+  description?: string;
 }
 
 interface MetricListProps {

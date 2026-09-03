@@ -51,5 +51,5 @@ export default function ChartPane({ title, unit, series, loading, error }: Chart
     ],
   };
 
-  return <ReactECharts key={theme} option={option} style={{ height: 400 }} notMerge={true} />;
+  return <ReactECharts key={theme} option={option} style={{ height: "100%" }} notMerge={true} />;
 }

@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi import HTTPException, status
 
 from app import ch
+from app.metrics.descriptions import DESCRIPTIONS
 from app.metrics.registry import METRICS
 
 
@@ -32,6 +33,7 @@ def list_metrics():
                 "unit": m["unit"],
                 "interval": _interval(m["id"]),
                 "disabled": bool(m.get("disabled", False)),
+                "description": DESCRIPTIONS.get(m["id"], m["title"]),
             }
         )
     return out

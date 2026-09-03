@@ -78,17 +78,6 @@ export default function Dashboard() {
         <h1>CypherGlass Analytics</h1>
         <div>
           <ThemeSwitcher />
-          {RANGES.map((d) => (
-            <button
-              key={d}
-              type="button"
-              className="btn"
-              disabled={rangeDays === d}
-              onClick={() => setRangeDays(d)}
-            >
-              {d}d
-            </button>
-          ))}
           <button className="btn" type="button" onClick={logout}>
             Sign out
           </button>
@@ -101,24 +90,47 @@ export default function Dashboard() {
         </p>
       )}
       <div className="dashboard-body">
-        <aside style={{ width: 280 }}>
+        <aside className="metric-rail">
           <MetricList metrics={metrics} selected={selected} onSelect={setSelected} />
         </aside>
-        <main>
+        <main className="chart-area">
           {activeMetric && (
-            <ChartPane
-              title={activeMetric.title}
-              unit={activeMetric.unit ?? ""}
-              series={seriesQuery.data}
-              loading={seriesQuery.isPending && seriesEnabled}
-              error={
-                seriesQuery.isError
-                  ? seriesQuery.error instanceof Error
-                    ? seriesQuery.error.message
-                    : "Failed to load series"
-                  : null
-              }
-            />
+            <section className="chart-card">
+              <div className="chart-head">
+                <div>
+                  <h2>{activeMetric.title}</h2>
+                  {activeMetric.description && <p className="chart-desc">{activeMetric.description}</p>}
+                </div>
+                <div className="chart-filters" role="group" aria-label="Range">
+                  {RANGES.map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      className="btn"
+                      disabled={rangeDays === d}
+                      onClick={() => setRangeDays(d)}
+                    >
+                      {d}d
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="chart-fill">
+                <ChartPane
+                  title={activeMetric.title}
+                  unit={activeMetric.unit ?? ""}
+                  series={seriesQuery.data}
+                  loading={seriesQuery.isPending && seriesEnabled}
+                  error={
+                    seriesQuery.isError
+                      ? seriesQuery.error instanceof Error
+                        ? seriesQuery.error.message
+                        : "Failed to load series"
+                      : null
+                  }
+                />
+              </div>
+            </section>
           )}
         </main>
       </div>

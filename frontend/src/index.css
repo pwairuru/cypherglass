@@ -171,8 +171,11 @@
 }
 
 .dashboard {
-  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
   padding: 16px 24px;
+  overflow: hidden;
 }
 
 .dashboard header {
@@ -181,6 +184,7 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
+  flex-shrink: 0;
 }
 
 .dashboard header > div {
@@ -192,21 +196,101 @@
 .dashboard-body {
   display: flex;
   gap: 16px;
-  align-items: flex-start;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
-.dashboard-body aside {
+.metric-rail {
+  width: 280px;
+  flex-shrink: 0;
+  overflow-y: auto;
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
   background: hsl(var(--card));
   padding: 12px;
 }
 
-.dashboard-body main {
+.metric-list ul {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.metric-item {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+}
+
+.metric-item:hover {
+  background: hsl(var(--accent));
+}
+
+.metric-item[aria-current="true"] {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--accent));
+}
+
+.metric-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.chart-area {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+  display: flex;
+}
+
+.chart-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
   background: hsl(var(--card));
   padding: 16px;
+}
+
+.chart-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+.chart-head h2 {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+}
+
+.chart-desc {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.875rem;
+}
+
+.chart-filters {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.chart-fill {
+  flex: 1;
+  min-height: 320px;
 }
