@@ -102,3 +102,75 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # --- Analytics MVP (Task 4) ---
+  pg:
+    image: postgres:16
+    container_name: cypherglass-pg
+    environment:
+      POSTGRES_USER: cypher
+      POSTGRES_PASSWORD: cypher
+      POSTGRES_DB: cypher
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./volumes/pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cypher"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  valkey-app:
+    image: valkey/valkey:8
+    container_name: cypherglass-valkey-app
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./volumes/valkey-app:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: ./backend
+    container_name: cypherglass-api
+    depends_on:
+      pg:
+        condition: service_healthy
+      valkey-app:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cypher:cypher@pg:5432/cypher
+      VALKEY_URL: redis://valkey-app:6379/0
+      REDIS_URL: redis://valkey-app:6379/0
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: bitcoin
+      CLICKHOUSE_DATABASE: bitcoin
+    ports:
+      - "8000:8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    container_name: cypherglass-worker
+    profiles: ["worker"]
+    depends_on:
+      valkey-app:
+        condition: service_healthy
+      pg:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cypher:cypher@pg:5432/cypher
+      VALKEY_URL: redis://valkey-app:6379/0
+      REDIS_URL: redis://valkey-app:6379/0
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+    command: celery -A app.workers.celery_app.celery_app worker --beat --loglevel=info
+    restart: unless-stopped
