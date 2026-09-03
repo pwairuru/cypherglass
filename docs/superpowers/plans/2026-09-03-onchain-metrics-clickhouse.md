@@ -624,6 +624,7 @@ func BucketFor(balanceSat int64) string {
         return "humpback"
     }
 }
+```
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -633,7 +634,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add decoder/internal/enrich/ decoder/internal/parser/types.go
+git add decoder/internal/enrich/
 git commit -m "feat: decoder enrich utxo subsidy feerate buckets"
 ```
 
