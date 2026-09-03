@@ -1,0 +1,9 @@
+-- clickhouse/init/06_marts.sql
+CREATE DATABASE IF NOT EXISTS marts;
+CREATE TABLE IF NOT EXISTS marts.realized_daily (day Date CODEC(ZSTD(9)), realized_cap UInt64 CODEC(T64, ZSTD(9)), updated_at DateTime CODEC(DoubleDelta, ZSTD(9))) ENGINE = ReplacingMergeTree(updated_at) PARTITION BY toYYYYMM(day) ORDER BY day SETTINGS storage_policy = 's3_main';
+CREATE TABLE IF NOT EXISTS marts.sopr_daily (day Date CODEC(ZSTD(9)), sopr Float64 CODEC(Gorilla, ZSTD(9)), updated_at DateTime CODEC(DoubleDelta, ZSTD(9))) ENGINE = ReplacingMergeTree(updated_at) PARTITION BY toYYYYMM(day) ORDER BY day SETTINGS storage_policy = 's3_main';
+CREATE TABLE IF NOT EXISTS marts.mvrv_nupl_daily (day Date CODEC(ZSTD(9)), mvrv Float64 CODEC(Gorilla, ZSTD(9)), nupl Float64 CODEC(Gorilla, ZSTD(9)), updated_at DateTime CODEC(DoubleDelta, ZSTD(9))) ENGINE = ReplacingMergeTree(updated_at) PARTITION BY toYYYYMM(day) ORDER BY day SETTINGS storage_policy = 's3_main';
+CREATE TABLE IF NOT EXISTS marts.puell_daily (day Date CODEC(ZSTD(9)), puell Float64 CODEC(Gorilla, ZSTD(9)), updated_at DateTime CODEC(DoubleDelta, ZSTD(9))) ENGINE = ReplacingMergeTree(updated_at) PARTITION BY toYYYYMM(day) ORDER BY day SETTINGS storage_policy = 's3_main';
+CREATE TABLE IF NOT EXISTS marts.hodl_daily (day Date CODEC(ZSTD(9)), band_1d UInt64 CODEC(T64, ZSTD(9)), band_1w UInt64 CODEC(T64, ZSTD(9)), band_1m UInt64 CODEC(T64, ZSTD(9)), band_3m UInt64 CODEC(T64, ZSTD(9)), band_6m UInt64 CODEC(T64, ZSTD(9)), band_1y UInt64 CODEC(T64, ZSTD(9)), band_2y UInt64 CODEC(T64, ZSTD(9)), band_5y_plus UInt64 CODEC(T64, ZSTD(9)), updated_at DateTime CODEC(DoubleDelta, ZSTD(9))) ENGINE = ReplacingMergeTree(updated_at) PARTITION BY toYYYYMM(day) ORDER BY day SETTINGS storage_policy = 's3_main';
+-- Refresh pattern (Celery beat runs same SQL with date param):
+-- INSERT INTO marts.hodl_daily SELECT today() AS day, ... FROM bitcoin.outputs_v2 WHERE spent_time = toDateTime(0) OR spent_time > today();
