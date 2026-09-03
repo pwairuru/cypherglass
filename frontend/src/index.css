@@ -1,12 +1,125 @@
-:root {
-  color-scheme: light;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-body {
-  margin: 0;
-  background: #fafafa;
-  color: #111;
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 217 91% 51%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 217 91% 51%;
+    --chart-1: 217 91% 51%;
+    --chart-2: 160 84% 30%;
+    --chart-3: 32 95% 44%;
+    --chart-4: 271 76% 53%;
+    --chart-5: 0 72% 45%;
+    --radius: 0.375rem;
+    color-scheme: light;
+  }
+  .dark {
+    --background: 240 6% 4%;
+    --foreground: 0 0% 98%;
+    --card: 240 5% 7%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 5% 8%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4% 12%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 4% 12%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 4% 14%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 4% 14%;
+    --input: 240 4% 14%;
+    --ring: 217 91% 60%;
+    --chart-1: 217 91% 60%;
+    --chart-2: 160 84% 39%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 0 72% 51%;
+    color-scheme: dark;
+  }
+  .theme-ohngea {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 174 72% 40%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 38 92% 50%;
+    --chart-1: 174 72% 40%;
+    --chart-2: 160 84% 30%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 271 76% 53%;
+    --chart-5: 0 72% 45%;
+    color-scheme: light;
+  }
+  .theme-ohngea-dark {
+    --background: 222 47% 11%;
+    --foreground: 0 0% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 0 0% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 174 72% 45%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 222 47% 14%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 222 47% 14%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 222 47% 14%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 47% 18%;
+    --input: 222 47% 18%;
+    --ring: 38 92% 50%;
+    --chart-1: 174 72% 45%;
+    --chart-2: 160 84% 39%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 0 72% 51%;
+    color-scheme: dark;
+  }
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    margin: 0;
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  }
 }
 
 .login-page,
@@ -22,9 +135,10 @@ body {
   gap: 12px;
   width: 320px;
   padding: 24px;
-  background: #fff;
-  border: 1px solid #e5e5e5;
-  border-radius: 8px;
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
 }
 
 .input {
@@ -32,16 +146,18 @@ body {
   width: 100%;
   margin-top: 4px;
   padding: 8px 10px;
-  border: 1px solid #d4d4d4;
+  border: 1px solid hsl(var(--input));
   border-radius: 6px;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
 }
 
 .btn {
   padding: 8px 14px;
-  border: 1px solid #111;
+  border: 1px solid hsl(var(--primary));
   border-radius: 6px;
-  background: #111;
-  color: #fff;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
   cursor: pointer;
 }
 
@@ -51,5 +167,46 @@ body {
 }
 
 .error {
-  color: #b3261e;
+  color: hsl(var(--destructive));
+}
+
+.dashboard {
+  min-height: 100vh;
+  padding: 16px 24px;
+}
+
+.dashboard header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.dashboard header > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-body {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.dashboard-body aside {
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--card));
+  padding: 12px;
+}
+
+.dashboard-body main {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--card));
+  padding: 16px;
 }

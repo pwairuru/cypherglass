@@ -112,7 +112,7 @@ services:
       POSTGRES_PASSWORD: cypher
       POSTGRES_DB: cypher
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - ./volumes/pg:/var/lib/postgresql/data
     healthcheck:
@@ -125,7 +125,7 @@ services:
     image: valkey/valkey:8
     container_name: cypherglass-valkey-app
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - ./volumes/valkey-app:/data
     healthcheck:
@@ -154,7 +154,7 @@ services:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-bitcoin_clickhouse}
       CLICKHOUSE_DATABASE: bitcoin
     ports:
-      - "8000:8000"
+      - "8002:8000"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     restart: unless-stopped
 
@@ -175,4 +175,16 @@ services:
       CLICKHOUSE_PORT: 8123
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-bitcoin_clickhouse}
     command: celery -A app.workers.celery_app.celery_app worker --beat --loglevel=info
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8002
+    container_name: cypherglass-frontend
+    depends_on:
+      - api
+    ports:
+      - "5173:80"
     restart: unless-stopped

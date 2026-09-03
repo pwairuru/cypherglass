@@ -4,6 +4,7 @@ import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import MetricList, { type MetricSummary } from "../components/MetricList";
 import ChartPane, { type SeriesPoint } from "../components/ChartPane";
+import ThemeSwitcher from "../components/ThemeSwitcher";
 
 interface SeriesOut {
   points: SeriesPoint[];
@@ -56,6 +57,7 @@ export default function Dashboard() {
       <header>
         <h1>CypherGlass Analytics</h1>
         <div>
+          <ThemeSwitcher />
           {RANGES.map((d) => (
             <button
               key={d}
