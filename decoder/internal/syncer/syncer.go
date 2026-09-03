@@ -12,9 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/freegoup/decoder/internal/clickhouse"
+	"github.com/freegoup/decoder/internal/enrich"
 	"github.com/freegoup/decoder/internal/parser"
+	"github.com/fsnotify/fsnotify"
 )
 
 type SyncState struct {
@@ -31,6 +32,8 @@ type Syncer struct {
 	mu        sync.Mutex
 	stopCh    chan struct{}
 	deobf     *parser.XORDeobfuscator
+	utxo      *enrich.UTXOMap
+	prevTime  time.Time
 }
 
 func New(client *clickhouse.Client, blocksDir, stateFile string, state *SyncState) *Syncer {
@@ -41,6 +44,7 @@ func New(client *clickhouse.Client, blocksDir, stateFile string, state *SyncStat
 		stateFile: stateFile,
 		stopCh:    make(chan struct{}),
 		deobf:     loadDeobfuscator(blocksDir),
+		utxo:      enrich.NewUTXOMap(),
 	}
 }
 
@@ -220,6 +224,34 @@ func (s *Syncer) insertBlock(ctx context.Context, block *parser.ParsedBlock) err
 	if err := s.client.InsertInputs(ctx, block); err != nil {
 		return fmt.Errorf("insert inputs: %w", err)
 	}
+	// V2 inserts resolve input values from the UTXO map first, then the map
+	// is advanced with this block's outputs (Put) and spends (Delete).
+	if err := s.client.InsertBlockV2(ctx, block, s.prevTime); err != nil {
+		return fmt.Errorf("insert block v2: %w", err)
+	}
+	if err := s.client.InsertTransactionsV2(ctx, block, s.utxo); err != nil {
+		return fmt.Errorf("insert txs v2: %w", err)
+	}
+	if err := s.client.InsertInputsV2(ctx, block, s.utxo); err != nil {
+		return fmt.Errorf("insert inputs v2: %w", err)
+	}
+	if err := s.client.InsertOutputsV2(ctx, block); err != nil {
+		return fmt.Errorf("insert outputs v2: %w", err)
+	}
+	for _, tx := range block.Transactions {
+		txid := tx.Hash.String()
+		if !tx.IsCoinbase {
+			for _, in := range tx.Inputs {
+				s.utxo.Delete(in.PrevTxID.String(), in.PrevIndex)
+			}
+		}
+		for _, out := range tx.Outputs {
+			if out.ValueSat >= 0 {
+				s.utxo.Put(txid, out.Index, uint64(out.ValueSat))
+			}
+		}
+	}
+	s.prevTime = block.Header.Timestamp
 	return nil
 }
 
