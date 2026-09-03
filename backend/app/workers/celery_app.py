@@ -25,6 +25,10 @@ celery_app.conf.update(
             "task": "app.workers.celery_app.poll_price_stub",
             "schedule": 60.0,
         },
+        "price-poll-hourly": {
+            "task": "app.workers.price.poll_price_hourly",
+            "schedule": 3600.0,
+        },
     },
 )
 
