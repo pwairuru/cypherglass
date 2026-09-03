@@ -2,19 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import type { JSX } from "react";
 import { useAuth } from "./context/AuthContext";
 import Login from "./routes/Login";
-
-function HomePlaceholder() {
-  const { logout } = useAuth();
-  return (
-    <div className="shell">
-      <h1>CypherGlass Analytics</h1>
-      <p>Dashboard lands in Task 6.</p>
-      <button className="btn" type="button" onClick={logout}>
-        Sign out
-      </button>
-    </div>
-  );
-}
+import Dashboard from "./routes/Dashboard";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { isAuthenticated } = useAuth();
@@ -30,7 +18,7 @@ export default function App() {
         path="/"
         element={
           <RequireAuth>
-            <HomePlaceholder />
+            <Dashboard />
           </RequireAuth>
         }
       />
