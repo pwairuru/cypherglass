@@ -151,6 +151,7 @@ services:
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: 8123
       CLICKHOUSE_USER: bitcoin
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-bitcoin_clickhouse}
       CLICKHOUSE_DATABASE: bitcoin
     ports:
       - "8000:8000"
@@ -172,5 +173,6 @@ services:
       REDIS_URL: redis://valkey-app:6379/0
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-bitcoin_clickhouse}
     command: celery -A app.workers.celery_app.celery_app worker --beat --loglevel=info
     restart: unless-stopped
