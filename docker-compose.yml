@@ -1,0 +1,104 @@
+services:
+  # --- S3-compatible storage (local dev) ---
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: rustfs
+    ports:
+      - "9010:9000"
+      - "9011:9001"
+    environment:
+      RUSTFS_ACCESS_KEY: ${AWS_ACCESS_KEY_ID:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY:-rustfsadmin}
+    volumes:
+      - ./volumes/rustfs:/data
+    command: server /data --console-address :9001
+    healthcheck:
+      test: ["CMD", "curl", "-s", "-o", "/dev/null", "http://localhost:9000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Bucket creator (runs once) ---
+  create-buckets:
+    image: minio/mc:latest
+    container_name: create-buckets
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    entrypoint: /bin/sh
+    command: >
+      -c "
+      mc alias set local http://rustfs:9000 ${AWS_ACCESS_KEY_ID:-rustfsadmin} ${AWS_SECRET_ACCESS_KEY:-rustfsadmin};
+      mc mb --ignore-existing local/${JUICE_BUCKET:-juicefs-blockchain};
+      mc mb --ignore-existing local/${CLICKHOUSE_BUCKET:-clickhouse-storage};
+      echo 'Buckets created.';
+      "
+
+  # --- Valkey ---
+  valkey:
+    image: valkey/valkey:8
+    container_name: valkey
+    ports:
+      - "6381:6379"
+    volumes:
+      - ./valkey/valkey.conf:/usr/local/etc/valkey/valkey.conf
+      - ./volumes/valkey:/data
+    command: valkey-server /usr/local/etc/valkey/valkey.conf
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # --- Bitcoin Core + JuiceFS + Decoder (all-in-one) ---
+  bitcoin-knots:
+    image: freegoup-allinone:latest
+    container_name: bitcoin-knots
+    privileged: true
+    depends_on:
+      rustfs:
+        condition: service_healthy
+      create-buckets:
+        condition: service_completed_successfully
+      valkey:
+        condition: service_healthy
+    environment:
+      ACCESS_KEY: ${AWS_ACCESS_KEY_ID:-rustfsadmin}
+      SECRET_KEY: ${AWS_SECRET_ACCESS_KEY:-rustfsadmin}
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: "9000"
+      CLICKHOUSE_DATABASE: bitcoin
+      BLOCKS_DIR: /home/bitcoin/.bitcoin/blocks
+      STATE_FILE: /data/decoder_state.json
+    volumes:
+      - ./bitcoin/bitcoin.conf:/tmp/bitcoin.conf
+      - ./volumes/decoder:/data
+    ports:
+      - "8332:8332"
+      - "8333:8333"
+    restart: unless-stopped
+
+  # --- ClickHouse ---
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.7
+    container_name: clickhouse
+    depends_on:
+      rustfs:
+        condition: service_healthy
+      create-buckets:
+        condition: service_completed_successfully
+    environment:
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 0
+    ports:
+      - "8124:8123"
+      - "9002:9000"
+    volumes:
+      - ./clickhouse/config.xml:/etc/clickhouse-server/config.d/storage.xml:ro
+      - ./clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
+      - ./clickhouse/init:/docker-entrypoint-initdb.d:ro
+      - ./volumes/clickhouse:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "-q", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

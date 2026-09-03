@@ -1,14 +1,11 @@
-# === secrets ===
-.env
-.env.local
-*.key
-*.pem
-
-# === heavy local data - never commit ===
 volumes/
-juicefs/juicefs-bin
+.env
 decoder/decoder
-
-# === generic ===
 *.log
-.DS_Store
+# environment-specific overrides
+.env.*
+juicefs/juicefs-bin
+# local dev backups / scratch
+*.bak
+docker-compose.yml.bak
+additions.txt

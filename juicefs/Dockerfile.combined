@@ -1,0 +1,10 @@
+FROM alpine:3.20 AS juicefs-builder
+COPY juicefs-bin /usr/local/bin/juicefs
+RUN chmod +x /usr/local/bin/juicefs
+
+FROM ruimarinho/bitcoin-core:latest
+COPY --from=juicefs-builder /usr/local/bin/juicefs /usr/local/bin/juicefs
+RUN apt-get update && apt-get install -y fuse3 && rm -rf /var/lib/apt/lists/*
+COPY entrypoint-combined.sh /entrypoint-combined.sh
+RUN chmod +x /entrypoint-combined.sh
+ENTRYPOINT ["/entrypoint-combined.sh"]

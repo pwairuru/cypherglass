@@ -1,0 +1,29 @@
+I want to make a bitcoin analytics platform
+The point is to do onchain analytics, exchange prices and volume analytics , sentiments etc.
+The first step is to be able to run a node from where we will be copying data from and dumping into clickhouse.
+
+Our primary storage is s3 for the blockchain
+we will use juicefs with juicefs docker plugin for storage
+we will store the chainstate and the index in the local disk volume
+Include valkey for the juicefs cache and make sure it saves to disk
+
+We want to add clickhouse as the analytics database meaning we have to copy data from the blockchain in some way to clickhouse.
+Clickhouse has to be configured to use s3 as the primary storage too
+Clickhouse has to compress with lz4 or zstd by default.
+
+
+Have two docker compose setups: one for local testing using rustfs as the s3 endpoint and the other to use actual s3
+
+Once setup, please iterate and test that everything is interconnected and working well including checking that clickhouse is using s3 for storage
+the node software is doing IBD and files can be seen in s3. use separate bucket for juicefs from clickhouse storage.
+
+For S3, use rustfs
+Use clickhouse 26.5
+use latest juicefs nad make sure it has compression enabled
+Use valkey instead of redis for juicefs metadata
+Use the knots bitcoin node and not core
+Make sure clickhouse columns have correct encoding (delta, doubledelta etc) for max compression.
+Have s3 credentials in .env file for both rustfs and production s3
+
+From my understanding, to sync data to clickhouse, it is best to decode the block data rather than use the node api so that things are faster. Use that to sync the data to clickhouse. This means make sure to create the required columns
+make sure to add all the relevant projects and or materialized views that could speed up the database.

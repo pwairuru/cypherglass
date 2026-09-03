@@ -1,0 +1,41 @@
+<clickhouse>
+    <logger>
+        <level>information</level>
+        <console>1</console>
+    </logger>
+
+    <storage_configuration>
+        <disks>
+            <s3_disk>
+                <type>s3</type>
+                <!-- DEV ONLY: rustfsadmin is local dev default; prod must override via env S3_ENDPOINT/AWS_* -->
+                <endpoint>http://rustfs:9000/clickhouse-storage/</endpoint>
+                <access_key_id from_env="AWS_ACCESS_KEY_ID">rustfsadmin</access_key_id>
+                <secret_access_key from_env="AWS_SECRET_ACCESS_KEY">rustfsadmin</secret_access_key>
+                <region from_env="S3_REGION">us-east-1</region>
+                <metadata_path>/var/lib/clickhouse/disks/s3_disk/</metadata_path>
+            </s3_disk>
+        </disks>
+        <policies>
+            <s3_main>
+                <volumes>
+                    <main>
+                        <disk>s3_disk</disk>
+                    </main>
+                </volumes>
+            </s3_main>
+        </policies>
+    </storage_configuration>
+
+    <compression>
+        <case>
+            <method>zstd</method>
+            <level>3</level>
+        </case>
+    </compression>
+
+    <macros>
+        <shard>01</shard>
+        <replica>clickhouse</replica>
+    </macros>
+</clickhouse>

@@ -1,0 +1,13 @@
+FROM alpine:3.20 AS builder
+COPY juicefs/juicefs-bin /usr/local/bin/juicefs
+COPY decoder/decoder /usr/local/bin/decoder
+RUN chmod +x /usr/local/bin/juicefs /usr/local/bin/decoder
+
+FROM ruimarinho/bitcoin-core:latest
+COPY --from=builder /usr/local/bin/juicefs /usr/local/bin/juicefs
+COPY --from=builder /usr/local/bin/decoder /usr/local/bin/decoder
+RUN apt-get update && apt-get install -y fuse3 && rm -rf /var/lib/apt/lists/*
+COPY juicefs/entrypoint-allinone.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["bitcoind"]

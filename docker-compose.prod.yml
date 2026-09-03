@@ -1,0 +1,118 @@
+version: "3.8"
+
+services:
+  # --- Valkey (JuiceFS metadata) ---
+  valkey:
+    image: valkey/valkey:8
+    container_name: valkey
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./valkey/valkey.conf:/usr/local/etc/valkey/valkey.conf
+      - ./volumes/valkey:/data
+    command: valkey-server /usr/local/etc/valkey/valkey.conf
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # --- JuiceFS mount (FUSE, privileged) ---
+  juicefs:
+    image: juicedata/juicefs:latest
+    container_name: juicefs
+    privileged: true
+    depends_on:
+      valkey:
+        condition: service_healthy
+    environment:
+      ACCESS_KEY: ${AWS_ACCESS_KEY_ID}
+      SECRET_KEY: ${AWS_SECRET_ACCESS_KEY}
+    entrypoint: /bin/sh
+    command: >
+      -c "
+      echo 'Formatting JuiceFS...';
+      /usr/bin/juicefs format
+        --storage s3
+        --bucket ${S3_ENDPOINT}/${JUICE_BUCKET}
+        --access-key ${AWS_ACCESS_KEY_ID}
+        --secret-key ${AWS_SECRET_ACCESS_KEY}
+        --compress zstd
+        --no-usage-report
+        redis://valkey:6379/1
+        juicefs-blockchain 2>&1 | grep -v 'already formatted' || true;
+
+      echo 'Mounting JuiceFS...';
+      exec /usr/bin/juicefs mount
+        --no-usage-report
+        redis://valkey:6379/1
+        /mnt/bitcoin
+      "
+    volumes:
+      - bitcoin_data:/mnt/bitcoin:shared
+    restart: unless-stopped
+
+  # --- Bitcoin Knots node ---
+  bitcoin-knots:
+    image: kylerschin/bitcoin-knots:latest
+    container_name: bitcoin-knots
+    depends_on:
+      juicefs:
+        condition: service_started
+    volumes:
+      - bitcoin_data:/data/bitcoin:rw
+      - ./bitcoin/bitcoin.conf:/data/bitcoin/bitcoin.conf:ro
+    ports:
+      - "8332:8332"
+      - "8333:8333"
+    restart: unless-stopped
+
+  # --- ClickHouse ---
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.7
+    container_name: clickhouse
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-bitcoin}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set CLICKHOUSE_PASSWORD in .env for production}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - ./clickhouse/config.xml:/etc/clickhouse-server/config.d/storage.xml:ro
+      - ./clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
+      - ./clickhouse/init:/docker-entrypoint-initdb.d:ro
+      - ./volumes/clickhouse:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client -u $$CLICKHOUSE_USER --password $$CLICKHOUSE_PASSWORD -q 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Block decoder ---
+  decoder:
+    build:
+      context: ./decoder
+      dockerfile: Dockerfile
+    container_name: decoder
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      bitcoin-knots:
+        condition: service_started
+    environment:
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: "9000"
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-bitcoin}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set CLICKHOUSE_PASSWORD in .env for production}
+      CLICKHOUSE_DATABASE: bitcoin
+      BLOCKS_DIR: /data/bitcoin/blocks
+      STATE_FILE: /data/decoder_state.json
+    volumes:
+      - bitcoin_data:/data/bitcoin:ro
+      - ./volumes/decoder:/data
+    restart: unless-stopped
+
+volumes:
+  bitcoin_data:
+    driver: local
