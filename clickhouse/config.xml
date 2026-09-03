@@ -30,7 +30,7 @@
     <compression>
         <case>
             <method>zstd</method>
-            <level>3</level>
+            <level>9</level>
         </case>
     </compression>
 
