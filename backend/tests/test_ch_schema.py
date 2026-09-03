@@ -30,19 +30,30 @@ def test_mvs_hierarchy():
     sql = (Path(__file__).resolve().parents[2] / "clickhouse/init/05_mvs.sql").read_text()
     marts = (Path(__file__).resolve().parents[2] / "clickhouse/init/06_marts.sql").read_text()
     assert "DROP VIEW IF EXISTS bitcoin.block_stats_daily" in sql
+    assert "DROP VIEW IF EXISTS bitcoin.tx_volume_hourly" in sql
+    assert "DROP VIEW IF EXISTS bitcoin.address_activity_daily" in sql
     assert "mv_blocks_hourly" in sql
+    assert "mv_tx_fee_hourly" in sql
     assert "mv_script_hourly" in sql
     assert "mv_addr_hourly" in sql
     assert "mv_flow_hourly" in sql
+    assert "mv_blocks_daily" in sql
     assert "mv_tx_fee_daily" in sql
     assert "mv_addr_daily" in sql
+    assert "mv_flow_daily" in sql
+    # hourly MVs hold -State, daily MVs hold -Merge finals (never re-merged)
     assert "countState()" in sql
-    assert "countMerge(" in sql
+    assert "sumState(reward_sat)" in sql
+    assert "countMerge(block_count)" in sql
+    assert "sumMerge(reward_sum)" in sql
     assert "quantileState(" in sql
+    assert "quantileMerge(fee_median)" in sql
     assert "uniqState(" in sql
+    assert "uniqMerge(active)" in sql
     assert "PARTITION BY toYYYYMM(hour)" in sql
-    assert "ZSTD(7)" in sql
-    assert "ZSTD(9)" in sql
-    assert "marts.hodl_daily" in marts
-    assert "marts.realized_daily" in marts
-    assert "marts.sopr_daily" in marts
+    assert "PARTITION BY toYYYYMM(day)" in sql
+    assert "storage_policy = 's3_main'" in sql
+    # CODEC is illegal in an MV SELECT list — compression lives on base
+    # tables (03) and mart DDL (06), never in 05_mvs.sql.
+    assert "CODEC" not in sql
+    assert "ZSTD(9)" in marts

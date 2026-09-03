@@ -19,3 +19,13 @@ def test_stale_flag():
     with patch("app.ch.query_series", return_value=[{"t": "2024-01-01", "v": None}]):
         body = service.get_series("blocks_hourly", "2024-01-01", "2024-01-02")
         assert body["stale"] is True
+
+
+def test_nvt_cumulative_from_genesis():
+    # Supply must accumulate from genesis, not from the query window start:
+    # inner selects are uncapped, the date filter applies outside the window.
+    sql = next(m["sql"] for m in METRICS if m["id"] == "nvt_daily")
+    assert "OVER (ORDER BY" in sql
+    assert "FROM bitcoin.mv_blocks_daily) AS b" in sql
+    assert "FROM bitcoin.mv_flow_daily) AS f" in sql
+    assert ") WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day" in sql

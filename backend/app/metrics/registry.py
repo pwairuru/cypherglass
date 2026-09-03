@@ -248,7 +248,7 @@ METRICS = [
         "category": "flow",
         "unit": "ratio",
         "grain": "daily",
-        "sql": "SELECT day, supply_btc / nullIf(transfer_btc, 0) FROM (SELECT b.day AS day, sum(b.reward_btc) OVER (ORDER BY b.day ROWS UNBOUNDED PRECEDING) AS supply_btc, f.transfer_btc AS transfer_btc FROM (SELECT day, reward_sum / 1e8 AS reward_btc FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date}) AS b JOIN (SELECT day, transfer_sum / 1e8 AS transfer_btc FROM bitcoin.mv_flow_daily WHERE day BETWEEN {from:Date} AND {to:Date}) AS f ON b.day = f.day) ORDER BY day",
+        "sql": "SELECT day, supply_btc / nullIf(transfer_btc, 0) FROM (SELECT b.day AS day, sum(b.reward_btc) OVER (ORDER BY b.day ROWS UNBOUNDED PRECEDING) AS supply_btc, f.transfer_btc AS transfer_btc FROM (SELECT day, reward_sum / 1e8 AS reward_btc FROM bitcoin.mv_blocks_daily) AS b JOIN (SELECT day, transfer_sum / 1e8 AS transfer_btc FROM bitcoin.mv_flow_daily) AS f ON b.day = f.day) WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day",
     },
     {
         "id": "price_close_daily",
