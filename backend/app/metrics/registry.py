@@ -2,11 +2,14 @@
 # price tables. NEVER base tables (bitcoin.blocks_v2 / transactions_v2 / ...).
 #
 # State layout (clickhouse/init/05_mvs.sql, 06_marts.sql, 03_schema_v2.sql):
-# - *_hourly MVs hold aggregate STATES  -> query with -Merge combinators.
-# - *_daily MVs hold -Merge FINALS       -> plain columns, NOT re-mergeable.
-# - Weekly rollups over *_daily therefore use sums for flows, end-of-week
-#   snapshots (argMax(..., day)) for stocks, and count-weighted averages
-#   sum(avg_col*weight)/sum(weight) for averages. NEVER avg-of-avgs.
+# - *_hourly AND *_daily MVs hold aggregate STATES -> query with -Merge
+#   combinators (countMerge/sumMerge/avgMerge/quantileMerge/uniqMerge).
+#   Daily MVs read the v2 BASE tables directly (no cascade: ClickHouse never
+#   fires MV triggers on MV inserts).
+# - Weekly rollups over *_daily merge states per week (countMerge/sumMerge/
+#   quantileMerge grouped by toStartOfWeek), stocks use end-of-week snapshots
+#   (argMax(..., day)), and averages use count-weighted subqueries
+#   sum(day_avg*day_count)/sum(day_count). NEVER avg-of-avgs.
 # - marts.* are ReplacingMergeTree(updated_at) -> argMax(col, updated_at).
 
 METRICS = [
@@ -25,7 +28,7 @@ METRICS = [
         "category": "network",
         "unit": "blocks",
         "grain": "daily",
-        "sql": "SELECT day, blocks FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day",
+        "sql": "SELECT day, countMerge(block_count) FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY day ORDER BY day",
     },
     {
         "id": "blocks_weekly",
@@ -33,7 +36,7 @@ METRICS = [
         "category": "network",
         "unit": "blocks",
         "grain": "weekly",
-        "sql": "SELECT toStartOfWeek(day), sum(blocks) FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY toStartOfWeek(day) ORDER BY toStartOfWeek(day)",
+        "sql": "SELECT toStartOfWeek(day), countMerge(block_count) FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY toStartOfWeek(day) ORDER BY toStartOfWeek(day)",
     },
     {
         "id": "avg_block_size_daily",
@@ -41,7 +44,7 @@ METRICS = [
         "category": "network",
         "unit": "bytes",
         "grain": "daily",
-        "sql": "SELECT day, avg_size FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day",
+        "sql": "SELECT day, avgMerge(avg_size) FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY day ORDER BY day",
     },
     {
         "id": "avg_block_size_weekly",
@@ -49,7 +52,7 @@ METRICS = [
         "category": "network",
         "unit": "bytes",
         "grain": "weekly",
-        "sql": "SELECT toStartOfWeek(day), sum(avg_size * blocks) / sum(blocks) FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY toStartOfWeek(day) ORDER BY toStartOfWeek(day)",
+        "sql": "SELECT week, sum(d_avg * d_n) / sum(d_n) FROM (SELECT toStartOfWeek(day) AS week, avgMerge(avg_size) AS d_avg, countMerge(block_count) AS d_n FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY day) GROUP BY week ORDER BY week",
     },
     {
         "id": "avg_block_interval_daily",
@@ -57,7 +60,7 @@ METRICS = [
         "category": "network",
         "unit": "seconds",
         "grain": "daily",
-        "sql": "SELECT day, avg_interval FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day",
+        "sql": "SELECT day, avgMerge(avg_interval) FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY day ORDER BY day",
     },
     # ---- family: fees (mv_tx_fee_hourly/daily) ----
     {
@@ -74,7 +77,7 @@ METRICS = [
         "category": "fees",
         "unit": "tx",
         "grain": "daily",
-        "sql": "SELECT day, tx_count FROM bitcoin.mv_tx_fee_daily WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day",
+        "sql": "SELECT day, countMerge(tx_count) FROM bitcoin.mv_tx_fee_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY day ORDER BY day",
     },
     {
         "id": "fees_hourly",
@@ -90,7 +93,7 @@ METRICS = [
         "category": "fees",
         "unit": "BTC",
         "grain": "daily",
-        "sql": "SELECT day, fee_sum / 1e8 FROM bitcoin.mv_tx_fee_daily WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day",
+        "sql": "SELECT day, sumMerge(fee_sum) / 1e8 FROM bitcoin.mv_tx_fee_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY day ORDER BY day",
     },
     {
         "id": "fees_weekly",
@@ -98,7 +101,7 @@ METRICS = [
         "category": "fees",
         "unit": "BTC",
         "grain": "weekly",
-        "sql": "SELECT toStartOfWeek(day), sum(fee_sum) / 1e8 FROM bitcoin.mv_tx_fee_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY toStartOfWeek(day) ORDER BY toStartOfWeek(day)",
+        "sql": "SELECT toStartOfWeek(day), sumMerge(fee_sum) / 1e8 FROM bitcoin.mv_tx_fee_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY toStartOfWeek(day) ORDER BY toStartOfWeek(day)",
     },
     {
         "id": "feerate_median_daily",
@@ -106,7 +109,7 @@ METRICS = [
         "category": "fees",
         "unit": "sat/vB",
         "grain": "daily",
-        "sql": "SELECT day, feerate_median FROM bitcoin.mv_tx_fee_daily WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day",
+        "sql": "SELECT day, quantileMerge(feerate_median) FROM bitcoin.mv_tx_fee_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY day ORDER BY day",
     },
     {
         "id": "large_tx_hourly",
@@ -123,7 +126,7 @@ METRICS = [
         "category": "mining",
         "unit": "H/s",
         "grain": "daily",
-        "sql": "SELECT day, avg_difficulty * 4294967296 / 600 FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day",
+        "sql": "SELECT day, avgMerge(avg_difficulty) * 4294967296 / 600 FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY day ORDER BY day",
     },
     {
         "id": "difficulty_daily",
@@ -131,7 +134,7 @@ METRICS = [
         "category": "mining",
         "unit": "difficulty",
         "grain": "daily",
-        "sql": "SELECT day, avg_difficulty FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day",
+        "sql": "SELECT day, avgMerge(avg_difficulty) FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY day ORDER BY day",
     },
     {
         "id": "reward_daily",
@@ -139,7 +142,7 @@ METRICS = [
         "category": "mining",
         "unit": "BTC",
         "grain": "daily",
-        "sql": "SELECT day, reward_sum / 1e8 FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day",
+        "sql": "SELECT day, sumMerge(reward_sum) / 1e8 FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY day ORDER BY day",
     },
     # ---- family: addresses (mv_addr_hourly/daily) ----
     {
@@ -156,7 +159,7 @@ METRICS = [
         "category": "addresses",
         "unit": "addresses",
         "grain": "daily",
-        "sql": "SELECT day, active FROM bitcoin.mv_addr_daily WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day",
+        "sql": "SELECT day, uniqMerge(active) FROM bitcoin.mv_addr_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY day ORDER BY day",
     },
     # ---- family: valuation (marts.*) ----
     {
@@ -240,7 +243,7 @@ METRICS = [
         "category": "flow",
         "unit": "BTC",
         "grain": "daily",
-        "sql": "SELECT day, transfer_sum / 1e8 FROM bitcoin.mv_flow_daily WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day",
+        "sql": "SELECT day, sumMerge(transfer_sum) / 1e8 FROM bitcoin.mv_flow_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY day ORDER BY day",
     },
     {
         "id": "nvt_daily",
@@ -248,7 +251,7 @@ METRICS = [
         "category": "flow",
         "unit": "ratio",
         "grain": "daily",
-        "sql": "SELECT day, supply_btc / nullIf(transfer_btc, 0) FROM (SELECT b.day AS day, sum(b.reward_btc) OVER (ORDER BY b.day ROWS UNBOUNDED PRECEDING) AS supply_btc, f.transfer_btc AS transfer_btc FROM (SELECT day, reward_sum / 1e8 AS reward_btc FROM bitcoin.mv_blocks_daily) AS b JOIN (SELECT day, transfer_sum / 1e8 AS transfer_btc FROM bitcoin.mv_flow_daily) AS f ON b.day = f.day) WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day",
+        "sql": "SELECT day, supply_btc / nullIf(transfer_btc, 0) FROM (SELECT b.day AS day, sum(b.reward_btc) OVER (ORDER BY b.day ROWS UNBOUNDED PRECEDING) AS supply_btc, f.transfer_btc AS transfer_btc FROM (SELECT day, sumMerge(reward_sum) / 1e8 AS reward_btc FROM bitcoin.mv_blocks_daily GROUP BY day) AS b JOIN (SELECT day, sumMerge(transfer_sum) / 1e8 AS transfer_btc FROM bitcoin.mv_flow_daily GROUP BY day) AS f ON b.day = f.day) WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day",
     },
     {
         "id": "price_close_daily",
@@ -273,7 +276,7 @@ METRICS = [
         "category": "onchain",
         "unit": "blocks",
         "grain": "daily",
-        "sql": "SELECT day, blocks FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day",
+        "sql": "SELECT day, countMerge(block_count) FROM bitcoin.mv_blocks_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY day ORDER BY day",
     },
     {
         "id": "tx_volume_hourly",
@@ -289,7 +292,7 @@ METRICS = [
         "category": "onchain",
         "unit": "addresses",
         "grain": "daily",
-        "sql": "SELECT day, active FROM bitcoin.mv_addr_daily WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day",
+        "sql": "SELECT day, uniqMerge(active) FROM bitcoin.mv_addr_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY day ORDER BY day",
     },
     {
         "id": "price_btc_usd",

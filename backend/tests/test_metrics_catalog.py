@@ -11,7 +11,12 @@ def test_catalog_covers_families():
 def test_no_base_table_reads():
     for m in METRICS:
         sql = m.get("sql", "")
-        assert "bitcoin.blocks " not in sql and "bitcoin.transactions " not in sql, m["id"]
+        for base in ["bitcoin.blocks_v2", "bitcoin.transactions_v2", "bitcoin.outputs_v2",
+                     "bitcoin.inputs_v2", "bitcoin.addresses_v2",
+                     "bitcoin.blocks ", "bitcoin.transactions "]:
+            assert base not in sql, (m["id"], base)
+        if sql:
+            assert ("bitcoin.mv_" in sql or "marts." in sql or "bitcoin.price_ohlc" in sql), m["id"]
 
 
 def test_stale_flag():
@@ -26,6 +31,6 @@ def test_nvt_cumulative_from_genesis():
     # inner selects are uncapped, the date filter applies outside the window.
     sql = next(m["sql"] for m in METRICS if m["id"] == "nvt_daily")
     assert "OVER (ORDER BY" in sql
-    assert "FROM bitcoin.mv_blocks_daily) AS b" in sql
-    assert "FROM bitcoin.mv_flow_daily) AS f" in sql
+    assert "FROM bitcoin.mv_blocks_daily GROUP BY day) AS b" in sql
+    assert "FROM bitcoin.mv_flow_daily GROUP BY day) AS f" in sql
     assert ") WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day" in sql

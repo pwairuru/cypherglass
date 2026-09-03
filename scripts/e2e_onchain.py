@@ -85,9 +85,9 @@ def step_apply_ddl(client):
 
 def step_seed(client):
     print("== seed ==")
-    # Idempotent reruns: wipe fixture keys first (base rows + hourly states +
-    # any prior daily backfill). ReplacingMergeTree keeps both versions until
-    # a merge, so plain re-INSERT would double counts.
+    # Idempotent reruns: wipe fixture keys first (base rows + hourly/daily
+    # states). ReplacingMergeTree keeps both versions until a merge, so plain
+    # re-INSERT would double counts.
     hours = ["2024-01-01 00:00:00", "2024-01-01 01:00:00", "2024-01-02 00:00:00"] + SKEWED_HOURS
     days = ["2024-01-01", "2024-01-02"] + SKEWED_DAYS
     hour_list = ", ".join(f"'{h}'" for h in hours)
@@ -152,30 +152,22 @@ def step_seed(client):
     ])
     print(f"seed: PASS (3 blocks_v2 rows, 3 transactions_v2 rows)")
 
-    # ClickHouse does NOT cascade MV triggers: inserts into blocks_v2 fire
-    # mv_blocks_hourly, but rows landing in mv_blocks_hourly do NOT fire
-    # mv_blocks_daily (measured: daily count stays 0). Production therefore
-    # needs a scheduled backfill job (or daily MVs repointed at base tables).
-    # The E2E performs that backfill explicitly so daily reads are verified
-    # against measured data.
-    for stmt in [
-        "INSERT INTO bitcoin.mv_blocks_daily SELECT toDate(hour) AS day,"
-        " countMerge(block_count) AS blocks, avgMerge(avg_size) AS avg_size,"
-        " avgMerge(avg_weight) AS avg_weight, avgMerge(avg_tx_count) AS avg_tx_count,"
-        " avgMerge(avg_interval) AS avg_interval, avgMerge(avg_difficulty) AS avg_difficulty,"
-        " sumMerge(reward_sum) AS reward_sum, sumMerge(fee_sum) AS fee_sum"
-        " FROM bitcoin.mv_blocks_hourly GROUP BY day",
-        "INSERT INTO bitcoin.mv_tx_fee_daily SELECT toDate(hour) AS day,"
-        " countMerge(tx_count) AS tx_count, sumMerge(fee_sum) AS fee_sum,"
-        " quantileMerge(fee_median) AS fee_median, quantileMerge(feerate_median) AS feerate_median,"
-        " sumMerge(transfer_sum) AS transfer_sum FROM bitcoin.mv_tx_fee_hourly GROUP BY day",
-        "INSERT INTO bitcoin.mv_flow_daily SELECT toDate(hour) AS day,"
-        " sumMerge(transfer_sum) AS transfer_sum, countMerge(tx_count) AS tx_count"
-        " FROM bitcoin.mv_flow_hourly GROUP BY day",
-    ]:
-        client.command(stmt)
-    print("seed: daily backfill PASS")
+    # Daily MVs read the base v2 tables directly, so base inserts auto-fire
+    # BOTH hourly and daily MVs — no cascade, no manual backfill (a manual
+    # INSERT into AggregatingMergeTree daily MVs would DOUBLE-count). Wait
+    # for the async MV writes, then assert daily rows auto-populated.
     time.sleep(1)  # let S3-backed parts settle before checks
+    for tbl, want in [("bitcoin.mv_blocks_daily", 2), ("bitcoin.mv_tx_fee_daily", 2),
+                      ("bitcoin.mv_flow_daily", 2)]:
+        got = None
+        for _ in range(30):
+            got = client.query(f"SELECT count() FROM {tbl}").result_rows[0][0]
+            if int(got) >= want:
+                break
+            time.sleep(1)
+        if int(got) < want:
+            raise SystemExit(f"seed FAILED: {tbl} auto-populate got {got}, want >={want}")
+    print("seed: PASS (daily MVs auto-populated from base inserts)")
 
 
 def _one(client, sql, params=None):
@@ -204,9 +196,9 @@ def step_check(client):
     check("golden fees 0.0035 BTC", abs(fees - EXPECT_FEES_BTC) < 1e-9, f"(got {fees})")
 
     day1 = _one(
-        client, "SELECT blocks FROM bitcoin.mv_blocks_daily WHERE day = '2024-01-01'")
+        client, "SELECT countMerge(block_count) FROM bitcoin.mv_blocks_daily WHERE day = '2024-01-01'")
     day2 = _one(
-        client, "SELECT blocks FROM bitcoin.mv_blocks_daily WHERE day = '2024-01-02'")
+        client, "SELECT countMerge(block_count) FROM bitcoin.mv_blocks_daily WHERE day = '2024-01-02'")
     check("daily rollup 2 blocks day1 / 1 block day2", day1 == 2 and day2 == 1,
           f"(got {day1}/{day2})")
 
@@ -219,10 +211,10 @@ def step_check(client):
     nvt_sql = next(m["sql"] for m in METRICS if m["id"] == "nvt_daily")
     reg = client.query(nvt_sql, parameters={"from": "2024-01-02", "to": "2024-01-02"}).result_rows
     base = client.query(
-        "SELECT sum(reward_sum) / 1e8 FROM bitcoin.mv_blocks_daily"
+        "SELECT sumMerge(reward_sum) / 1e8 FROM bitcoin.mv_blocks_daily"
     ).result_rows[0][0]
     flow = client.query(
-        "SELECT transfer_sum / 1e8 FROM bitcoin.mv_flow_daily WHERE day = '2024-01-02'"
+        "SELECT sumMerge(transfer_sum) / 1e8 FROM bitcoin.mv_flow_daily WHERE day = '2024-01-02'"
     ).result_rows[0][0]
     expect_nvt = float(base) / float(flow)
     got_nvt = float(reg[0][1]) if reg else None

@@ -41,19 +41,30 @@ def test_mvs_hierarchy():
     assert "mv_tx_fee_daily" in sql
     assert "mv_addr_daily" in sql
     assert "mv_flow_daily" in sql
-    # hourly MVs hold -State, daily MVs hold -Merge finals (never re-merged)
+    # hourly AND daily MVs hold -State (daily reads base v2 tables directly —
+    # ClickHouse never cascades MV triggers, so cascaded daily MVs stayed empty).
     assert "countState()" in sql
     assert "sumState(reward_sat)" in sql
-    assert "countMerge(block_count)" in sql
-    assert "sumMerge(reward_sum)" in sql
     assert "quantileState(" in sql
-    assert "quantileMerge(fee_median)" in sql
     assert "uniqState(" in sql
-    assert "uniqMerge(active)" in sql
+    assert "countMerge(block_count)" not in sql
+    assert "sumMerge(reward_sum)" not in sql
+    assert "quantileMerge(fee_median)" not in sql
+    assert "uniqMerge(active)" not in sql
+    for base in ["FROM bitcoin.blocks_v2", "FROM bitcoin.transactions_v2", "FROM bitcoin.outputs_v2"]:
+        assert base in sql
+    assert "FROM bitcoin.mv_blocks_hourly" not in sql
+    assert "FROM bitcoin.mv_tx_fee_hourly" not in sql
+    assert "FROM bitcoin.mv_addr_hourly" not in sql
+    assert "FROM bitcoin.mv_flow_hourly" not in sql
     assert "PARTITION BY toYYYYMM(hour)" in sql
     assert "PARTITION BY toYYYYMM(day)" in sql
     assert "storage_policy = 's3_main'" in sql
-    # CODEC is illegal in an MV SELECT list — compression lives on base
-    # tables (03) and mart DDL (06), never in 05_mvs.sql.
-    assert "CODEC" not in sql
+    # Compression lives in explicit MV column definitions (CODEC legal there,
+    # illegal in an MV SELECT list): hourly ZSTD(7), daily ZSTD(9).
+    assert "CODEC(ZSTD(7))" in sql
+    assert "CODEC(ZSTD(9))" in sql
+    assert "AggregateFunction(count)" in sql
+    assert "AggregateFunction(sum, UInt64)" in sql
+    assert "AggregateFunction(uniq, String)" in sql
     assert "ZSTD(9)" in marts
