@@ -1,6 +1,7 @@
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption } from "echarts";
 import { useTheme } from "../context/ThemeContext";
+import { cssVar } from "../lib/chartTheme";
 
 export interface SeriesPoint {
   t: string;
@@ -21,10 +22,7 @@ export default function ChartPane({ title, unit, series, loading, error }: Chart
   if (error) return <p className="error">{error}</p>;
   if (!series || series.points.length === 0) return <p>No data for {title}.</p>;
 
-  const css = (name: string, fallback: string) => {
-    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    return v ? `hsl(${v})` : fallback;
-  };
+  const css = (name: string, fallback: string) => cssVar(name, fallback);
   const fg = css("--foreground", "#111");
   const border = css("--border", "#e5e5e5");
   const line = css("--chart-1", "#2563eb");
