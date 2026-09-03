@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
@@ -17,8 +17,11 @@ export default function Dashboard() {
   const [selected, setSelected] = useState<string | null>(null);
   const [rangeDays, setRangeDays] = useState<number>(7);
 
-  const to = new Date().toISOString();
-  const from = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000).toISOString();
+  const { to, from } = useMemo(() => {
+    const to = new Date().toISOString();
+    const from = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000).toISOString();
+    return { to, from };
+  }, [rangeDays]);
 
   const metricsQuery = useQuery({
     queryKey: ["metrics"],
