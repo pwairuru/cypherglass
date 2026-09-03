@@ -224,8 +224,18 @@ func (s *Syncer) insertBlock(ctx context.Context, block *parser.ParsedBlock) err
 	if err := s.client.InsertInputs(ctx, block); err != nil {
 		return fmt.Errorf("insert inputs: %w", err)
 	}
-	// V2 inserts resolve input values from the UTXO map first, then the map
-	// is advanced with this block's outputs (Put) and spends (Delete).
+	// Pass 1: index ALL of the block's outputs first, so V2 input
+	// resolution below also hits spends of same-block outputs.
+	for _, tx := range block.Transactions {
+		txid := tx.Hash.String()
+		for _, out := range tx.Outputs {
+			if out.ValueSat >= 0 {
+				s.utxo.Put(txid, out.Index, uint64(out.ValueSat))
+			}
+		}
+	}
+	// V2 inserts resolve input values from the UTXO map (now including
+	// same-block outputs).
 	if err := s.client.InsertBlockV2(ctx, block, s.prevTime); err != nil {
 		return fmt.Errorf("insert block v2: %w", err)
 	}
@@ -238,17 +248,13 @@ func (s *Syncer) insertBlock(ctx context.Context, block *parser.ParsedBlock) err
 	if err := s.client.InsertOutputsV2(ctx, block); err != nil {
 		return fmt.Errorf("insert outputs v2: %w", err)
 	}
+	// Pass 2: remove spent entries (including same-block spends indexed above).
 	for _, tx := range block.Transactions {
-		txid := tx.Hash.String()
-		if !tx.IsCoinbase {
-			for _, in := range tx.Inputs {
-				s.utxo.Delete(in.PrevTxID.String(), in.PrevIndex)
-			}
+		if tx.IsCoinbase {
+			continue
 		}
-		for _, out := range tx.Outputs {
-			if out.ValueSat >= 0 {
-				s.utxo.Put(txid, out.Index, uint64(out.ValueSat))
-			}
+		for _, in := range tx.Inputs {
+			s.utxo.Delete(in.PrevTxID.String(), in.PrevIndex)
 		}
 	}
 	s.prevTime = block.Header.Timestamp

@@ -65,9 +65,8 @@ func max64(a, b int64) int64 {
 
 // InsertTransactionsV2 writes one row per tx to transactions_v2 (17 cols).
 // input_total_sat is resolved via utxo.Get (0 on miss); fee_sat =
-// input_total - total_out (0 for coinbase). vsize is not tracked by the
-// parser yet, so fee_rate_sat_vbyte is FeeRate(fee, 0) = 0 until the parser
-// records serialized sizes.
+// input_total - total_out (0 for coinbase); fee_rate_sat_vbyte comes from
+// the parser-recorded vsize (BIP-141).
 func (c *Client) InsertTransactionsV2(ctx context.Context, block *parser.ParsedBlock, utxo *enrich.UTXOMap) error {
 	batch, err := c.conn.PrepareBatch(ctx, fmt.Sprintf(`INSERT INTO %s.transactions_v2`, c.db))
 	if err != nil {
@@ -97,15 +96,15 @@ func (c *Client) InsertTransactionsV2(ctx context.Context, block *parser.ParsedB
 			block.Header.Timestamp,
 			uint32(tx.Version),
 			tx.LockTime,
-			uint32(0), // size: not tracked by parser yet
-			uint32(0), // weight: not tracked by parser yet
+			tx.SizeVBytes,
+			tx.WeightUnits,
 			tx.VinCount,
 			tx.VoutCount,
 			uint8(map[bool]uint8{true: 1, false: 0}[tx.IsCoinbase]),
 			uint64(max64(tx.TotalOutSat, 0)),
 			inputTotal,
 			feeSat,
-			enrich.FeeRate(feeSat, 0),
+			enrich.FeeRate(feeSat, tx.SizeVBytes),
 			changeHeavy(tx),
 			time.Now().UTC(),
 		); err != nil {

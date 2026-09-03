@@ -12,6 +12,9 @@ type ParsedTx struct {
 	VinCount    uint16
 	VoutCount   uint16
 	TotalOutSat int64
+	// SizeVBytes is BIP-141 vsize (weight+3)/4; WeightUnits is tx weight.
+	SizeVBytes  uint32
+	WeightUnits uint32
 }
 
 type ParsedInput struct {

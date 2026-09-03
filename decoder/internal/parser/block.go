@@ -206,5 +206,11 @@ func parseTransaction(tx *wire.MsgTx) *ParsedTx {
 	pt.VinCount = uint16(len(tx.TxIn))
 	pt.VoutCount = uint16(len(tx.TxOut))
 
+	// BIP-141 weight from stripped/total serialized sizes.
+	stripped := tx.SerializeSizeStripped()
+	weight := stripped*3 + tx.SerializeSize()
+	pt.WeightUnits = uint32(weight)
+	pt.SizeVBytes = uint32((weight + 3) / 4)
+
 	return pt
 }
