@@ -478,6 +478,13 @@
   margin: 2px 4px;
   background: hsl(var(--border));
 }
+.drawing-group {
+  display: contents;
+}
+.drawing-group > button[aria-expanded="true"] {
+  background: hsl(var(--accent));
+  color: hsl(var(--foreground));
+}
 .chart-desc-below {
   margin: 8px 0 0;
   display: block;

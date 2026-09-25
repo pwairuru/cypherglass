@@ -205,8 +205,10 @@ describe("Dashboard QFChart integration", () => {
   it("rectangle/text tools are enabled (ported QFDraw registry)", async () => {
     renderDashboard();
     await screen.findByTestId("price-chart");
-    const rect = screen.getAllByRole("button", { name: /rectangle/i })[0];
-    const text = screen.getAllByRole("button", { name: /text/i })[0];
+    fireEvent.click(screen.getByRole("button", { name: /shapes tools/i }));
+    const rect = screen.getAllByRole("button", { name: /^rectangle$/i })[0];
+    fireEvent.click(screen.getByRole("button", { name: /annotations tools/i }));
+    const text = screen.getAllByRole("button", { name: /^text$/i })[0];
     expect(rect).not.toBeDisabled();
     expect(text).not.toBeDisabled();
   });

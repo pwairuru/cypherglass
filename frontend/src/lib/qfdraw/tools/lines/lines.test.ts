@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { ArrowDrawingRenderer, ArrowTool } from "./arrow";
 describe("arrow", () => {
   it("renders shaft + head + handles when selected", () => {
@@ -19,15 +19,38 @@ describe("arrow", () => {
       expect(g.children).toEqual([]);
     }
   });
-  it("tool collects 2 clicks then addDrawing", () => {
+  it("tool collects 2 clicks then addDrawing (base creation flow)", () => {
     const tool = new ArrowTool();
+    tool.drawingType = "arrow";
+    tool.anchorCount = 2;
     const added: any[] = [];
-    tool.init({ addDrawing:(d:any)=>{added.push(d);}, getChart:()=>({getZr:()=>({on:()=>{},off:()=>{}})}) } as any);
+    const handlers: Record<string, (e:any)=>void> = {};
+    const zr = {
+      on: (ev:string, h:(e:any)=>void) => { handlers[ev] = h; },
+      off: (ev:string) => { delete handlers[ev]; },
+      setCursorStyle: () => {},
+      add: () => {}, remove: () => {},
+    };
+    let disabled = 0;
+    tool.init({
+      addDrawing:(d:any)=>{added.push(d);},
+      disableTools:()=>{disabled += 1;},
+      coordinateConversion:{ pixelToData:({x,y}:{x:number;y:number})=>({timeIndex:x/10,value:y,paneIndex:0}) },
+      getChart:()=>({getZr:()=>zr}),
+    } as any);
     tool.activate();
-    (tool as any).handlePoint([10,20]);
-    (tool as any).handlePoint([30,40]);
+    expect(Object.keys(handlers)).toEqual(expect.arrayContaining(["click","mousemove","dblclick"]));
+    handlers.click({offsetX:20,offsetY:100});
+    expect(added.length).toBe(0);
+    handlers.click({offsetX:40,offsetY:60});
     expect(added.length).toBe(1);
     expect(added[0].type).toBe("arrow");
-    expect(added[0].points.length).toBe(2);
+    expect(added[0].points).toEqual([
+      expect.objectContaining({timeIndex:2,value:100}),
+      expect.objectContaining({timeIndex:4,value:60}),
+    ]);
+    expect(disabled).toBe(1);
+    tool.deactivate();
+    expect(Object.keys(handlers)).toEqual([]);
   });
 });

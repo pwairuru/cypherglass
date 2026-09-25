@@ -1,7 +1,7 @@
 // frontend/src/lib/qfdraw/tools/lines/arrow.ts
 // Attribution: geometry adapted from lightweight-charts-drawing MIT, tools/lines arrow.
-import type { ChartContext, DrawingElement, DrawingRenderContext, DrawingRenderer } from "@qfo/qfchart";
-import { QfTool, groupEl, lineEl, circleEl, makeId } from "../../base";
+import type { DrawingRenderContext, DrawingRenderer } from "@qfo/qfchart";
+import { QfTool, groupEl, lineEl, circleEl } from "../../base";
 function headPoints(tip:[number,number],tail:[number,number],len=10,spread=0.42): [number,number][] {
   const ang = Math.atan2(tip[1]-tail[1], tip[0]-tail[0]);
   return [tip,
@@ -21,15 +21,7 @@ export class ArrowDrawingRenderer implements DrawingRenderer {
   }
 }
 export class ArrowTool extends QfTool {
-  private pts:[number,number][] = [];
+  // Creation (anchor collection, preview, save) comes from the QfTool base;
+  // the registry assigns drawingType="arrow", anchorCount=2.
   constructor(){ super("qf:arrow"); }
-  handlePoint(p:[number,number]): void {
-    this.pts.push(p);
-    if (this.pts.length === 2 && this.context) {
-      const el: DrawingElement = { id: makeId("arrow"), type:"arrow",
-        points: this.pts.map(([x,y],i)=>({ timeIndex:i, value:y })), style:{color:"#2962FF",lineWidth:2} };
-      (this.context as ChartContext).addDrawing(el);
-      this.pts = [];
-    }
-  }
 }
