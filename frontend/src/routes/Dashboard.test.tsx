@@ -186,7 +186,7 @@ describe("Dashboard QFChart integration", () => {
     expect(hero).toBeDefined();
     expect(hero!.addDrawing).toHaveBeenCalledTimes(2);
 
-    const undo = screen.getAllByRole("button", { name: "Undo" })[0];
+    const undo = screen.getAllByRole("button", { name: /undo/i })[0];
     fireEvent.click(undo);
     expect(hero!.removeDrawing).toHaveBeenCalledTimes(1);
     expect(hero!.removeDrawing).toHaveBeenCalledWith("fib-2");
@@ -194,7 +194,7 @@ describe("Dashboard QFChart integration", () => {
       localStorage.getItem("cg-drawings:price-daily:v1")!,
     ).state).toHaveLength(1);
 
-    const clear = screen.getAllByRole("button", { name: "Clear" })[0];
+    const clear = screen.getAllByRole("button", { name: /clear/i })[0];
     fireEvent.click(clear);
     expect(JSON.parse(
       localStorage.getItem("cg-drawings:price-daily:v1")!,
@@ -204,8 +204,8 @@ describe("Dashboard QFChart integration", () => {
   it("rectangle/text tools are disabled (no QFChart plugin for them)", async () => {
     renderDashboard();
     await screen.findByTestId("price-chart");
-    const rect = screen.getAllByRole("button", { name: "rectangle" })[0];
-    const text = screen.getAllByRole("button", { name: "text" })[0];
+    const rect = screen.getAllByRole("button", { name: /rectangle/i })[0];
+    const text = screen.getAllByRole("button", { name: /text/i })[0];
     expect(rect).toBeDisabled();
     expect(text).toBeDisabled();
   });

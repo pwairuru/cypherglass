@@ -413,13 +413,19 @@
   }
 }
 
+/* QFChart renders its own icon toolbar per registered plugin; the app's
+   DrawingPanel is the single toolbar, so the native duplicate stays hidden. */
+.qfchart-toolbar {
+  display: none !important;
+}
+
 /* Drawing toolbar: vertical strip left of the chart. */
 .drawing-panel {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   flex-shrink: 0;
-  padding: 8px 6px;
+  padding: 6px 4px;
   border: 1px solid hsl(var(--border));
   border-radius: 8px;
   background: hsl(var(--muted) / 0.4);
@@ -428,23 +434,28 @@
   overflow-y: auto;
 }
 .drawing-panel button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
-  color: hsl(var(--foreground));
-  font-size: 0.72rem;
-  line-height: 1.2;
-  padding: 6px 8px;
+  color: hsl(var(--muted-foreground));
   cursor: pointer;
-  text-transform: capitalize;
-  white-space: nowrap;
 }
 .drawing-panel button:hover:not(:disabled) {
   background: hsl(var(--accent));
+  color: hsl(var(--foreground));
   border-color: hsl(var(--border));
 }
+.drawing-panel button[data-active] {
+  background: hsl(var(--accent));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--primary));
+}
 .drawing-panel button:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
