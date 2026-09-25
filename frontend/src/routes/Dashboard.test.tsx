@@ -21,6 +21,7 @@ vi.mock("@qfo/qfchart", () => {
     return {
       drawings,
       registerPlugin: vi.fn(),
+      registerDrawingRenderer: vi.fn(),
       setMarketData: vi.fn(),
       addIndicator: vi.fn(),
       updateData: vi.fn(),
@@ -201,12 +202,12 @@ describe("Dashboard QFChart integration", () => {
     ).state).toHaveLength(0);
   });
 
-  it("rectangle/text tools are disabled (no QFChart plugin for them)", async () => {
+  it("rectangle/text tools are enabled (ported QFDraw registry)", async () => {
     renderDashboard();
     await screen.findByTestId("price-chart");
     const rect = screen.getAllByRole("button", { name: /rectangle/i })[0];
     const text = screen.getAllByRole("button", { name: /text/i })[0];
-    expect(rect).toBeDisabled();
-    expect(text).toBeDisabled();
+    expect(rect).not.toBeDisabled();
+    expect(text).not.toBeDisabled();
   });
 });
