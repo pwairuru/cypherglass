@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { QFChart, LineTool, RayTool, HorizontalLineTool, FibonacciTool, MeasureTool } from "@qfo/qfchart";
 import type { OhlcBar } from "./PriceChart";
 import { registerChartTools } from "../lib/chartTools";
+import { registerAllQfDrawings } from "../lib/qfdraw/registry";
 
 export interface SeriesPoint {
   t: string;
@@ -48,14 +49,17 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
     chart.registerPlugin(horizontalTool);
     chart.registerPlugin(fibTool);
     chart.registerPlugin(measureTool);
-    // rectangle/text have no QFChart plugin counterpart (see PriceChart) —
-    // the panel renders them disabled, so they are not registered here.
+    // QFChart built-ins stay registered directly; the 52 ported QFDraw
+    // renderers/tools (incl. rectangle/text) register via the registry and
+    // join the panel-name map spread below.
+    const qf = registerAllQfDrawings(chart);
     registerChartTools(chart, {
       trend: lineTool,
       horizontal: horizontalTool,
       ray: rayTool,
       fibonacci: fibTool,
       measure: measureTool,
+      ...qf,
     });
     // QFChart requires market data via setMarketData to build its time axis,
     // even when only indicator series are shown. Feed synthetic flat bars
