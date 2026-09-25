@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { QFChart, LineTool, FibonacciTool, MeasureTool } from "@qfo/qfchart";
+import { QFChart, LineTool, RayTool, HorizontalLineTool, FibonacciTool, MeasureTool } from "@qfo/qfchart";
 import { sma } from "../lib/indicators";
 import { registerChartTools } from "../lib/chartTools";
 export interface OhlcBar { time: number; open: number; high: number; low: number; close: number; volume: number; }
@@ -10,20 +10,22 @@ export default function PriceChart({ bars, chartKey, onReady }: { bars: OhlcBar[
     if (!divRef.current) return;
     const chart = new QFChart(divRef.current, { title: "BTC/USDT" });
     const lineTool = new LineTool();
+    const rayTool = new RayTool();
+    const horizontalTool = new HorizontalLineTool();
     const fibTool = new FibonacciTool();
     const measureTool = new MeasureTool();
     chart.registerPlugin(lineTool);
+    chart.registerPlugin(rayTool);
+    chart.registerPlugin(horizontalTool);
     chart.registerPlugin(fibTool);
     chart.registerPlugin(measureTool);
-    // DrawingPanel emits 7 tool names but only 3 drawing plugins exist here
-    // (QFChart ships no rectangle/text plugins); map the line-like tools
-    // onto LineTool. Dashboard activates these via activateChartTool.
+    // DrawingPanel's rectangle/text have no QFChart plugin counterpart
+    // (verified in 0.8.7 index.d.ts exports) — they are rendered disabled in
+    // the panel, so only mapped tools are registered here.
     registerChartTools(chart, {
       trend: lineTool,
-      horizontal: lineTool,
-      ray: lineTool,
-      rectangle: lineTool,
-      text: lineTool,
+      horizontal: horizontalTool,
+      ray: rayTool,
       fibonacci: fibTool,
       measure: measureTool,
     });
@@ -34,7 +36,10 @@ export default function PriceChart({ bars, chartKey, onReady }: { bars: OhlcBar[
     chartRef.current = chart;
     onReady?.(chart);
     return () => { chart.destroy?.(); chartRef.current = null; };
-  }, [chartKey]);
+    // Rebuild when bars change (not chartKey alone): range switches keep the
+    // same key but must recompute the SMA_20 indicator, which updateData
+    // alone cannot do.
+  }, [chartKey, bars]);
   useEffect(() => { chartRef.current?.updateData?.(bars); }, [bars]);
   return <div ref={divRef} data-testid="price-chart" style={{ height: "100%", width: "100%" }} />;
 }

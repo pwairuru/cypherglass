@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { QFChart, LineTool, FibonacciTool, MeasureTool } from "@qfo/qfchart";
+import { QFChart, LineTool, RayTool, HorizontalLineTool, FibonacciTool, MeasureTool } from "@qfo/qfchart";
 import type { OhlcBar } from "./PriceChart";
 import { registerChartTools } from "../lib/chartTools";
 
@@ -37,17 +37,21 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
     // (per brief), so instance methods are absent under test. Real lib calls
     // below are identical to PriceChart's registration contract.
     const lineTool = new LineTool();
+    const rayTool = new RayTool();
+    const horizontalTool = new HorizontalLineTool();
     const fibTool = new FibonacciTool();
     const measureTool = new MeasureTool();
     chart.registerPlugin?.(lineTool);
+    chart.registerPlugin?.(rayTool);
+    chart.registerPlugin?.(horizontalTool);
     chart.registerPlugin?.(fibTool);
     chart.registerPlugin?.(measureTool);
+    // rectangle/text have no QFChart plugin counterpart (see PriceChart) —
+    // the panel renders them disabled, so they are not registered here.
     registerChartTools(chart, {
       trend: lineTool,
-      horizontal: lineTool,
-      ray: lineTool,
-      rectangle: lineTool,
-      text: lineTool,
+      horizontal: horizontalTool,
+      ray: rayTool,
       fibonacci: fibTool,
       measure: measureTool,
     });

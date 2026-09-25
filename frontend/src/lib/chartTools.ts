@@ -41,14 +41,33 @@ export function snapshotDrawings(chart: QFChart): DrawingElement[] {
   return JSON.parse(JSON.stringify(raw)) as DrawingElement[];
 }
 
+// A snapshot entry is only restorable if it carries the fields QFChart's
+// addDrawing actually persists (verified in qfchart.min.es.js:
+// addDrawing(t){this.drawings.push(t),...} — full element incl. id, no regen).
+function isRestorable(entry: unknown): entry is DrawingElement {
+  if (typeof entry !== "object" || entry === null) return false;
+  const e = entry as { id?: unknown; type?: unknown; points?: unknown };
+  return (
+    typeof e.id === "string" &&
+    typeof e.type === "string" &&
+    Array.isArray(e.points)
+  );
+}
+
 export function restoreDrawings(chart: QFChart, snapshot: unknown): number {
   if (!Array.isArray(snapshot)) return 0;
+  // Skip ids already on the chart: restore runs on every chart rebuild, and
+  // re-pushing the same ids would pile up duplicates (addDrawing never dedupes).
+  const present = new Set(drawingIds(chart));
   let restored = 0;
   for (const entry of snapshot) {
+    if (!isRestorable(entry) || present.has(entry.id)) continue;
     try {
       chart.addDrawing(entry as DrawingElement);
+      present.add(entry.id);
       restored += 1;
     } catch {
+      // Invalid per current renderer set or wrong shape: skip, count honestly.
       continue;
     }
   }
@@ -64,7 +83,9 @@ export function clearChartDrawings(chart: QFChart): number {
       continue;
     }
   }
-  return ids.length;
+  // Honest count: removals that actually left the drawings array
+  // (removeDrawing is a no-op for unknown ids, never throws).
+  return ids.length - drawingIds(chart).length;
 }
 
 export function undoChartDrawing(chart: QFChart): string | null {

@@ -68,6 +68,7 @@ function ChartCard({
 }) {
   const chartRef = useRef<QFChart | null>(null);
   const wrapRef = useRef<HTMLElement>(null);
+  const saveCleanup = useRef<(() => void) | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [isFull, setIsFull] = useState(false);
   const [ioError, setIoError] = useState<string | null>(null);
@@ -79,11 +80,27 @@ function ChartCard({
     return () => document.removeEventListener("fullscreenchange", onFs);
   }, []);
 
+  // Detach chart-event listeners on unmount (ChartCard persists across
+  // chart rebuilds, and handleReady re-subscribes on every onReady).
+  useEffect(
+    () => () => {
+      saveCleanup.current?.();
+      saveCleanup.current = null;
+    },
+    [],
+  );
+
   const handleReady = (chart: QFChart) => {
+    // A rebuilt chart fires onReady again: drop the previous chart's
+    // listeners first, otherwise saves duplicate and dead charts leak.
+    saveCleanup.current?.();
     chartRef.current = chart;
     restoreDrawings(chart, loadDrawings(chartKey));
     const save = () => saveDrawings(chartKey, snapshotDrawings(chart));
     for (const ev of DRAWING_SAVE_EVENTS) chart.events?.on(ev, save);
+    saveCleanup.current = () => {
+      for (const ev of DRAWING_SAVE_EVENTS) chart.events?.off?.(ev, save);
+    };
   };
 
   const persist = () => {
