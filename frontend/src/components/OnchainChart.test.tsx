@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { QFChart } from "@qfo/qfchart";
 import OnchainChart from "./OnchainChart";
-vi.mock("@qfo/qfchart", () => ({ QFChart: vi.fn().mockImplementation(() => ({ registerPlugin: vi.fn(), setMarketData: vi.fn(), addIndicator: vi.fn(), updateData: vi.fn(), destroy: vi.fn(), events: { on: vi.fn(), off: vi.fn(), emit: vi.fn() } })), LineTool: vi.fn(), RayTool: vi.fn(), HorizontalLineTool: vi.fn(), FibonacciTool: vi.fn(), MeasureTool: vi.fn() }));
+vi.mock("@qfo/qfchart", () => ({ QFChart: vi.fn().mockImplementation(() => ({ registerPlugin: vi.fn(), registerDrawingRenderer: vi.fn(), setMarketData: vi.fn(), addIndicator: vi.fn(), updateData: vi.fn(), destroy: vi.fn(), events: { on: vi.fn(), off: vi.fn(), emit: vi.fn() } })), LineTool: vi.fn(), RayTool: vi.fn(), HorizontalLineTool: vi.fn(), FibonacciTool: vi.fn(), MeasureTool: vi.fn() }));
 describe("OnchainChart", () => {
   it("renders container", () => {
     const { container } = render(<OnchainChart chartKey="k" title="MVRV" points={[{ t: "2024-01-01", v: 1.2 }]} />);
