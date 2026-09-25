@@ -11,6 +11,14 @@ describe("arrow", () => {
     const head = g.children.find((c:any)=>c.type==="polygon");
     expect(head.shape.points.length).toBe(3);
   });
+  it("returns empty group when fewer than 2 points", () => {
+    const r = new ArrowDrawingRenderer();
+    for (const pixelPoints of [undefined, [], [[0,100]]]) {
+      const g = r.render({ drawing:{id:"a",type:"arrow",points:[]}, pixelPoints, isSelected:true, api:{}, coordSys:{x:0,y:0,width:200,height:150} } as any);
+      expect(g.type).toBe("group");
+      expect(g.children).toEqual([]);
+    }
+  });
   it("tool collects 2 clicks then addDrawing", () => {
     const tool = new ArrowTool();
     const added: any[] = [];

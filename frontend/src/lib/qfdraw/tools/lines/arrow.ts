@@ -11,7 +11,9 @@ function headPoints(tip:[number,number],tail:[number,number],len=10,spread=0.42)
 export class ArrowDrawingRenderer implements DrawingRenderer {
   type = "arrow";
   render(ctx: DrawingRenderContext): any {
-    const [p1,p2] = ctx.pixelPoints as [number,number][];
+    const pts = ctx.pixelPoints as [number,number][] | undefined;
+    if (!pts || pts.length < 2) return groupEl([]);
+    const [p1,p2] = pts;
     const color = ctx.drawing.style?.color ?? "#2962FF";
     const kids:any[] = [lineEl(p1,p2,{color}), { type:"polygon", shape:{points:headPoints(p2,p1)}, style:{fill:color,stroke:color,lineWidth:1} }];
     if (ctx.isSelected) kids.push(circleEl(p1), circleEl(p2));
