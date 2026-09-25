@@ -24,3 +24,13 @@ def series(
     _user: str = Depends(get_current_user),
 ):
     return service.get_series(metric_id, frm, to)
+
+
+@router.get("/price_ohlc_{grain}/ohlc")
+def ohlc(
+    grain: str,
+    frm: str = Query(..., alias="from"),
+    to: str = Query(...),
+    _user: str = Depends(get_current_user),
+):
+    return service.get_ohlc(grain, frm, to)

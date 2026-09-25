@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, timezone
 
 from fastapi import HTTPException, status
 
@@ -81,3 +81,48 @@ def get_coverage():
     if not rows or rows[0][0] is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No coverage yet")
     return {"min_day": rows[0][0].isoformat(), "max_day": rows[0][1].isoformat()}
+
+
+def _to_ms(ts) -> int:
+    """Convert CH Date/DateTime/str/int ts to epoch ms."""
+    if isinstance(ts, str):
+        s = ts.strip()
+        try:
+            if "T" in s:
+                dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+            else:
+                try:
+                    dt = datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    dt = datetime.strptime(s, "%Y-%m-%d")
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return int(dt.timestamp() * 1000)
+        except ValueError:
+            return int(s)
+    if isinstance(ts, datetime):
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return int(ts.timestamp() * 1000)
+    if isinstance(ts, date):
+        dt = datetime(ts.year, ts.month, ts.day, tzinfo=timezone.utc)
+        return int(dt.timestamp() * 1000)
+    if hasattr(ts, "timestamp"):
+        return int(ts.timestamp() * 1000)
+    return int(ts)
+
+
+def get_ohlc(grain: str, frm: str, to: str):
+    if grain == "hourly":
+        sql = "SELECT ts, open, high, low, close, volume FROM bitcoin.price_ohlc_hourly WHERE symbol = 'BTCUSDT' AND ts BETWEEN {from:DateTime} AND {to:DateTime} ORDER BY ts"
+        params = {"from": _norm(frm, "DateTime"), "to": _norm(to, "DateTime")}
+    elif grain == "daily":
+        sql = "SELECT day, open, high, low, close, volume FROM bitcoin.price_ohlc_daily WHERE symbol = 'BTCUSDT' AND day BETWEEN {from:Date} AND {to:Date} ORDER BY day"
+        params = {"from": _norm(frm, "Date"), "to": _norm(to, "Date")}
+    else:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown grain")
+    rows = ch.get_ch_client().query(sql, params).result_rows
+    bars = []
+    for ts, o, h, l, c, v in rows:
+        bars.append({"time": _to_ms(ts), "open": o, "high": h, "low": l, "close": c, "volume": v})
+    return {"bars": bars}
