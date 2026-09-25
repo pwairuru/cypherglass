@@ -1,13 +1,12 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export const THEMES = ["light", "dark", "ohngea", "ohngea-dark"] as const;
+export const THEMES = ["dark", "ohngea", "ohngea-dark"] as const;
 export type ThemeName = (typeof THEMES)[number];
 export type Density = "comfortable" | "compact";
 
 const STORAGE_KEY = "cypherglass_theme";
 const DENSITY_KEY = "cypherglass_density";
 const CLASS_BY_THEME: Record<ThemeName, string> = {
-  light: "",
   dark: "dark",
   ohngea: "theme-ohngea",
   "ohngea-dark": "theme-ohngea-dark",

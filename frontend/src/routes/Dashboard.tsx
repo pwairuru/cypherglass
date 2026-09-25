@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { LogOut, Maximize, Maximize2, Minimize, Minimize2 } from "lucide-react";
 import type { QFChart } from "@qfo/qfchart";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
@@ -162,12 +163,17 @@ function ChartCard({
         <div className="chart-filters">
           {headerRight}
           <button
-            className="btn"
+            className="btn btn-icon"
             type="button"
             onClick={toggleFullscreen}
             aria-label={isFull ? "Exit fullscreen" : "Enter fullscreen"}
+            title={isFull ? "Exit fullscreen" : "Enter fullscreen"}
           >
-            {isFull ? "Exit full" : "Full"}
+            {isFull ? (
+              <Minimize size={16} aria-hidden="true" />
+            ) : (
+              <Maximize size={16} aria-hidden="true" />
+            )}
           </button>
         </div>
       </div>
@@ -373,16 +379,27 @@ export default function Dashboard() {
         <div>
           <ThemeSwitcher />
           <button
-            className="btn"
+            className="btn btn-icon"
             type="button"
             aria-pressed={density === "compact"}
-            title="Toggle compact density"
+            aria-label={density === "compact" ? "Roomy density" : "Compact density"}
+            title={density === "compact" ? "Roomy density" : "Compact density"}
             onClick={() => setDensity(density === "compact" ? "comfortable" : "compact")}
           >
-            {density === "compact" ? "Roomy" : "Compact"}
+            {density === "compact" ? (
+              <Maximize2 size={16} aria-hidden="true" />
+            ) : (
+              <Minimize2 size={16} aria-hidden="true" />
+            )}
           </button>
-          <button className="btn" type="button" onClick={logout}>
-            Sign out
+          <button
+            className="btn btn-icon"
+            type="button"
+            aria-label="Sign out"
+            title="Sign out"
+            onClick={logout}
+          >
+            <LogOut size={16} aria-hidden="true" />
           </button>
         </div>
       </header>

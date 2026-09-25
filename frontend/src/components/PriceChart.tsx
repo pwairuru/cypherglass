@@ -17,10 +17,11 @@ export default function PriceChart({ bars, chartKey, onReady }: { bars: OhlcBar[
       title: "",
       watermark: false,
       backgroundColor: "transparent",
-      // Tight sides (library defaults to 10% each) + slim bottom slider so
-      // it clears the x-axis labels.
+      // Tight sides (library defaults to 10% each).
       layout: { left: "2%", right: "7%" },
-      dataZoom: { position: "bottom", height: 4 },
+      // No slider: wheel/pinch (inside) zoom stays active, so the x-axis
+      // labels have the bottom to themselves.
+      dataZoom: { visible: false },
     });
     const lineTool = new LineTool();
     const rayTool = new RayTool();

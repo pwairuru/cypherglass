@@ -33,7 +33,7 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
       watermark: false,
       backgroundColor: "transparent",
       layout: { left: "2%", right: "7%" },
-      dataZoom: { position: "bottom", height: 4 },
+      dataZoom: { visible: false },
       upColor: "transparent",
       downColor: "transparent",
     });

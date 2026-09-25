@@ -1,8 +1,7 @@
-import { Moon, Sun, Leaf, MoonStar, type LucideIcon } from "lucide-react";
+import { Moon, Leaf, MoonStar, type LucideIcon } from "lucide-react";
 import { THEMES, useTheme, type ThemeName } from "../context/ThemeContext";
 
 const ICON_BY_THEME: Record<ThemeName, LucideIcon> = {
-  light: Sun,
   dark: Moon,
   ohngea: Leaf,
   "ohngea-dark": MoonStar,
