@@ -413,6 +413,41 @@
   }
 }
 
+/* Drawing toolbar: vertical strip left of the chart. */
+.drawing-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 8px 6px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--muted) / 0.4);
+  align-self: flex-start;
+  max-height: 100%;
+  overflow-y: auto;
+}
+.drawing-panel button {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: hsl(var(--foreground));
+  font-size: 0.72rem;
+  line-height: 1.2;
+  padding: 6px 8px;
+  cursor: pointer;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+.drawing-panel button:hover:not(:disabled) {
+  background: hsl(var(--accent));
+  border-color: hsl(var(--border));
+}
+.drawing-panel button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Compact density: tighter spacing + smaller type, aimed at the sidebar. */
 [data-density="compact"] .dashboard-body {
   gap: 8px;
