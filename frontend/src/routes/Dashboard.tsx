@@ -158,7 +158,6 @@ function ChartCard({
       <div className="chart-head">
         <div>
           <h2>{title}</h2>
-          {description && <p className="chart-desc">{description}</p>}
         </div>
         <div className="chart-filters">
           {headerRight}
@@ -193,40 +192,31 @@ function ChartCard({
               persist();
             }
           }}
+          onExport={handleExport}
+          onImport={() => fileRef.current?.click()}
         />
         <div className="chart-fill" style={{ flex: 1 }}>
           {renderChart(handleReady)}
         </div>
       </div>
-      <div className="chart-filters" style={{ marginTop: 8 }}>
-        <button className="btn" type="button" onClick={handleExport}>
-          Export drawings
-        </button>
-        <button
-          className="btn"
-          type="button"
-          onClick={() => fileRef.current?.click()}
-        >
-          Import drawings
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          hidden
-          aria-label="Import drawings file"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            e.target.value = "";
-            if (file) void handleImportFile(file);
-          }}
-        />
-        {ioError && (
-          <span role="alert" className="error">
-            {ioError}
-          </span>
-        )}
-      </div>
+      {description && <p className="chart-desc chart-desc-below">{description}</p>}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json,.json"
+        hidden
+        aria-label="Import drawings file"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) void handleImportFile(file);
+        }}
+      />
+      {ioError && (
+        <span role="alert" className="error">
+          {ioError}
+        </span>
+      )}
     </section>
   );
 }

@@ -11,7 +11,14 @@ export default function PriceChart({ bars, chartKey, onReady }: { bars: OhlcBar[
   const chartRef = useRef<QFChart | null>(null);
   useEffect(() => {
     if (!divRef.current) return;
-    const chart = new QFChart(divRef.current, { title: "BTC/USDT", backgroundColor: "transparent" });
+    const chart = new QFChart(divRef.current, {
+      // No internal title/watermark: the card header owns the title, so the
+      // canvas starts at the chart. Zoom slider sits at the bottom.
+      title: "",
+      watermark: false,
+      backgroundColor: "transparent",
+      dataZoom: { position: "bottom" },
+    });
     const lineTool = new LineTool();
     const rayTool = new RayTool();
     const horizontalTool = new HorizontalLineTool();

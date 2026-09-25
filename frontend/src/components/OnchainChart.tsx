@@ -29,8 +29,10 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
     // flat bars (o=h=l=c=v, volume 0) exist only to build the time axis, so
     // render them transparent rather than as visible candles.
     const chart = new QFChart(divRef.current, {
-      title,
+      title: "",
+      watermark: false,
       backgroundColor: "transparent",
+      dataZoom: { position: "bottom" },
       upColor: "transparent",
       downColor: "transparent",
     });
