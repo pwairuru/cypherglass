@@ -91,7 +91,7 @@ services:
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 0
     ports:
       - "8124:8123"
-      - "9002:9000"
+      - "9005:9000"
     volumes:
       - ./clickhouse/config.xml:/etc/clickhouse-server/config.d/storage.xml:ro
       - ./clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
@@ -125,7 +125,7 @@ services:
     image: valkey/valkey:8
     container_name: cypherglass-valkey-app
     ports:
-      - "6380:6379"
+      - "6382:6379"
     volumes:
       - ./volumes/valkey-app:/data
     healthcheck:
