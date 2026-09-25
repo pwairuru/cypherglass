@@ -458,6 +458,15 @@
   opacity: 0.35;
   cursor: not-allowed;
 }
+.drawing-sep {
+  height: 1px;
+  margin: 2px 4px;
+  background: hsl(var(--border));
+}
+.chart-desc-below {
+  margin: 8px 0 0;
+  display: block;
+}
 
 /* Compact density: tighter spacing + smaller type, aimed at the sidebar. */
 [data-density="compact"] .dashboard-body {
