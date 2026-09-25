@@ -8,6 +8,10 @@ describe("sma/ema", () => {
     const out = ema([10, 10, 10], 2);
     expect(out[2]).toBeCloseTo(10);
   });
+  it("sma with period<=0 returns all null", () => {
+    expect(sma([1, 2, 3], 0)).toEqual([null, null, null]);
+    expect(sma([1, 2, 3], -2)).toEqual([null, null, null]);
+  });
 });
 describe("rsi", () => {
   it("all-up trend pins at 100", () => {
@@ -17,6 +21,13 @@ describe("rsi", () => {
   it("all-down trend pins at 0", () => {
     const dn = Array.from({ length: 15 }, (_, i) => 15 - i);
     expect(rsi(dn, 14)).toEqual([...Array(14).fill(null), 0]);
+  });
+  it("flat series is neutral at 50", () => {
+    const flat = Array(16).fill(10);
+    const out = rsi(flat, 14);
+    expect(out.slice(0, 14)).toEqual(Array(14).fill(null));
+    expect(out[14]).toBe(50);
+    expect(out[15]).toBe(50);
   });
   it("stays null until period then bounded 0..100", () => {
     const mixed = [10, 12, 11, 13, 12, 14, 13, 15, 14, 16, 15, 17, 16, 18, 17, 19];

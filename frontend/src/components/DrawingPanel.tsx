@@ -4,7 +4,11 @@ const TOOLS = ["trend", "horizontal", "ray", "fibonacci", "measure"] as const;
 // silently activating the wrong tool.
 const UNSUPPORTED = ["rectangle", "text"] as const;
 
-export default function DrawingPanel({ chartKey, onTool, onClear, onUndo }: { chartKey: string; onTool: (n: string) => void; onClear: () => void; onUndo: () => void }) {
+export default function DrawingPanel({ chartKey: _chartKey, onTool, onClear, onUndo }: { chartKey: string; onTool: (n: string) => void; onClear: () => void; onUndo: () => void }) {
+  // chartKey is part of the public contract (Dashboard passes chartKey per
+  // card for future per-card persistence); currently unused by the panel
+  // itself, which is stateless. Underscore prefix marks intent.
+  void _chartKey;
   return (
     <aside aria-label="Drawing tools" className="drawing-panel">
       {TOOLS.map((t) => <button key={t} type="button" onClick={() => onTool(t)}>{t}</button>)}

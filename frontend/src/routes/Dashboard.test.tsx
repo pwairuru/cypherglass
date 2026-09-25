@@ -7,6 +7,7 @@ import { AuthProvider } from "../context/AuthContext";
 import { ThemeProvider } from "../context/ThemeContext";
 import { QFChart } from "@qfo/qfchart";
 import Dashboard from "./Dashboard";
+import { toSecBars } from "./Dashboard";
 
 vi.mock("../lib/api", () => ({ apiFetch: vi.fn() }));
 
@@ -89,6 +90,19 @@ function renderDashboard() {
     </QueryClientProvider>,
   );
 }
+
+describe("toSecBars", () => {
+  it("maps backend ms times to QFChart unix seconds", () => {
+    expect(
+      toSecBars([
+        { time: 1704067200000, open: 1, high: 2, low: 0.5, close: 1.5, volume: 10 },
+      ]),
+    ).toEqual([
+      { time: 1704067200, open: 1, high: 2, low: 0.5, close: 1.5, volume: 10 },
+    ]);
+    expect(toSecBars([])).toEqual([]);
+  });
+});
 
 describe("Dashboard QFChart integration", () => {
   beforeEach(() => {

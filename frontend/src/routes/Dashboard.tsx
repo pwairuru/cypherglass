@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { QFChart } from "@qfo/qfchart";
 import { apiFetch } from "../lib/api";
@@ -41,7 +41,9 @@ const GRAIN_LABELS: Record<string, string> = {
 };
 
 // Backend returns bar time in ms; QFChart expects unix seconds.
-const toSecBars = (bars: OhlcBar[]): OhlcBar[] =>
+// Unit contract: OhlcBar.time is seconds everywhere downstream of here
+// (PriceChart / OnchainChart priceBars assume seconds, never convert).
+export const toSecBars = (bars: OhlcBar[]): OhlcBar[] =>
   bars.map((b) => ({ ...b, time: Math.floor(b.time / 1000) }));
 
 // Persist drawings on chart change events (chart:updated covers renders after
@@ -90,7 +92,9 @@ function ChartCard({
     [],
   );
 
-  const handleReady = (chart: QFChart) => {
+  // Stable across renders (deps: chartKey) so chart effects listing onReady
+  // in their deps arrays don't rebuild in a loop.
+  const handleReady = useCallback((chart: QFChart) => {
     // A rebuilt chart fires onReady again: drop the previous chart's
     // listeners first, otherwise saves duplicate and dead charts leak.
     saveCleanup.current?.();
@@ -101,7 +105,7 @@ function ChartCard({
     saveCleanup.current = () => {
       for (const ev of DRAWING_SAVE_EVENTS) chart.events?.off?.(ev, save);
     };
-  };
+  }, [chartKey]);
 
   const persist = () => {
     const chart = chartRef.current;

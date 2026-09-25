@@ -8,4 +8,13 @@ describe("drawings store", () => {
   it("rejects corrupt json", () => {
     expect(() => importDrawings("test", "not-json")).toThrow("bad drawings json");
   });
+  it("saveDrawings swallows quota errors", () => {
+    const orig = Storage.prototype.setItem;
+    Storage.prototype.setItem = () => { throw new Error("QuotaExceededError"); };
+    try {
+      expect(() => saveDrawings("test", { lines: [1] })).not.toThrow();
+    } finally {
+      Storage.prototype.setItem = orig;
+    }
+  });
 });

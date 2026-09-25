@@ -2,7 +2,12 @@ const PREFIX = "cg-drawings:";
 const VERSION = 1;
 export function keyFor(chartKey: string): string { return `${PREFIX}${chartKey}:v${VERSION}`; }
 export function saveDrawings(chartKey: string, state: unknown): void {
-  localStorage.setItem(keyFor(chartKey), JSON.stringify({ version: VERSION, state }));
+  try {
+    localStorage.setItem(keyFor(chartKey), JSON.stringify({ version: VERSION, state }));
+  } catch {
+    // Swallow QuotaExceededError / private-mode DOMExceptions: drawings are
+    // best-effort local persistence; the chart must keep working.
+  }
 }
 export function loadDrawings(chartKey: string): unknown | null {
   const raw = localStorage.getItem(keyFor(chartKey));

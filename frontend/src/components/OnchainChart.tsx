@@ -33,19 +33,18 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
       upColor: "transparent",
       downColor: "transparent",
     });
-    // Optional chaining: the unit test mocks QFChart as a bare vi.fn()
-    // (per brief), so instance methods are absent under test. Real lib calls
-    // below are identical to PriceChart's registration contract.
+    // Registration contract mirrors PriceChart (direct calls; tests mock
+    // the full QFChart instance the same way).
     const lineTool = new LineTool();
     const rayTool = new RayTool();
     const horizontalTool = new HorizontalLineTool();
     const fibTool = new FibonacciTool();
     const measureTool = new MeasureTool();
-    chart.registerPlugin?.(lineTool);
-    chart.registerPlugin?.(rayTool);
-    chart.registerPlugin?.(horizontalTool);
-    chart.registerPlugin?.(fibTool);
-    chart.registerPlugin?.(measureTool);
+    chart.registerPlugin(lineTool);
+    chart.registerPlugin(rayTool);
+    chart.registerPlugin(horizontalTool);
+    chart.registerPlugin(fibTool);
+    chart.registerPlugin(measureTool);
     // rectangle/text have no QFChart plugin counterpart (see PriceChart) —
     // the panel renders them disabled, so they are not registered here.
     registerChartTools(chart, {
@@ -66,8 +65,8 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
       close: p.v,
       volume: 0,
     }));
-    chart.setMarketData?.(base);
-    chart.addIndicator?.(
+    chart.setMarketData(base);
+    chart.addIndicator(
       title,
       {
         line: {
@@ -78,7 +77,7 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
       { isOverlay: false },
     );
     if (priceBars) {
-      chart.addIndicator?.(
+      chart.addIndicator(
         "price",
         {
           price: {
@@ -97,7 +96,7 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
     };
     // Rebuild on data-prop changes (not chartKey alone): overlay/series
     // switches must re-add indicators, which updateData alone cannot do.
-  }, [chartKey, title, points, priceBars]);
+  }, [chartKey, title, points, priceBars, onReady]);
 
   useEffect(() => {
     chartRef.current?.updateData?.(

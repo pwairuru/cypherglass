@@ -2,7 +2,10 @@ import { useEffect, useRef } from "react";
 import { QFChart, LineTool, RayTool, HorizontalLineTool, FibonacciTool, MeasureTool } from "@qfo/qfchart";
 import { sma } from "../lib/indicators";
 import { registerChartTools } from "../lib/chartTools";
-export interface OhlcBar { time: number; open: number; high: number; low: number; close: number; volume: number; }
+export interface OhlcBar {
+  /** Bar time in unix seconds (QFChart contract; Dashboard converts backend ms via toSecBars). */
+  time: number; open: number; high: number; low: number; close: number; volume: number;
+}
 export default function PriceChart({ bars, chartKey, onReady }: { bars: OhlcBar[]; chartKey: string; onReady?: (chart: QFChart) => void }) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<QFChart | null>(null);
@@ -32,14 +35,15 @@ export default function PriceChart({ bars, chartKey, onReady }: { bars: OhlcBar[
     chart.setMarketData(bars);
     const closes = bars.map((b) => b.close);
     const times = bars.map((b) => b.time);
-    chart.addIndicator("SMA_20", { sma: { data: times.map((t, i) => ({ time: t, value: sma(closes, 20)[i] ?? NaN })), options: { style: "line", color: "#2962FF" } } }, { isOverlay: true });
+    const s20 = sma(closes, 20);
+    chart.addIndicator("SMA_20", { sma: { data: times.map((t, i) => ({ time: t, value: s20[i] ?? NaN })), options: { style: "line", color: "#2962FF" } } }, { isOverlay: true });
     chartRef.current = chart;
     onReady?.(chart);
     return () => { chart.destroy?.(); chartRef.current = null; };
     // Rebuild when bars change (not chartKey alone): range switches keep the
     // same key but must recompute the SMA_20 indicator, which updateData
     // alone cannot do.
-  }, [chartKey, bars]);
+  }, [chartKey, bars, onReady]);
   useEffect(() => { chartRef.current?.updateData?.(bars); }, [bars]);
   return <div ref={divRef} data-testid="price-chart" style={{ height: "100%", width: "100%" }} />;
 }

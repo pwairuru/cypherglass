@@ -1,4 +1,5 @@
 export function sma(values: number[], period: number): (number | null)[] {
+  if (period <= 0) return values.map(() => null);
   return values.map((_, i) => {
     if (i + 1 < period) return null;
     let s = 0;
@@ -31,14 +32,14 @@ export function rsi(values: number[], period = 14): (number | null)[] {
   }
   avgGain /= period;
   avgLoss /= period;
-  out[period] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+  out[period] = avgLoss === 0 ? (avgGain === 0 ? 50 : 100) : 100 - 100 / (1 + avgGain / avgLoss);
   for (let i = period + 1; i < values.length; i++) {
     const diff = values[i] - values[i - 1];
     const gain = diff > 0 ? diff : 0;
     const loss = diff < 0 ? -diff : 0;
     avgGain = (avgGain * (period - 1) + gain) / period;
     avgLoss = (avgLoss * (period - 1) + loss) / period;
-    out[i] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+    out[i] = avgLoss === 0 ? (avgGain === 0 ? 50 : 100) : 100 - 100 / (1 + avgGain / avgLoss);
   }
   return out;
 }
@@ -65,7 +66,7 @@ export function macd(values: number[]): {
   if (defined.length > 0) {
     const sig = ema(defined, 9);
     sig.forEach((v, j) => {
-      if (v != null && j > 0) signalLine[idx[j]] = v;
+      if (v != null) signalLine[idx[j]] = v;
     });
   }
   const histogram: (number | null)[] = values.map((_, i) =>
