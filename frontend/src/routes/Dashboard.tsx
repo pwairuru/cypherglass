@@ -42,11 +42,12 @@ const GRAIN_LABELS: Record<string, string> = {
   weekly: "Week",
 };
 
-// Backend returns bar time in ms; QFChart expects unix seconds.
-// Unit contract: OhlcBar.time is seconds everywhere downstream of here
-// (PriceChart / OnchainChart priceBars assume seconds, never convert).
-export const toSecBars = (bars: OhlcBar[]): OhlcBar[] =>
-  bars.map((b) => ({ ...b, time: Math.floor(b.time / 1000) }));
+// Backend returns bar time in ms; QFChart renders x labels via
+// new Date(m.time), so time MUST stay unix ms everywhere downstream.
+// (A seconds conversion here shifts every axis into 1970.)
+// Unit contract: OhlcBar.time is ms in PriceChart / OnchainChart / indicators.
+export const toMsBars = (bars: OhlcBar[]): OhlcBar[] =>
+  bars.map((b) => ({ ...b, time: b.time < 1e12 ? b.time * 1000 : b.time }));
 
 // Persist drawings on chart change events (chart:updated covers renders after
 // drawing gestures; drawing:* covers select/delete flows).
@@ -352,7 +353,7 @@ export default function Dashboard() {
   });
 
   const priceBars = useMemo(
-    () => toSecBars(ohlcQuery.data?.bars ?? []),
+    () => toMsBars(ohlcQuery.data?.bars ?? []),
     [ohlcQuery.data],
   );
   const overlayBars = overlay === "price" ? priceBars : undefined;
@@ -465,21 +466,23 @@ export default function Dashboard() {
                       </select>
                     </label>
                   )}
-                  <label className="filter-label">
-                    Range{" "}
-                    <select
-                      className="input input-select"
-                      aria-label="Range"
-                      value={rangeDays}
-                      onChange={(e) => setRangeDays(Number(e.target.value))}
-                    >
+                  <div className="filter-label">
+                    <span aria-hidden="true">Range</span>
+                    <div className="chart-segmented" role="group" aria-label="Range">
                       {RANGES.map((d) => (
-                        <option key={d} value={d}>
+                        <button
+                          key={d}
+                          type="button"
+                          className={`btn-segmented${rangeDays === d ? " is-active" : ""}`}
+                          aria-label={`${d} days`}
+                          aria-pressed={rangeDays === d}
+                          onClick={() => setRangeDays(d)}
+                        >
                           {d}D
-                        </option>
+                        </button>
                       ))}
-                    </select>
-                  </label>
+                    </div>
+                  </div>
                   <label className="filter-label">
                     Overlay{" "}
                     <select

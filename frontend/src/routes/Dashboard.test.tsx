@@ -7,7 +7,7 @@ import { AuthProvider } from "../context/AuthContext";
 import { ThemeProvider } from "../context/ThemeContext";
 import { QFChart } from "@qfo/qfchart";
 import Dashboard from "./Dashboard";
-import { toSecBars } from "./Dashboard";
+import { toMsBars } from "./Dashboard";
 
 vi.mock("../lib/api", () => ({ apiFetch: vi.fn() }));
 
@@ -92,16 +92,23 @@ function renderDashboard() {
   );
 }
 
-describe("toSecBars", () => {
-  it("maps backend ms times to QFChart unix seconds", () => {
+describe("toMsBars", () => {
+  it("keeps backend ms for QFChart (ms x labels), upgrades stray seconds", () => {
     expect(
-      toSecBars([
+      toMsBars([
         { time: 1704067200000, open: 1, high: 2, low: 0.5, close: 1.5, volume: 10 },
       ]),
     ).toEqual([
-      { time: 1704067200, open: 1, high: 2, low: 0.5, close: 1.5, volume: 10 },
+      { time: 1704067200000, open: 1, high: 2, low: 0.5, close: 1.5, volume: 10 },
     ]);
-    expect(toSecBars([])).toEqual([]);
+    expect(
+      toMsBars([
+        { time: 1704067200, open: 1, high: 2, low: 0.5, close: 1.5, volume: 10 },
+      ]),
+    ).toEqual([
+      { time: 1704067200000, open: 1, high: 2, low: 0.5, close: 1.5, volume: 10 },
+    ]);
+    expect(toMsBars([])).toEqual([]);
   });
 });
 
@@ -139,6 +146,24 @@ describe("Dashboard QFChart integration", () => {
     expect(screen.queryByTestId("price-chart")).not.toBeInTheDocument();
     panels = document.querySelectorAll('aside[aria-label="Drawing tools"]');
     expect(panels).toHaveLength(1);
+  });
+
+  it("range buttons are mutually exclusive and refetch the series", async () => {
+    renderDashboard();
+    fireEvent.click(await screen.findByRole("button", { name: /MVRV/ }));
+    await screen.findByTestId("onchain-chart");
+    const group = screen.getByRole("group", { name: /range/i });
+    const b7 = screen.getByRole("button", { name: "7 days" });
+    const b30 = screen.getByRole("button", { name: "30 days" });
+    expect(group).toContainElement(b7);
+    expect(b7).toHaveAttribute("aria-pressed", "true");
+    expect(b30).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(b30);
+    expect(b30).toHaveAttribute("aria-pressed", "true");
+    expect(b7).toHaveAttribute("aria-pressed", "false");
+    const calls = mockedFetch.mock.calls.filter(([p]) => (p as string).includes("/series"));
+    const last = calls[calls.length - 1][0] as string;
+    expect(last).toContain("to=");
   });
 
   it("overlay selector toggles price overlay without unmounting card", async () => {
@@ -206,9 +231,9 @@ describe("Dashboard QFChart integration", () => {
     renderDashboard();
     await screen.findByTestId("price-chart");
     fireEvent.click(screen.getByRole("button", { name: /shapes tools/i }));
-    const rect = screen.getAllByRole("button", { name: /^rectangle$/i })[0];
+    const rect = screen.getAllByRole("menuitem", { name: /^rectangle$/i })[0];
     fireEvent.click(screen.getByRole("button", { name: /annotations tools/i }));
-    const text = screen.getAllByRole("button", { name: /^text$/i })[0];
+    const text = screen.getAllByRole("menuitem", { name: /^text$/i })[0];
     expect(rect).not.toBeDisabled();
     expect(text).not.toBeDisabled();
   });

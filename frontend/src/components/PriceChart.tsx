@@ -4,7 +4,7 @@ import { sma } from "../lib/indicators";
 import { registerChartTools } from "../lib/chartTools";
 import { registerAllQfDrawings } from "../lib/qfdraw/registry";
 export interface OhlcBar {
-  /** Bar time in unix seconds (QFChart contract; Dashboard converts backend ms via toSecBars). */
+  /** Bar time in unix milliseconds (QFChart x labels use new Date(time); Dashboard passes backend ms via toMsBars). */
   time: number; open: number; high: number; low: number; close: number; volume: number;
 }
 export default function PriceChart({ bars, chartKey, onReady }: { bars: OhlcBar[]; chartKey: string; onReady?: (chart: QFChart) => void }) {

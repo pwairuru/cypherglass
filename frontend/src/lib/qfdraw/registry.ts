@@ -14,6 +14,17 @@ import { TextRenderer, TextTool, CalloutRenderer, CalloutTool, BrushRenderer, Br
 
 export const TOOL_TYPES = ["arrow","parallelChannel","regressionTrend","flatTopBottom","disjointChannel","andrewsPitchfork","schiffPitchfork","modifiedSchiffPitchfork","insidePitchfork","fibExtension","fibTimeZone","fibTimeExtension","fibCircles","fibSpiral","fibArcs","fibWedge","pitchfan","gannBox","gannFan","gannSquareFixed","gannSquare","longPosition","shortPosition","forecast","barsPattern","projection","priceRange","datePriceRange","rectangle","rotatedRectangle","circle","ellipse","triangle","arc","path","polyline","curve","doubleCurve","text","callout","brush","highlighter","arrowMarker","anchoredText","note","priceNote","priceLabel","flagMark","pin","comment","signpost","table"];
 
+/** Tools that ask for label text at creation (window.prompt; default kept
+ * when dismissed) and their default labels. */
+export const TEXT_DEFAULTS: Record<string, string> = {
+  text: "Text",
+  callout: "Note",
+  anchoredText: "Text",
+  note: "Note",
+  priceNote: "Note",
+  comment: "Comment",
+  signpost: "Sign",
+};
 /** Creation contract per drawing type: fixed anchor count (0 = variable,
  * dblclick finishes, min 2) and click vs freehand-drag mode. Counts match
  * what each DrawingRenderer reads from pixelPoints. */
@@ -138,6 +149,11 @@ export function registerAllQfDrawings(chart: QFChart): Record<string, Plugin> {
       tool.drawingType = name;
       tool.anchorCount = spec.n;
       tool.mode = spec.mode;
+    }
+    const label = TEXT_DEFAULTS[name];
+    if (label !== undefined) {
+      tool.asksText = true;
+      tool.defaultText = label;
     }
     chart.registerPlugin(tool);
     map[name] = tool;

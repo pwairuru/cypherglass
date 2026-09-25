@@ -28,9 +28,14 @@ export abstract class QfTool implements Plugin {
   /** Fixed anchor count; 0 = variable-length (dblclick finishes). */
   anchorCount = 2;
   mode: QfCreateMode = "click";
+  /** When true, finish() asks for label text (window.prompt; default kept
+   * when unavailable or cancelled, e.g. jsdom). */
+  asksText = false;
+  defaultText = "Text";
   private state: "idle" | "drawing" = "idle";
   private pts: [number, number][] = [];
   private preview: any = null;
+  private locked = false;
   constructor(id:string){ this.id = id; }
   init(c:ChartContext){ this.context = c; }
   activate(): void { this.onActivate(); }
@@ -39,6 +44,9 @@ export abstract class QfTool implements Plugin {
     const zr = this.zr();
     if (!zr || !this.context) return;
     this.state = "idle"; this.pts = [];
+    // Lock dataZoom/tooltip while drawing so drag tools (brush/highlighter)
+    // draw instead of panning the chart (mirrors built-in MeasureTool).
+    try { this.context.lockChart?.(); this.locked = true; } catch { /* noop */ }
     zr.setCursorStyle?.("crosshair");
     if (this.mode === "drag") {
       zr.on("mousedown", this.onMouseDown);
@@ -123,6 +131,11 @@ export abstract class QfTool implements Plugin {
     });
     const drawingType = this.drawingType;
     const pane = data[0]?.paneIndex ?? 0;
+    const style: Record<string, unknown> = { color: PREVIEW_COLOR, lineWidth: 2 };
+    if (this.asksText) {
+      const entered = askText(this.defaultText);
+      style.text = entered === null ? this.defaultText : entered;
+    }
     this.reset();
     if (!drawingType || data.some((d) => d === null)) return;
     ctx.addDrawing({
@@ -130,7 +143,7 @@ export abstract class QfTool implements Plugin {
       type: drawingType,
       points: data as { timeIndex: number; value: number }[],
       paneIndex: pane,
-      style: { color: PREVIEW_COLOR, lineWidth: 2 },
+      style: style as { color?: string; lineWidth?: number },
     });
     ctx.disableTools?.();
   }
@@ -144,6 +157,10 @@ export abstract class QfTool implements Plugin {
         try { zr.remove(this.preview); } catch { /* noop */ }
       }
       try { zr.setCursorStyle?.("default"); } catch { /* noop */ }
+    }
+    if (this.locked) {
+      this.locked = false;
+      try { this.context?.unlockChart?.(); } catch { /* noop */ }
     }
     this.state = "idle"; this.pts = []; this.preview = null;
   }
@@ -179,4 +196,15 @@ export abstract class QfTool implements Plugin {
 }
 function evHandler(ev: string): string {
   return { click: "onClick", mousemove: "onMouseMove", dblclick: "onDblClick", mousedown: "onMouseDown", mouseup: "onMouseUp" }[ev] ?? ev;
+}
+/** Prompt for label text at creation; null when unavailable or dismissed
+ * (jsdom has no prompt; Playwright dialogs are handled by the caller). */
+function askText(fallback: string): string | null {
+  try {
+    if (typeof window === "undefined" || typeof window.prompt !== "function") return null;
+    const t = window.prompt("Label text:", fallback);
+    return t === null || t === undefined ? null : t;
+  } catch {
+    return null;
+  }
 }

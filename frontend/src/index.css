@@ -327,6 +327,7 @@
 }
 
 .chart-segmented {
+  display: inline-flex;
   padding: 3px;
   border: 1px solid hsl(var(--border));
   border-radius: 8px;
@@ -335,10 +336,12 @@
 }
 
 .btn-segmented {
-  border-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
   background: transparent;
   color: hsl(var(--muted-foreground));
   padding: 6px 12px;
+  cursor: pointer;
 }
 
 .btn-segmented:hover {
@@ -436,6 +439,7 @@
 
 /* Drawing toolbar: vertical strip left of the chart. */
 .drawing-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -446,9 +450,9 @@
   background: hsl(var(--muted) / 0.4);
   align-self: flex-start;
   max-height: 100%;
-  overflow-y: auto;
 }
 .drawing-panel button {
+  position: relative;
   display: grid;
   place-items: center;
   width: 28px;
@@ -479,11 +483,40 @@
   background: hsl(var(--border));
 }
 .drawing-group {
-  display: contents;
+  position: relative;
 }
 .drawing-group > button[aria-expanded="true"] {
   background: hsl(var(--accent));
   color: hsl(var(--foreground));
+}
+/* Tiny corner arrow marking group buttons (TradingView-style). */
+.drawing-group > button .group-arrow {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-bottom: 5px solid currentColor;
+  opacity: 0.7;
+  pointer-events: none;
+}
+/* Side flyout: opens to the right of the toolbar, not below the icon. */
+.drawing-flyout {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 4px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--popover));
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+  max-height: 320px;
+  overflow-y: auto;
 }
 .chart-desc-below {
   margin: 8px 0 0;

@@ -17,7 +17,7 @@ interface OnchainChartProps {
   onReady?: (chart: QFChart) => void;
 }
 
-const toTime = (t: string) => Math.floor(Date.parse(t) / 1000);
+const toTime = (t: string) => Date.parse(t); // unix ms: QFChart labels use new Date(time)
 
 export default function OnchainChart({ chartKey, title, points, priceBars, onReady }: OnchainChartProps) {
   const divRef = useRef<HTMLDivElement>(null);
@@ -74,6 +74,11 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
       volume: 0,
     }));
     chart.setMarketData(base);
+    // Single-pane: the onchain line must overlay (pane 0), otherwise QFChart
+    // splits into main-candle pane + indicator pane with duplicate Y axes
+    // (top empty transparent candles, bottom line). Both metric + price
+    // share pane 0; LayoutManager auto-assigns a hidden second Y for the
+    // incompatible scale.
     chart.addIndicator(
       title,
       {
@@ -82,7 +87,7 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
           options: { style: "line", color: "#2962FF" },
         },
       },
-      { isOverlay: false },
+      { isOverlay: true },
     );
     if (priceBars) {
       chart.addIndicator(

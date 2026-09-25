@@ -28,7 +28,10 @@ export class PriceNoteRenderer implements DrawingRenderer { type="priceNote";
     return groupEl([lineEl([0,a[1]],[300,a[1]],{color:"#787B86",dash:[4,4]}),labelEl([4,a[1]-6],txt(c))]); } }
 export class PriceLabelRenderer implements DrawingRenderer { type="priceLabel";
   render(c:DrawingRenderContext):any{ const pts=c.pixelPoints as P[] | undefined; if(!pts||pts.length<1) return groupEl([]); const [a]=pts;
-    return groupEl([{type:"rect",shape:{x:a[0],y:a[1]-11,width:56,height:22},style:{fill:"#2962FF"}},labelEl([a[0]+6,a[1]+4],"123.4",{color:"#fff"})]); } }
+    // Real anchor value, not a placeholder: points carry {timeIndex, value}.
+    const v = (c.drawing.points?.[0] as { value?: unknown } | undefined)?.value;
+    const label = typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: 4 }) : "";
+    return groupEl([{type:"rect",shape:{x:a[0],y:a[1]-11,width:Math.max(56,label.length*7+12),height:22},style:{fill:"#2962FF"}},labelEl([a[0]+6,a[1]+4],label,{color:"#fff"})]); } }
 export class FlagMarkRenderer implements DrawingRenderer { type="flagMark";
   render(c:DrawingRenderContext):any{ const pts=c.pixelPoints as P[] | undefined; if(!pts||pts.length<1) return groupEl([]); const [a]=pts;
     return groupEl([lineEl(a,[a[0],a[1]-24],{color:"#2962FF"}),{type:"polygon",shape:{points:[[a[0],a[1]-24],[a[0]+18,a[1]-19],[a[0],a[1]-14]]},style:{fill:"#F23645"}}]); } }

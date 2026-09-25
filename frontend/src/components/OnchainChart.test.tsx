@@ -19,19 +19,19 @@ describe("OnchainChart", () => {
     };
     expect(inst.setMarketData).toHaveBeenCalledTimes(1);
     expect(inst.setMarketData.mock.calls[0][0]).toEqual([
-      { time: Math.floor(Date.parse("2024-01-01") / 1000), open: 1.2, high: 1.2, low: 1.2, close: 1.2, volume: 0 },
+      { time: Date.parse("2024-01-01"), open: 1.2, high: 1.2, low: 1.2, close: 1.2, volume: 0 },
     ]);
   });
-  it("adds onchain series as non-overlay indicator", () => {
+  it("adds onchain series as overlay indicator (single pane)", () => {
     render(<OnchainChart chartKey="k" title="MVRV" points={[{ t: "2024-01-01", v: 1.2 }]} />);
     const inst = vi.mocked(QFChart).mock.results[0].value as {
       addIndicator: ReturnType<typeof vi.fn>;
     };
     const overlayCall = inst.addIndicator.mock.calls.find(([name]) => name === "MVRV");
     expect(overlayCall).toBeDefined();
-    expect(overlayCall![2]).toEqual({ isOverlay: false });
+    expect(overlayCall![2]).toEqual({ isOverlay: true });
     expect(overlayCall![1].line.data).toEqual([
-      { time: Math.floor(Date.parse("2024-01-01") / 1000), value: 1.2 },
+      { time: Date.parse("2024-01-01"), value: 1.2 },
     ]);
   });
 });

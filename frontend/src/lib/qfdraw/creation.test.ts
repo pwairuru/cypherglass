@@ -16,15 +16,17 @@ function harness(tool: QfTool, conv?: (x:number,y:number)=>any) {
     setCursorStyle: () => {},
     add: () => {}, remove: () => {},
   };
-  let disabled = 0;
+  let disabled = 0, locked = 0, unlocked = 0;
   tool.init({
     addDrawing:(d:any)=>{added.push(d);},
     disableTools:()=>{disabled += 1;},
+    lockChart:()=>{locked += 1;},
+    unlockChart:()=>{unlocked += 1;},
     coordinateConversion:{ pixelToData:({x,y}:{x:number;y:number}) =>
       conv ? conv(x,y) : ({timeIndex:x/10,value:y,paneIndex:0}) },
     getChart:()=>({getZr:()=>zr}),
   } as any);
-  return { added, handlers, zr, disabled: () => disabled };
+  return { added, handlers, zr, disabled: () => disabled, locked: () => locked, unlocked: () => unlocked };
 }
 
 describe("QfTool creation flow", () => {
@@ -119,6 +121,55 @@ describe("QfTool creation flow", () => {
     expect(Object.keys(h.handlers).length).toBeGreaterThan(0);
     tool.deactivate();
     expect(Object.keys(h.handlers)).toEqual([]);
+  });
+  it("locks chart on activate, unlocks on finish (no pan while drawing)", () => {
+    const tool = new ArrowTool();
+    tool.drawingType = "arrow"; tool.anchorCount = 2;
+    const h = harness(tool);
+    tool.activate();
+    expect(h.locked()).toBe(1);
+    h.handlers.click({offsetX:20,offsetY:50});
+    h.handlers.click({offsetX:40,offsetY:60});
+    expect(h.added.length).toBe(1);
+    expect(h.unlocked()).toBe(1);
+  });
+  it("unlocks on deactivate without finishing", () => {
+    const tool = new ArrowTool();
+    tool.drawingType = "arrow"; tool.anchorCount = 2;
+    const h = harness(tool);
+    tool.activate();
+    tool.deactivate();
+    expect(h.unlocked()).toBe(1);
+  });
+  it("asks for label text when asksText (prompt result stored)", () => {
+    const tool = new TextTool();
+    tool.drawingType = "text"; tool.anchorCount = 1;
+    tool.asksText = true; tool.defaultText = "Text";
+    const h = harness(tool);
+    const orig = window.prompt;
+    (window as any).prompt = () => "hello";
+    try {
+      tool.activate();
+      h.handlers.click({offsetX:50,offsetY:80});
+    } finally {
+      (window as any).prompt = orig;
+    }
+    expect(h.added[0].style.text).toBe("hello");
+  });
+  it("keeps default text when prompt is unavailable or dismissed", () => {
+    const tool = new TextTool();
+    tool.drawingType = "text"; tool.anchorCount = 1;
+    tool.asksText = true; tool.defaultText = "Text";
+    const h = harness(tool);
+    const orig = window.prompt;
+    (window as any).prompt = null;
+    try {
+      tool.activate();
+      h.handlers.click({offsetX:50,offsetY:80});
+    } finally {
+      (window as any).prompt = orig;
+    }
+    expect(h.added[0].style.text).toBe("Text");
   });
 });
 
