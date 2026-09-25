@@ -8,11 +8,12 @@ interface OnchainChartProps {
   title: string;
   points: SeriesPoint[];
   priceBars?: OhlcBar[];
+  onReady?: (chart: QFChart) => void;
 }
 
 const toTime = (t: string) => Math.floor(Date.parse(t) / 1000);
 
-export default function OnchainChart({ chartKey, title, points, priceBars }: OnchainChartProps) {
+export default function OnchainChart({ chartKey, title, points, priceBars, onReady }: OnchainChartProps) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<QFChart | null>(null);
 
@@ -60,7 +61,9 @@ export default function OnchainChart({ chartKey, title, points, priceBars }: Onc
       );
     }
     chartRef.current = chart;
+    onReady?.(chart);
     return () => {
+      chart.destroy?.();
       chartRef.current = null;
     };
   }, [chartKey]);
