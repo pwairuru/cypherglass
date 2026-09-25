@@ -2,6 +2,7 @@
 // Attribution: drawing set ported from lightweight-charts-drawing (MIT).
 import type { Plugin, QFChart } from "@qfo/qfchart";
 import type { QfCreateMode } from "./base";
+import { withSelection } from "./select";
 import { ArrowDrawingRenderer, ArrowTool } from "./tools/lines/arrow";
 import { ParallelChannelRenderer, ParallelChannelTool, RegressionTrendRenderer, RegressionTrendTool, FlatTopBottomRenderer, FlatTopBottomTool, DisjointChannelRenderer, DisjointChannelTool } from "./tools/channels/channels";
 import { AndrewsPitchforkRenderer, AndrewsPitchforkTool, SchiffPitchforkRenderer, SchiffPitchforkTool, ModifiedSchiffPitchforkRenderer, ModifiedSchiffPitchforkTool, InsidePitchforkRenderer, InsidePitchforkTool } from "./tools/pitchforks/pitchforks";
@@ -128,7 +129,9 @@ export function registerAllQfDrawings(chart: QFChart): Record<string, Plugin> {
   ];
   const map: Record<string, Plugin> = {};
   for (const [name, R, T] of pairs) {
-    chart.registerDrawingRenderer(new R());
+    // withSelection adds the line/point-N shape names QFChart core needs
+    // for hit-testing, selection and drag-editing of custom drawings.
+    chart.registerDrawingRenderer(withSelection(new R()));
     const tool = new T() as import("./base").QfTool;
     const spec = ANCHORS[name];
     if (spec) {

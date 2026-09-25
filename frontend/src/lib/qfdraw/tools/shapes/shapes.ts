@@ -4,6 +4,19 @@ import type { DrawingRenderContext, DrawingRenderer } from "@qfo/qfchart";
 import { QfTool, groupEl, lineEl } from "../../base";
 type P=[number,number];
 const st=(c:DrawingRenderContext)=>({stroke:c.drawing.style?.color??"#2962FF",lineWidth:c.drawing.style?.lineWidth??2,fill:"transparent"});
+/** ECharts custom series has no bezier element type ("bezier-curve" throws
+ * "graphic type can not be found"), so curves render as sampled polylines. */
+export function sampleCubic(p0:P,p1:P,p2:P,p3:P,segments=24): P[] {
+  const out:P[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments, u = 1 - t;
+    out.push([
+      u*u*u*p0[0] + 3*u*u*t*p1[0] + 3*u*t*t*p2[0] + t*t*t*p3[0],
+      u*u*u*p0[1] + 3*u*u*t*p1[1] + 3*u*t*t*p2[1] + t*t*t*p3[1],
+    ]);
+  }
+  return out;
+}
 export class RectangleRenderer implements DrawingRenderer { type="rectangle";
   render(c:DrawingRenderContext):any{ const pts=c.pixelPoints as P[] | undefined; if(!pts||pts.length<2) return groupEl([]); const [a,b]=pts;
     return groupEl([{type:"rect",shape:{x:Math.min(a[0],b[0]),y:Math.min(a[1],b[1]),width:Math.abs(b[0]-a[0]),height:Math.abs(b[1]-a[1])},style:st(c)}]); } }
@@ -32,10 +45,10 @@ export class PolylineRenderer implements DrawingRenderer { type="polyline";
     return groupEl([{type:"polyline",shape:{points:pts},style:st(c)}]); } }
 export class CurveRenderer implements DrawingRenderer { type="curve";
   render(c:DrawingRenderContext):any{ const pts=c.pixelPoints as P[] | undefined; if(!pts||pts.length<4) return groupEl([]); const [a,b,cc,d]=pts;
-    return groupEl([{type:"bezier-curve",shape:{x1:a[0],y1:a[1],cpx1:b[0],cpy1:b[1],cpx2:cc[0],cpy2:cc[1],x2:d[0],y2:d[1]},style:st(c)}]); } }
+    return groupEl([{type:"polyline",shape:{points:sampleCubic(a,b,cc,d)},style:st(c)}]); } }
 export class DoubleCurveRenderer implements DrawingRenderer { type="doubleCurve";
   render(c:DrawingRenderContext):any{ const pts=c.pixelPoints as P[] | undefined; if(!pts||pts.length<3) return groupEl([]); const [a,b,cc]=pts;
-    return groupEl([{type:"bezier-curve",shape:{x1:a[0],y1:a[1],cpx1:b[0],cpy1:b[1],cpx2:b[0],cpy2:b[1],x2:cc[0],y2:cc[1]},style:st(c)},
+    return groupEl([{type:"polyline",shape:{points:sampleCubic(a,b,b,cc)},style:st(c)},
       lineEl(a,cc,{color:"#787B86",dash:[4,4]})]); } }
 export class RectangleTool extends QfTool { constructor(){super("qf:rectangle");} }
 export class RotatedRectangleTool extends QfTool { constructor(){super("qf:rotatedRectangle");} }
