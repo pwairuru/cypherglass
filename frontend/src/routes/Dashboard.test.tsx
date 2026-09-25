@@ -56,8 +56,8 @@ function mockApi() {
   mockedFetch.mockImplementation((path: string) => {
     if (path === "/api/v1/metrics")
       return Promise.resolve([
-        { id: "price_ohlc_daily", title: "BTC/USDT / Day" },
-        { id: "mvrv_daily", title: "MVRV / Day" },
+        { id: "price_ohlc_daily", title: "BTC/USDT / Day", category: "price" },
+        { id: "mvrv_daily", title: "MVRV / Day", category: "valuation" },
       ]);
     if (path === "/api/v1/metrics/coverage")
       return Promise.resolve({ min_day: "2024-01-01", max_day: "2024-02-01" });
@@ -112,29 +112,37 @@ describe("Dashboard QFChart integration", () => {
   });
   afterEach(() => cleanup());
 
-  it("renders price hero + onchain card, each with drawings + export/import", async () => {
+  it("renders a single card: price hero for price metrics, onchain card otherwise", async () => {
     renderDashboard();
     expect(await screen.findByTestId("price-chart")).toBeInTheDocument();
-    expect(await screen.findByTestId("onchain-chart")).toBeInTheDocument();
+    expect(screen.queryByTestId("onchain-chart")).not.toBeInTheDocument();
 
-    const panels = document.querySelectorAll('aside[aria-label="Drawing tools"]');
-    expect(panels).toHaveLength(2);
+    let panels = document.querySelectorAll('aside[aria-label="Drawing tools"]');
+    expect(panels).toHaveLength(1);
 
     expect(
       screen.getAllByRole("button", { name: /export drawings/i }),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(
       screen.getAllByRole("button", { name: /import drawings/i }),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
 
     const ohlcCalls = mockedFetch.mock.calls.filter(([p]) =>
       (p as string).includes("price_ohlc_daily/ohlc"),
     );
     expect(ohlcCalls.length).toBeGreaterThan(0);
+
+    // Switch to an onchain metric: hero unmounts, onchain card mounts.
+    fireEvent.click(screen.getByRole("button", { name: /MVRV/ }));
+    expect(await screen.findByTestId("onchain-chart")).toBeInTheDocument();
+    expect(screen.queryByTestId("price-chart")).not.toBeInTheDocument();
+    panels = document.querySelectorAll('aside[aria-label="Drawing tools"]');
+    expect(panels).toHaveLength(1);
   });
 
   it("overlay selector toggles price overlay without unmounting card", async () => {
     renderDashboard();
+    fireEvent.click(await screen.findByRole("button", { name: /MVRV/ }));
     await screen.findByTestId("onchain-chart");
     const overlay = screen.getByLabelText(/overlay/i);
     fireEvent.change(overlay, { target: { value: "none" } });

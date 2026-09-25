@@ -30,6 +30,7 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
     // render them transparent rather than as visible candles.
     const chart = new QFChart(divRef.current, {
       title,
+      backgroundColor: "transparent",
       upColor: "transparent",
       downColor: "transparent",
     });

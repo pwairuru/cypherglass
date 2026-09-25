@@ -8,6 +8,7 @@ import PriceChart, { type OhlcBar } from "../components/PriceChart";
 import OnchainChart, { type SeriesPoint } from "../components/OnchainChart";
 import DrawingPanel from "../components/DrawingPanel";
 import ThemeSwitcher from "../components/ThemeSwitcher";
+import { useTheme } from "../context/ThemeContext";
 import { grainOf, groupMetrics } from "../lib/metricGroups";
 import {
   exportDrawings,
@@ -265,6 +266,7 @@ function ChartStatus({
 
 export default function Dashboard() {
   const { token, logout } = useAuth();
+  const { density, setDensity } = useTheme();
   const [selected, setSelected] = useState<string | null>(null);
   const [grain, setGrain] = useState<string | null>(null);
   const [rangeDays, setRangeDays] = useState<number>(7);
@@ -358,6 +360,7 @@ export default function Dashboard() {
     [ohlcQuery.data],
   );
   const overlayBars = overlay === "price" ? priceBars : undefined;
+  const isPriceMetric = activeMetric?.category === "price";
 
   const grains = selectedGroup?.variants.map((v) => grainOf(v.id)) ?? [];
   const seriesError =
@@ -379,6 +382,15 @@ export default function Dashboard() {
         <h1>CypherGlass Analytics</h1>
         <div>
           <ThemeSwitcher />
+          <button
+            className="btn"
+            type="button"
+            aria-pressed={density === "compact"}
+            title="Toggle compact density"
+            onClick={() => setDensity(density === "compact" ? "comfortable" : "compact")}
+          >
+            {density === "compact" ? "Roomy" : "Compact"}
+          </button>
           <button className="btn" type="button" onClick={logout}>
             Sign out
           </button>
@@ -395,6 +407,7 @@ export default function Dashboard() {
           <MetricList metrics={metrics} selected={selected} onSelect={setSelected} />
         </aside>
         <main className="chart-area" style={{ flexDirection: "column", gap: 16, overflowY: "auto" }}>
+          {isPriceMetric && (
           <ChartCard
             chartKey={`price-${priceGrain}`}
             title="BTC/USDT"
@@ -417,7 +430,8 @@ export default function Dashboard() {
               </>
             )}
           />
-          {activeMetric && (
+          )}
+          {activeMetric && !isPriceMetric && (
             <ChartCard
               chartKey={activeMetric.id}
               title={activeMetric.title}

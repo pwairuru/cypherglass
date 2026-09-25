@@ -11,7 +11,7 @@ export default function PriceChart({ bars, chartKey, onReady }: { bars: OhlcBar[
   const chartRef = useRef<QFChart | null>(null);
   useEffect(() => {
     if (!divRef.current) return;
-    const chart = new QFChart(divRef.current, { title: "BTC/USDT" });
+    const chart = new QFChart(divRef.current, { title: "BTC/USDT", backgroundColor: "transparent" });
     const lineTool = new LineTool();
     const rayTool = new RayTool();
     const horizontalTool = new HorizontalLineTool();

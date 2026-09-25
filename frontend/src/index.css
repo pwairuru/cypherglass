@@ -260,7 +260,7 @@
   min-height: 0;
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
-  background: hsl(var(--card));
+  background: transparent;
   padding: 16px;
 }
 
@@ -276,21 +276,179 @@
 .chart-head h2 {
   margin: 0 0 4px;
   font-size: 1.25rem;
+  letter-spacing: -0.01em;
 }
 
 .chart-desc {
   margin: 0;
   color: hsl(var(--muted-foreground));
   font-size: 0.875rem;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .chart-filters {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   flex-shrink: 0;
+  align-items: flex-end;
+}
+
+.filter-label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.input-select {
+  width: auto;
+  min-width: 96px;
+  margin-top: 0;
+  padding: 6px 8px;
+}
+
+.chart-segmented {
+  padding: 3px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--muted));
+  gap: 2px;
+}
+
+.btn-segmented {
+  border-color: transparent;
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  padding: 6px 12px;
+}
+
+.btn-segmented:hover {
+  color: hsl(var(--foreground));
+}
+
+.btn-segmented.is-active {
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+.btn:focus-visible,
+.metric-item:focus-visible,
+.input:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
 }
 
 .chart-fill {
   flex: 1;
-  min-height: 320px;
+  min-height: 360px;
+}
+
+.chart-empty,
+.chart-error {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  height: 100%;
+  min-height: 240px;
+  margin: 0;
+  text-align: center;
+  color: hsl(var(--muted-foreground));
+}
+
+.chart-error {
+  color: hsl(var(--destructive));
+}
+
+.chart-skeleton {
+  display: grid;
+  gap: 12px;
+  height: 100%;
+  min-height: 240px;
+  padding: 8px 0;
+}
+
+.chart-skeleton-bar,
+.chart-skeleton-plot {
+  border-radius: 8px;
+  background: linear-gradient(
+    100deg,
+    hsl(var(--muted)) 40%,
+    hsl(var(--accent)) 50%,
+    hsl(var(--muted)) 60%
+  );
+  background-size: 200% 100%;
+  animation: chart-shimmer 1.4s ease-in-out infinite;
+}
+
+.chart-skeleton-bar {
+  height: 20px;
+  width: 38%;
+}
+
+.chart-skeleton-plot {
+  flex: 1;
+  min-height: 200px;
+}
+
+@keyframes chart-shimmer {
+  from {
+    background-position: 180% 0;
+  }
+  to {
+    background-position: -20% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-skeleton-bar,
+  .chart-skeleton-plot {
+    animation: none;
+  }
+}
+
+/* Compact density: tighter spacing + smaller type, aimed at the sidebar. */
+[data-density="compact"] .dashboard-body {
+  gap: 8px;
+}
+[data-density="compact"] .metric-rail {
+  width: 208px;
+  padding: 8px;
+  font-size: 0.8125rem;
+}
+[data-density="compact"] .metric-list ul {
+  margin-top: 8px;
+  gap: 2px;
+}
+[data-density="compact"] .metric-item {
+  padding: 5px 8px;
+  font-size: 0.8125rem;
+}
+[data-density="compact"] .chart-card {
+  padding: 10px;
+}
+[data-density="compact"] .chart-head {
+  gap: 8px;
+  margin-bottom: 8px;
+}
+[data-density="compact"] .chart-head h2 {
+  font-size: 1rem;
+}
+[data-density="compact"] .chart-desc {
+  font-size: 0.75rem;
+}
+[data-density="compact"] .chart-filters {
+  gap: 8px;
+}
+[data-density="compact"] .filter-label {
+  font-size: 0.6875rem;
+}
+[data-density="compact"] .chart-area {
+  gap: 8px !important;
 }

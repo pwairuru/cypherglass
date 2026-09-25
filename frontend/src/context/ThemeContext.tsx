@@ -2,8 +2,10 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 
 export const THEMES = ["light", "dark", "ohngea", "ohngea-dark"] as const;
 export type ThemeName = (typeof THEMES)[number];
+export type Density = "comfortable" | "compact";
 
 const STORAGE_KEY = "cypherglass_theme";
+const DENSITY_KEY = "cypherglass_density";
 const CLASS_BY_THEME: Record<ThemeName, string> = {
   light: "",
   dark: "dark",
@@ -14,6 +16,8 @@ const CLASS_BY_THEME: Record<ThemeName, string> = {
 interface ThemeContextValue {
   theme: ThemeName;
   setTheme: (t: ThemeName) => void;
+  density: Density;
+  setDensity: (d: Density) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -24,6 +28,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return THEMES.includes(saved as ThemeName) ? (saved as ThemeName) : "dark";
   });
 
+  const [density, setDensity] = useState<Density>(() => {
+    const saved = localStorage.getItem(DENSITY_KEY);
+    return saved === "compact" ? "compact" : "comfortable";
+  });
+
   useEffect(() => {
     const root = document.documentElement;
     root.classList.remove("dark", "theme-ohngea", "theme-ohngea-dark");
@@ -32,7 +41,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 
-  return <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>;
+  useEffect(() => {
+    const root = document.documentElement;
+    if (density === "compact") root.setAttribute("data-density", "compact");
+    else root.removeAttribute("data-density");
+    localStorage.setItem(DENSITY_KEY, density);
+  }, [density]);
+
+  return <ThemeContext.Provider value={{ theme, setTheme, density, setDensity }}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme(): ThemeContextValue {
