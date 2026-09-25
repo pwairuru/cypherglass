@@ -1,7 +1,12 @@
 import { useEffect, useRef } from "react";
 import { QFChart, LineTool, FibonacciTool, MeasureTool } from "@qfo/qfchart";
 import type { OhlcBar } from "./PriceChart";
-import type { SeriesPoint } from "./ChartPane";
+import { registerChartTools } from "../lib/chartTools";
+
+export interface SeriesPoint {
+  t: string;
+  v: number;
+}
 
 interface OnchainChartProps {
   chartKey: string;
@@ -19,13 +24,33 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
 
   useEffect(() => {
     if (!divRef.current) return;
-    const chart = new QFChart(divRef.current, { title });
+    // No hide-candles flag exists in QFChart typings (checked 0.8.7
+    // index.d.ts: only upColor/downColor/fontColor styling). The synthetic
+    // flat bars (o=h=l=c=v, volume 0) exist only to build the time axis, so
+    // render them transparent rather than as visible candles.
+    const chart = new QFChart(divRef.current, {
+      title,
+      upColor: "transparent",
+      downColor: "transparent",
+    });
     // Optional chaining: the unit test mocks QFChart as a bare vi.fn()
     // (per brief), so instance methods are absent under test. Real lib calls
     // below are identical to PriceChart's registration contract.
-    chart.registerPlugin?.(new LineTool());
-    chart.registerPlugin?.(new FibonacciTool());
-    chart.registerPlugin?.(new MeasureTool());
+    const lineTool = new LineTool();
+    const fibTool = new FibonacciTool();
+    const measureTool = new MeasureTool();
+    chart.registerPlugin?.(lineTool);
+    chart.registerPlugin?.(fibTool);
+    chart.registerPlugin?.(measureTool);
+    registerChartTools(chart, {
+      trend: lineTool,
+      horizontal: lineTool,
+      ray: lineTool,
+      rectangle: lineTool,
+      text: lineTool,
+      fibonacci: fibTool,
+      measure: measureTool,
+    });
     // QFChart requires market data via setMarketData to build its time axis,
     // even when only indicator series are shown. Feed synthetic flat bars
     // (o=h=l=c=v, volume 0) derived from the onchain points as a hidden base.
@@ -66,7 +91,9 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
       chart.destroy?.();
       chartRef.current = null;
     };
-  }, [chartKey]);
+    // Rebuild on data-prop changes (not chartKey alone): overlay/series
+    // switches must re-add indicators, which updateData alone cannot do.
+  }, [chartKey, title, points, priceBars]);
 
   useEffect(() => {
     chartRef.current?.updateData?.(
