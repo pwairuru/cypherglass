@@ -166,6 +166,21 @@
   cursor: default;
 }
 
+.btn-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-color: hsl(var(--border));
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+}
+.btn-icon:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--accent));
+}
+
 .error {
   color: hsl(var(--destructive));
 }
