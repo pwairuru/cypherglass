@@ -10,14 +10,16 @@ describe("DrawingPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /trend/i }));
     expect(onTool).toHaveBeenCalledWith("trend");
   });
-  it("disables rectangle/text (unsupported by QFChart) without calling onTool", () => {
+  it("activates rectangle/text via QFDraw registry (no longer unsupported)", () => {
     const onTool = vi.fn();
     render(<DrawingPanel chartKey="k" onTool={onTool} onClear={() => {}} onUndo={() => {}} onExport={() => {}} onImport={() => {}} />);
     const rect = screen.getByRole("button", { name: /rectangle/i });
     const text = screen.getByRole("button", { name: /text/i });
-    expect(rect).toBeDisabled();
-    expect(text).toBeDisabled();
+    expect(rect).toBeEnabled();
+    expect(text).toBeEnabled();
     fireEvent.click(rect);
-    expect(onTool).not.toHaveBeenCalled();
+    fireEvent.click(text);
+    expect(onTool).toHaveBeenCalledWith("rectangle");
+    expect(onTool).toHaveBeenCalledWith("text");
   });
 });

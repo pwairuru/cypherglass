@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { QFChart, LineTool, RayTool, HorizontalLineTool, FibonacciTool, MeasureTool } from "@qfo/qfchart";
 import { sma } from "../lib/indicators";
 import { registerChartTools } from "../lib/chartTools";
+import { registerAllQfDrawings } from "../lib/qfdraw/registry";
 export interface OhlcBar {
   /** Bar time in unix seconds (QFChart contract; Dashboard converts backend ms via toSecBars). */
   time: number; open: number; high: number; low: number; close: number; volume: number;
@@ -29,15 +30,17 @@ export default function PriceChart({ bars, chartKey, onReady }: { bars: OhlcBar[
     chart.registerPlugin(horizontalTool);
     chart.registerPlugin(fibTool);
     chart.registerPlugin(measureTool);
-    // DrawingPanel's rectangle/text have no QFChart plugin counterpart
-    // (verified in 0.8.7 index.d.ts exports) — they are rendered disabled in
-    // the panel, so only mapped tools are registered here.
+    // QFChart built-ins stay registered directly; the 52 ported QFDraw
+    // renderers/tools (incl. rectangle/text) register via the registry and
+    // join the panel-name map spread below.
+    const qf = registerAllQfDrawings(chart);
     registerChartTools(chart, {
       trend: lineTool,
       horizontal: horizontalTool,
       ray: rayTool,
       fibonacci: fibTool,
       measure: measureTool,
+      ...qf,
     });
     chart.setMarketData(bars);
     const closes = bars.map((b) => b.close);

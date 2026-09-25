@@ -20,13 +20,8 @@ const TOOLS: { name: string; label: string; Icon: LucideIcon }[] = [
   { name: "ray", label: "Ray", Icon: MoveUpRight },
   { name: "fibonacci", label: "Fibonacci retracement", Icon: Percent },
   { name: "measure", label: "Measure", Icon: Ruler },
-];
-// QFChart 0.8.7 ships no rectangle/text drawing plugins (verified against
-// dist/index.d.ts exports), so these stay visible but disabled rather than
-// silently activating the wrong tool.
-const UNSUPPORTED: { name: string; label: string; Icon: LucideIcon }[] = [
-  { name: "rectangle", label: "Rectangle (not supported yet)", Icon: Square },
-  { name: "text", label: "Text (not supported yet)", Icon: Type },
+  { name: "rectangle", label: "Rectangle", Icon: Square },
+  { name: "text", label: "Text", Icon: Type },
 ];
 
 export default function DrawingPanel({ chartKey: _chartKey, onTool, onClear, onUndo, onExport, onImport }: { chartKey: string; onTool: (n: string) => void; onClear: () => void; onUndo: () => void; onExport: () => void; onImport: () => void }) {
@@ -49,18 +44,6 @@ export default function DrawingPanel({ chartKey: _chartKey, onTool, onClear, onU
             setActive(name);
             onTool(name);
           }}
-        >
-          <Icon size={16} aria-hidden="true" />
-        </button>
-      ))}
-      {UNSUPPORTED.map(({ name, label, Icon }) => (
-        <button
-          key={name}
-          type="button"
-          disabled
-          aria-label={label}
-          title={label}
-          aria-disabled="true"
         >
           <Icon size={16} aria-hidden="true" />
         </button>
