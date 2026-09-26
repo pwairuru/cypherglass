@@ -13,8 +13,25 @@ export function registerChartTools(
 }
 
 export function activateChartTool(chart: QFChart, name: string): boolean {
-  const tool = toolRegistry.get(chart)?.get(name);
-  if (!tool) return false;
+  const tools = toolRegistry.get(chart);
+  const tool = tools?.get(name);
+  if (!tools || !tool) return false;
+  // QFChart core tracks the active plugin only through its own toolbar
+  // (activatePlugin sets activePluginId); we activate instances directly,
+  // so chart.disableTools() is a no-op for them and previously activated
+  // tools would stay live, duplicating drawings on every later click
+  // (seen live: 9 stray horizontal-lines from one stale tool). Deactivate
+  // every other registered tool first; deactivate() on an idle tool is a
+  // harmless reset (unbinds missing handlers, unlock guarded by flag).
+  for (const [key, other] of tools) {
+    if (key !== name) {
+      try {
+        other.deactivate?.();
+      } catch {
+        // One bad tool must not block activation of the requested one.
+      }
+    }
+  }
   chart.disableTools?.();
   tool.activate?.();
   return true;

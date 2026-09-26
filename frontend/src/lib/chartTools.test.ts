@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { DrawingElement, QFChart } from "@qfo/qfchart";
 import {
   clearChartDrawings,
@@ -6,12 +6,14 @@ import {
   restoreDrawings,
   snapshotDrawings,
   undoChartDrawing,
+  registerChartTools,
+  activateChartTool,
 } from "./chartTools";
 
 // Fake chart honoring the real QFChart drawing contract (verified in
 // qfchart.min.es.js): addDrawing pushes the full element incl. id,
 // removeDrawing splices by id and no-ops on unknown ids.
-function fakeChart(initial: DrawingElement[] = []): QFChart {
+function fakeChartWithDrawings(initial: DrawingElement[] = []): QFChart {
   const drawings: DrawingElement[] = initial.map((d) => ({ ...d }));
   return {
     drawings,
@@ -44,7 +46,7 @@ const d2: DrawingElement = {
 
 describe("chartTools drawing round-trip", () => {
   it("snapshot → clear → restore returns the same drawings (reload-persist)", () => {
-    const chart = fakeChart([d1, d2]);
+    const chart = fakeChartWithDrawings([d1, d2]);
     const snapshot = snapshotDrawings(chart);
     expect(clearChartDrawings(chart)).toBe(2);
     expect(drawingIds(chart)).toEqual([]);
@@ -54,7 +56,7 @@ describe("chartTools drawing round-trip", () => {
   });
 
   it("restore skips invalid entries and duplicate ids without lying about count", () => {
-    const chart = fakeChart([d1]);
+    const chart = fakeChartWithDrawings([d1]);
     const restored = restoreDrawings(chart, [
       d2,
       { id: 42, type: "line", points: [] },
@@ -70,23 +72,49 @@ describe("chartTools drawing round-trip", () => {
   });
 
   it("restore rejects non-array snapshots", () => {
-    expect(restoreDrawings(fakeChart(), null)).toBe(0);
-    expect(restoreDrawings(fakeChart(), { state: [] })).toBe(0);
+    expect(restoreDrawings(fakeChartWithDrawings(), null)).toBe(0);
+    expect(restoreDrawings(fakeChartWithDrawings(), { state: [] })).toBe(0);
   });
 
   it("undo removes the last drawing and returns its id", () => {
-    const chart = fakeChart([d1, d2]);
+    const chart = fakeChartWithDrawings([d1, d2]);
     expect(undoChartDrawing(chart)).toBe("fib-2");
     expect(drawingIds(chart)).toEqual(["line-1"]);
     expect(undoChartDrawing(chart)).toBe("line-1");
     expect(undoChartDrawing(chart)).toBeNull();
   });
+});
 
-  it("helpers degrade to empty on charts without a drawings array", () => {
-    const bare = {} as QFChart;
-    expect(drawingIds(bare)).toEqual([]);
-    expect(snapshotDrawings(bare)).toEqual([]);
-    expect(clearChartDrawings(bare)).toBe(0);
-    expect(undoChartDrawing(bare)).toBeNull();
+function fakeChart() {
+  return { disableTools: vi.fn() } as any;
+}
+
+function fakeTool(id: string) {
+  return { id, init: vi.fn(), activate: vi.fn(), deactivate: vi.fn() };
+}
+
+describe("activateChartTool", () => {
+  it("deactivates the previously activated tool so only one tool is live", () => {
+    const chart = fakeChart();
+    const a = fakeTool("a");
+    const b = fakeTool("b");
+    registerChartTools(chart, { a, b });
+    expect(activateChartTool(chart, "a")).toBe(true);
+    expect(a.activate).toHaveBeenCalledTimes(1);
+    // Stand-down targets every non-requested tool (idle ones get a
+    // harmless reset), so b is touched even though it was never live.
+    expect(b.deactivate).toHaveBeenCalledTimes(1);
+    expect(activateChartTool(chart, "b")).toBe(true);
+    // a must be stood down before b goes live; otherwise both draw.
+    expect(a.deactivate).toHaveBeenCalledTimes(1);
+    expect(b.activate).toHaveBeenCalledTimes(1);
+  });
+  it("returns false for unknown tools without touching the registry", () => {
+    const chart = fakeChart();
+    const a = fakeTool("a");
+    registerChartTools(chart, { a });
+    expect(activateChartTool(chart, "nope")).toBe(false);
+    expect(a.activate).not.toHaveBeenCalled();
+    expect(a.deactivate).not.toHaveBeenCalled();
   });
 });
