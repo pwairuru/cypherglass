@@ -7,7 +7,8 @@
     "dev": "vite --port 5173",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 5173",
-    "test": "vitest"
+    "test": "vitest",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@qfo/qfchart": "^0.8.7",
@@ -22,6 +23,9 @@
     "tailwindcss": "^3.4.10"
   },
   "devDependencies": {
+    "@noble/hashes": "^2.4.0",
+    "@noble/secp256k1": "^3.2.0",
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^6.4.0",
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.6.7",
