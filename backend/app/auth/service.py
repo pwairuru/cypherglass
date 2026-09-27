@@ -51,9 +51,16 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_token(sub: str) -> str:
+def create_token(sub: str, uid: str | None = None) -> str:
     exp = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_min)
-    return jwt.encode({"sub": sub, "exp": exp}, settings.jwt_secret, algorithm=ALGORITHM)
+    payload = {"sub": sub, "exp": exp}
+    if uid is not None:
+        payload["uid"] = uid
+    return jwt.encode(payload, settings.jwt_secret, algorithm=ALGORITHM)
+
+
+def decode_token(token: str) -> dict:
+    return jwt.decode(token, settings.jwt_secret, algorithms=[ALGORITHM])
 
 
 def _seed_allowed() -> bool:
