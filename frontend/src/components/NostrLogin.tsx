@@ -1,10 +1,6 @@
 import { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { nostrChallenge, nostrVerify, type NostrEvent } from "../lib/api";
-
-// QR choice: qrcode.react + nostr-tools NOT installed (`npm ls` empty) and
-// no network for installs in this env, so no QR image dep added. Fallback
-// per brief: show nostrconnect:// URI text + copy button. If qrcode.react
-// is added later, render <QRCodeSVG value={uri}/> in the QR panel below.
 
 declare global {
   interface Window {
@@ -144,7 +140,14 @@ export default function NostrLogin({ onToken }: { onToken: (t: string) => void }
           )}
           {uri && (
             <div>
-              <p>nostrconnect URI (QR image needs qrcode.react — not installed):</p>
+              <p>Scan with your Nostr mobile signer:</p>
+              <QRCodeSVG
+                value={uri}
+                size={192}
+                role="img"
+                aria-label="NostrConnect login QR code"
+              />
+              <p>nostrconnect URI:</p>
               <code style={{ wordBreak: "break-all" }}>{uri}</code>
               <div>
                 <button className="btn" type="button" onClick={() => void copyUri()}>

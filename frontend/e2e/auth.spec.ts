@@ -93,6 +93,9 @@ test("nostr QR/manual login end-to-end with real signatures", async ({
   const challenge = (await page.locator("p code").first().innerText()).trim();
   expect(challenge.length).toBeGreaterThan(16);
   await expect(page.locator("code", { hasText: "nostrconnect://" })).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: /nostrconnect login qr code/i }),
+  ).toBeVisible();
 
   const event = signEvent(skHex, {
     pubkey: pubHex,
@@ -137,6 +140,9 @@ test("register page offers social signup, nostr creates account", async ({
   await card.getByRole("button", { name: "Get login challenge" }).click();
   const challenge = (await card.locator("p code").first().innerText()).trim();
   expect(challenge.length).toBeGreaterThan(16);
+  await expect(
+    card.getByRole("img", { name: /nostrconnect login qr code/i }),
+  ).toBeVisible();
 
   const event = signEvent(skHex, {
     pubkey: pubHex,
