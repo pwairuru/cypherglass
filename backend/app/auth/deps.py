@@ -15,6 +15,20 @@ from app.db import get_session
 
 security = HTTPBearer(auto_error=False)
 
+# IDs of transient seed-fallback users (no DB row). GET /me is allowed;
+# all writes are blocked by routers via is_transient_user().
+_TRANSIENT_SEED_IDS: set[str] = set()
+
+
+def is_transient_user(user: User) -> bool:
+    """True when user has no DB row (seed fallback): id None or tracked."""
+    if user.id is None:
+        return True
+    try:
+        return str(user.id) in _TRANSIENT_SEED_IDS
+    except Exception:
+        return False
+
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
@@ -78,13 +92,16 @@ async def get_current_userinfo(
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
         return user
     # Dev seed fallback: token proves a prior successful seed login, so a
-    # matching seed subject is trusted without a DB row.
+    # matching seed subject is trusted without a DB row. The user stays
+    # transient (tracked): read-only, routers must block writes.
     if _seed_allowed() and sub == os.getenv("SEED_ADMIN_USER", "admin"):
-        return User(username=sub, is_active=True)
+        user = User(username=sub, is_active=True)
+        _TRANSIENT_SEED_IDS.add(str(user.id))
+        return user
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
 def require_admin(user: User = Depends(get_current_userinfo)) -> User:
-    if not user.is_admin:
+    if is_transient_user(user) or not user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="admin only")
     return user

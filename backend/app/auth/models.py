@@ -6,7 +6,9 @@ from sqlmodel import Field, SQLModel
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    # Naive UTC: columns are TIMESTAMP WITHOUT TIME ZONE and asyncpg
+    # rejects tz-aware datetimes on insert.
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class User(SQLModel, table=True):
@@ -21,7 +23,7 @@ class User(SQLModel, table=True):
     is_active: bool = True
     is_admin: bool = False
     created_at: datetime = Field(default_factory=_now)
-    updated_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now, sa_column_kwargs={"onupdate": _now})
 
 
 class SocialAuth(SQLModel, table=True):

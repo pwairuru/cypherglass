@@ -20,6 +20,24 @@ class ChallengeStoreError(RuntimeError):
     pass
 
 
+# Atomic compare-and-delete: succeeds (returns 1) only on exact match,
+# so a wrong guess never burns the pending challenge.
+_LUA_CONSUME = (
+    "if redis.call('GET', KEYS[1]) == ARGV[1] "
+    "then return redis.call('DEL', KEYS[1]) else return 0 end"
+)
+
+
+def _valkey_consume_atomic(client, key: str, challenge: str) -> bool | None:
+    """Lua compare-del. Returns True/False, or None when scripting is
+    unavailable (caller falls back to GET+DELETE)."""
+    try:
+        deleted = client.eval(_LUA_CONSUME, 1, key, challenge)
+        return bool(deleted)
+    except Exception:
+        return None
+
+
 def _valkey_client():
     global _client, _client_failed
     if _client is not None:
@@ -95,6 +113,10 @@ def consume_challenge(pubkey: str, challenge: str) -> bool:
     if client is not None:
         try:
             key = _KEY_PREFIX + pubkey
+            atomic = _valkey_consume_atomic(client, key, challenge)
+            if atomic is not None:
+                return atomic
+            # Fallback (no scripting): GET + conditional DELETE.
             val = client.get(key)
             if val is None:
                 return False

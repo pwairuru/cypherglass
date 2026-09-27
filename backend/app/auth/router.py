@@ -13,7 +13,7 @@ from app.auth import challenge_store
 from app.auth import oauth_state_store
 from app.auth import psa
 from app.auth.challenge_store import ChallengeStoreError
-from app.auth.deps import get_current_userinfo, require_admin
+from app.auth.deps import get_current_userinfo, is_transient_user, require_admin
 from app.auth.models import SocialAuth, User
 from app.auth.nostr_crypto import verify_nostr_event
 from app.auth.psa import OAuthError
@@ -125,6 +125,10 @@ async def update_me(
     user: User = Depends(get_current_userinfo),
     session: AsyncSession = Depends(get_session),
 ):
+    if is_transient_user(user):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="transient session"
+        )
     if data.email is not None:
         email = data.email.lower()
         dup = (await session.execute(select(User).where(User.email == email))).scalars().first()
@@ -137,7 +141,11 @@ async def update_me(
         user.avatar_url = data.avatar_url
     user.updated_at = _now()
     session.add(user)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="email taken") from None
     await session.refresh(user)
     return _me_out(user, await _providers_for(session, user))
 
@@ -148,6 +156,10 @@ async def change_password(
     user: User = Depends(get_current_userinfo),
     session: AsyncSession = Depends(get_session),
 ):
+    if is_transient_user(user):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="transient session"
+        )
     if not user.password_hash:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="password change unavailable"
@@ -211,6 +223,17 @@ def _is_hex64(v: object) -> bool:
     return isinstance(v, str) and len(v) == 64 and all(c in _HEX64 for c in v)
 
 
+def _is_nip98_http_auth(ev: dict) -> bool:
+    """NIP-98 HTTP-auth event: kind 27235 with ``u`` and ``method`` tags."""
+    if ev.get("kind") != 27235:
+        return False
+    tags = ev.get("tags", [])
+    if not isinstance(tags, list):
+        return False
+    names = {t[0] for t in tags if isinstance(t, list) and t}
+    return "u" in names and "method" in names
+
+
 @router.post("/nostr/challenge", response_model=NostrChallengeOut)
 async def nostr_challenge(data: NostrChallengeIn):
     challenge = secrets.token_hex(32)
@@ -243,7 +266,10 @@ async def nostr_verify(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_nostr_event"
         ) from None
-    if abs(now - created_at) > 300:
+    # NIP-98 HTTP-auth events carry a tight ±60s freshness window;
+    # plain challenge-flow events keep ±300s.
+    window = 60 if _is_nip98_http_auth(ev) else 300
+    if abs(now - created_at) > window:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_nostr_event"
         )
@@ -322,6 +348,10 @@ async def nostr_verify(
                     created_at=_now(),
                 )
             )
+        elif link.user_id != user.id:
+            # Orphan link (User row deleted): reassign to surviving user.
+            link.user_id = user.id
+            session.add(link)
         if not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_nostr_event"
@@ -446,6 +476,10 @@ async def oauth_callback(
                     created_at=_now(),
                 )
             )
+        elif link.user_id != user.id:
+            # Orphan link (User row deleted): reassign to surviving user.
+            link.user_id = user.id
+            session.add(link)
         if not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_oauth_login"
