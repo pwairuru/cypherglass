@@ -17,6 +17,7 @@ import os
 import sys
 
 STATEMENTS: tuple[str, ...] = (
+    """ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT""",
     """ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT""",
     """ALTER TABLE users ADD COLUMN IF NOT EXISTS npub TEXT""",
     """ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT""",
@@ -36,6 +37,7 @@ STATEMENTS: tuple[str, ...] = (
     """CREATE INDEX IF NOT EXISTS ix_social_auth_user_id ON social_auth (user_id)""",
     """CREATE INDEX IF NOT EXISTS ix_social_auth_provider ON social_auth (provider)""",
     """CREATE UNIQUE INDEX IF NOT EXISTS ix_users_npub ON users (npub)""",
+    """CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users (email)""",
 )
 
 
