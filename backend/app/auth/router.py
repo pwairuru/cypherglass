@@ -1,13 +1,19 @@
+import secrets
+import time
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import or_, select
 
+from app.auth import challenge_store
+from app.auth.challenge_store import ChallengeStoreError
 from app.auth.deps import get_current_userinfo, require_admin
 from app.auth.models import SocialAuth, User
+from app.auth.nostr_crypto import verify_nostr_event
 from app.auth.schemas import (
     AdminUserUpdate,
     ChangePasswordIn,
@@ -170,6 +176,166 @@ async def list_users(
     stmt = stmt.order_by(User.created_at).offset(offset).limit(limit)
     users = (await session.execute(stmt)).scalars().all()
     return [_user_out(u) for u in users]
+
+
+class NostrChallengeIn(BaseModel):
+    pubkey: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+
+
+class NostrChallengeOut(BaseModel):
+    challenge: str
+    expires_in: int
+
+
+class NostrEvent(BaseModel):
+    id: str
+    pubkey: str
+    created_at: int
+    kind: int
+    tags: list = []
+    content: str = ""
+    sig: str
+
+
+class NostrVerifyIn(BaseModel):
+    event: NostrEvent
+
+
+_HEX64 = set("0123456789abcdefABCDEF")
+
+
+def _is_hex64(v: object) -> bool:
+    return isinstance(v, str) and len(v) == 64 and all(c in _HEX64 for c in v)
+
+
+@router.post("/nostr/challenge", response_model=NostrChallengeOut)
+async def nostr_challenge(data: NostrChallengeIn):
+    challenge = secrets.token_hex(32)
+    try:
+        challenge_store.issue_challenge(data.pubkey.lower(), challenge)
+    except ChallengeStoreError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="challenge store unavailable",
+        ) from None
+    return NostrChallengeOut(
+        challenge=challenge, expires_in=challenge_store.CHALLENGE_TTL
+    )
+
+
+@router.post("/nostr/verify", response_model=TokenOut)
+async def nostr_verify(
+    data: NostrVerifyIn, session: AsyncSession = Depends(get_session)
+):
+    ev = data.event.model_dump()
+    pubkey = ev.get("pubkey", "")
+    if not _is_hex64(pubkey) or not verify_nostr_event(ev):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_nostr_event"
+        )
+    now = int(time.time())
+    try:
+        created_at = int(ev.get("created_at", 0))
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_nostr_event"
+        ) from None
+    if abs(now - created_at) > 300:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_nostr_event"
+        )
+    try:
+        pending = challenge_store.get_challenge(pubkey.lower())
+    except ChallengeStoreError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="challenge store unavailable",
+        ) from None
+    if pending is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="unknown_challenge"
+        )
+    if not isinstance(ev.get("content"), str):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_nostr_event"
+        )
+    try:
+        ok = challenge_store.consume_challenge(pubkey.lower(), ev["content"])
+    except ChallengeStoreError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="challenge store unavailable",
+        ) from None
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_nostr_event"
+        )
+    # Link-or-create: SocialAuth(nostr, pubkey) -> User, else User(npub) link,
+    # else fresh User(username nostr_<8>) + SocialAuth row. Fail-closed: any
+    # unexpected DB error -> 401, never issue a token without verification.
+    try:
+        link = (
+            await session.execute(
+                select(SocialAuth).where(
+                    SocialAuth.provider == "nostr", SocialAuth.uid == pubkey.lower()
+                )
+            )
+        ).scalars().first()
+        user: User | None = None
+        if link is not None:
+            user = (
+                await session.execute(select(User).where(User.id == link.user_id))
+            ).scalars().first()
+        if user is None:
+            user = (
+                await session.execute(select(User).where(User.npub == pubkey.lower()))
+            ).scalars().first()
+        if user is None:
+            base = f"nostr_{pubkey[:8].lower()}"
+            username = base
+            suffix = 1
+            while (
+                await session.execute(select(User).where(User.username == username))
+            ).scalars().first() is not None:
+                suffix += 1
+                username = f"{base}_{suffix}"
+            user = User(
+                username=username,
+                npub=pubkey.lower(),
+                password_hash="",
+                created_at=_now(),
+                updated_at=_now(),
+            )
+            session.add(user)
+            await session.flush()
+        if link is None:
+            session.add(
+                SocialAuth(
+                    user_id=user.id,
+                    provider="nostr",
+                    uid=pubkey.lower(),
+                    # Naive UTC: models default is tz-aware but columns are
+                    # TIMESTAMP WITHOUT TIME ZONE (asyncpg rejects tz-aware).
+                    created_at=_now(),
+                )
+            )
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_nostr_event"
+            )
+        await session.commit()
+        await session.refresh(user)
+    except HTTPException:
+        raise
+    except Exception:
+        try:
+            await session.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_nostr_event"
+        ) from None
+    return TokenOut(access_token=create_token(user.username, str(user.id)))
 
 
 @router.patch("/users/{user_id}", response_model=UserOut)
