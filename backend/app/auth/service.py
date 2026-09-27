@@ -80,14 +80,21 @@ def _seed_user(username: str, password: str) -> User | None:
     return None
 
 
-async def authenticate(session: AsyncSession, username: str, password: str) -> User | None:
+async def authenticate(session: AsyncSession, identifier: str, password: str) -> User | None:
+    """Verify credentials. ``identifier`` is a username, or an email address
+    (matched case-insensitively) when it contains '@'."""
     try:
         user = (
-            await session.execute(select(User).where(User.username == username))
+            await session.execute(select(User).where(User.username == identifier))
         ).scalars().first()
+        if user is None and "@" in identifier:
+            email = identifier.lower()
+            user = (
+                await session.execute(select(User).where(User.email == email))
+            ).scalars().first()
     except _SETUP_ERRORS:
         # Table missing or DB unreachable during setup -> gated dev fallback.
-        return _seed_user(username, password)
+        return _seed_user(identifier, password)
     except Exception:
         # Unexpected query error -> fail-closed (no seed fallback).
         return None
@@ -97,14 +104,14 @@ async def authenticate(session: AsyncSession, username: str, password: str) -> U
         if not verify_password(password, user.password_hash):
             return None
         return user
-    # Username not found: seed fallback only when table is empty/unreachable;
+    # Identifier not found: seed fallback only when table is empty/unreachable;
     # fail-closed once any real user exists.
     try:
         any_id = (await session.execute(select(User.id).limit(1))).scalars().first()
     except _SETUP_ERRORS:
-        return _seed_user(username, password)
+        return _seed_user(identifier, password)
     except Exception:
         return None
     if any_id is None:
-        return _seed_user(username, password)
+        return _seed_user(identifier, password)
     return None
