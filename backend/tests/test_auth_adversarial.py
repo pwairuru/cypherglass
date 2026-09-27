@@ -243,7 +243,9 @@ def test_xss_display_name_escaped(client):
         json={"display_name": payload},
     )
     assert m.status_code == 200
-    assert "<script>" not in m.json().get("display_name", "") or True
+    # NOTE: backend stores display_name raw (React JSX-escapes on render;
+    # no dangerouslySetInnerHTML in frontend). Only the 64-char cap is
+    # asserted here.
     assert len(m.json()["display_name"]) <= 64
 
 

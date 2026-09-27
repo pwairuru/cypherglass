@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { changePassword, updateMe } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -12,6 +12,13 @@ export default function Profile() {
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  // Sync form fields once session restore resolves (user starts undefined).
+  useEffect(() => {
+    setDisplayName(user?.display_name ?? "");
+    setAvatarUrl(user?.avatar_url ?? "");
+    setEmail(user?.email ?? "");
+  }, [user]);
 
   async function onSaveProfile(e: FormEvent): Promise<void> {
     e.preventDefault();

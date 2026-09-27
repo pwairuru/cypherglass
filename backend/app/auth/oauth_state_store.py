@@ -11,15 +11,20 @@ OAUTH_STATE_TTL = 600
 _memory: dict[str, float] = {}
 
 
+def _now() -> float:
+    """Time source indirection so tests can monkeypatch expiry."""
+    return time.time()
+
+
 def issue_state(state: str) -> None:
-    _memory[state] = time.time() + OAUTH_STATE_TTL
+    _memory[state] = _now() + OAUTH_STATE_TTL
 
 
 def consume_state(state: str) -> bool:
     exp = _memory.get(state)
     if exp is None:
         return False
-    if time.time() > exp:
+    if _now() > exp:
         _memory.pop(state, None)
         return False
     _memory.pop(state, None)
