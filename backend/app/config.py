@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     jwt_secret: str = "changeme-dev-secret"
     jwt_expire_min: int = 60
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    oauth_redirect_base: str = "http://localhost:8000"
 
 
 settings = Settings()

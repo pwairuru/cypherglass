@@ -10,10 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import or_, select
 
 from app.auth import challenge_store
+from app.auth import psa
 from app.auth.challenge_store import ChallengeStoreError
 from app.auth.deps import get_current_userinfo, require_admin
 from app.auth.models import SocialAuth, User
 from app.auth.nostr_crypto import verify_nostr_event
+from app.auth.psa import OAuthError
 from app.auth.schemas import (
     AdminUserUpdate,
     ChangePasswordIn,
@@ -334,6 +336,112 @@ async def nostr_verify(
             pass
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_nostr_event"
+        ) from None
+    return TokenOut(access_token=create_token(user.username, str(user.id)))
+
+
+class OAuthStartOut(BaseModel):
+    auth_url: str
+    state: str
+
+
+@router.get("/oauth/{provider}/start", response_model=OAuthStartOut)
+async def oauth_start(provider: str):
+    try:
+        return psa.get_oauth_url(provider)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="unknown provider"
+        ) from None
+
+
+@router.get("/oauth/{provider}/callback", response_model=TokenOut)
+async def oauth_callback(
+    provider: str,
+    code: str = Query(default=""),
+    state: str = Query(default=""),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        info = psa.complete_oauth(provider, code, state)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="unknown provider"
+        ) from None
+    except OAuthError:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="provider_error"
+        ) from None
+    uid = str(info.get("uid", ""))
+    if not uid:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="provider_error"
+        )
+    # Link-or-create (associate_by_email DISABLED: never merge into an
+    # existing email row; SocialAuth link is the only join key). Fail-closed:
+    # any unexpected DB error -> 401, never issue a token without a link.
+    try:
+        link = (
+            await session.execute(
+                select(SocialAuth).where(
+                    SocialAuth.provider == provider, SocialAuth.uid == uid
+                )
+            )
+        ).scalars().first()
+        user: User | None = None
+        if link is not None:
+            user = (
+                await session.execute(select(User).where(User.id == link.user_id))
+            ).scalars().first()
+        if user is None:
+            email = info.get("email")
+            email = email.lower() if email else None
+            local = (email.split("@")[0] if email else "")
+            base = psa.sanitize_username(local, f"{provider}_{uid[:8]}")
+            username = base
+            suffix = 1
+            while (
+                await session.execute(select(User).where(User.username == username))
+            ).scalars().first() is not None:
+                suffix += 1
+                username = f"{base}_{suffix}"
+            user = User(
+                username=username,
+                email=email,
+                display_name=info.get("name"),
+                avatar_url=info.get("avatar_url"),
+                password_hash="",
+                created_at=_now(),
+                updated_at=_now(),
+            )
+            session.add(user)
+            await session.flush()
+        if link is None:
+            session.add(
+                SocialAuth(
+                    user_id=user.id,
+                    provider=provider,
+                    uid=uid,
+                    # Naive UTC: models default is tz-aware but columns are
+                    # TIMESTAMP WITHOUT TIME ZONE (asyncpg rejects tz-aware).
+                    created_at=_now(),
+                )
+            )
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_oauth_login"
+            )
+        await session.commit()
+        await session.refresh(user)
+    except HTTPException:
+        raise
+    except Exception:
+        try:
+            await session.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_oauth_login"
         ) from None
     return TokenOut(access_token=create_token(user.username, str(user.id)))
 
