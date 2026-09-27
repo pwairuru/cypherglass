@@ -57,7 +57,9 @@ def get_oauth_url(provider: str) -> dict:
     """Build the provider authorization URL + anti-CSRF state."""
     if provider not in PROVIDERS:
         raise ValueError(f"unknown provider: {provider}")
-    client_id, _ = _client_credentials(provider)
+    client_id, client_secret = _client_credentials(provider)
+    if not client_id or not client_secret:
+        raise OAuthError("oauth provider not configured")
     state = secrets.token_urlsafe(32)
     params = {
         "client_id": client_id,
@@ -72,7 +74,7 @@ def get_oauth_url(provider: str) -> dict:
     return {"auth_url": url, "state": state}
 
 
-def _exchange_code(provider: str, code: str) -> str:
+async def _exchange_code(provider: str, code: str) -> str:
     client_id, client_secret = _client_credentials(provider)
     data = {
         "client_id": client_id,
@@ -84,8 +86,8 @@ def _exchange_code(provider: str, code: str) -> str:
         data["grant_type"] = "authorization_code"
     headers = {"Accept": "application/json"}
     try:
-        with httpx.Client(timeout=15) as client:
-            r = client.post(_TOKEN_URLS[provider], data=data, headers=headers)
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(_TOKEN_URLS[provider], data=data, headers=headers)
             r.raise_for_status()
             token_data = r.json()
     except Exception as exc:
@@ -96,30 +98,30 @@ def _exchange_code(provider: str, code: str) -> str:
     return access_token
 
 
-def _fetch_userinfo(provider: str, access_token: str) -> dict:
+async def _fetch_userinfo(provider: str, access_token: str) -> dict:
     headers = {"Authorization": f"Bearer {access_token}", "Accept": "application/json"}
     try:
-        with httpx.Client(timeout=15) as client:
-            r = client.get(_USERINFO_URLS[provider], headers=headers)
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(_USERINFO_URLS[provider], headers=headers)
             r.raise_for_status()
             return r.json()
     except Exception as exc:
         raise OAuthError(f"userinfo fetch failed: {exc}") from exc
 
 
-def complete_oauth(provider: str, code: str, state: str) -> dict:
+async def complete_oauth(provider: str, code: str, state: str) -> dict:
     """Exchange ``code`` and return normalized identity.
 
     Returns ``{"provider", "uid", "email", "name", "avatar_url"}``.
-    ``state`` is accepted for signature parity (router/session store owns
-    state validation); ``code``/``state`` must be non-empty.
+    ``state`` is accepted for signature parity (router owns state
+    validation via oauth_state_store); ``code``/``state`` must be non-empty.
     """
     if provider not in PROVIDERS:
         raise ValueError(f"unknown provider: {provider}")
     if not code or not state:
         raise OAuthError("missing code or state")
-    access_token = _exchange_code(provider, code)
-    info = _fetch_userinfo(provider, access_token)
+    access_token = await _exchange_code(provider, code)
+    info = await _fetch_userinfo(provider, access_token)
     if provider == "google":
         uid = str(info.get("sub", ""))
         return {

@@ -7,7 +7,7 @@ from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 from sqlmodel import SQLModel
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from app.auth.models import SocialAuth, User
 from app.config import settings
@@ -50,22 +50,37 @@ def _tables():
 @pytest.fixture(autouse=True)
 def _clean():
     _run(_wipe())
+    from app.auth import oauth_state_store as oss
+
+    oss.clear_all()
     yield
     _run(_wipe())
+    oss.clear_all()
 
 
 def test_oauth_start_google(client):
+    from app.config import settings
+
+    settings.google_client_id = "test-id"
+    settings.google_client_secret = "test-secret"
     r = client.get("/api/v1/auth/oauth/google/start")
     assert r.status_code == 200
     assert "accounts.google.com" in r.json()["auth_url"]
 
 
 def test_oauth_callback_mocked(client):
+    from app.config import settings
+
+    settings.google_client_id = "test-id"
+    settings.google_client_secret = "test-secret"
+    state = client.get("/api/v1/auth/oauth/google/start").json()["state"]
     with patch(
         "app.auth.psa.complete_oauth",
-        return_value={"provider": "google", "uid": "g123", "email": "g@x.io"},
+        new=AsyncMock(
+            return_value={"provider": "google", "uid": "g123", "email": "g@x.io"}
+        ),
     ):
-        r = client.get("/api/v1/auth/oauth/google/callback?code=abc&state=s")
+        r = client.get(f"/api/v1/auth/oauth/google/callback?code=abc&state={state}")
         assert r.status_code == 200
         assert "access_token" in r.json()
 

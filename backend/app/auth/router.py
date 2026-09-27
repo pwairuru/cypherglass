@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import or_, select
 
 from app.auth import challenge_store
+from app.auth import oauth_state_store
 from app.auth import psa
 from app.auth.challenge_store import ChallengeStoreError
 from app.auth.deps import get_current_userinfo, require_admin
@@ -348,11 +349,17 @@ class OAuthStartOut(BaseModel):
 @router.get("/oauth/{provider}/start", response_model=OAuthStartOut)
 async def oauth_start(provider: str):
     try:
-        return psa.get_oauth_url(provider)
+        out = psa.get_oauth_url(provider)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="unknown provider"
         ) from None
+    except OAuthError:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="provider_error"
+        ) from None
+    oauth_state_store.issue_state(out["state"])
+    return out
 
 
 @router.get("/oauth/{provider}/callback", response_model=TokenOut)
@@ -362,8 +369,20 @@ async def oauth_callback(
     state: str = Query(default=""),
     session: AsyncSession = Depends(get_session),
 ):
+    if provider not in psa.PROVIDERS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="unknown provider"
+        )
+    if not code or not state:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="missing code or state"
+        )
+    if not oauth_state_store.consume_state(state):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="invalid_state"
+        )
     try:
-        info = psa.complete_oauth(provider, code, state)
+        info = await psa.complete_oauth(provider, code, state)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="unknown provider"
