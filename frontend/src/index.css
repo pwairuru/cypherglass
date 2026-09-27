@@ -181,6 +181,46 @@
   background: hsl(var(--accent));
 }
 
+.auth-form {
+  display: grid;
+  gap: 12px;
+}
+
+.auth-form h1 {
+  margin: 0;
+}
+
+.social-divider {
+  text-align: center;
+  opacity: 0.7;
+  margin: 4px 0 8px;
+}
+
+.social-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.social-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.social-btn svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.social-btn.is-active {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--accent));
+  color: hsl(var(--foreground));
+}
+
 .error {
   color: hsl(var(--destructive));
 }
@@ -340,7 +380,9 @@
   border-radius: 6px;
   background: transparent;
   color: hsl(var(--muted-foreground));
-  padding: 6px 12px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  line-height: 1.4;
   cursor: pointer;
 }
 

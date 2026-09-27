@@ -117,6 +117,48 @@ test("nostr QR/manual login end-to-end with real signatures", async ({
   expect(body.providers).toContain("nostr");
 });
 
+test("register page offers social signup, nostr creates account", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/register");
+  const card = page.locator(".login-page .card");
+  await expect(
+    card.getByRole("button", { name: /continue with google/i }),
+  ).toBeVisible();
+  await expect(
+    card.getByRole("button", { name: /continue with github/i }),
+  ).toBeVisible();
+
+  const { pubHex, skHex } = genKey();
+  await card.getByRole("button", { name: "Continue with Nostr" }).click();
+  await card.getByRole("button", { name: "QR / mobile" }).click();
+  await card.getByPlaceholder("64 hex chars").fill(pubHex);
+  await card.getByRole("button", { name: "Get login challenge" }).click();
+  const challenge = (await card.locator("p code").first().innerText()).trim();
+  expect(challenge.length).toBeGreaterThan(16);
+
+  const event = signEvent(skHex, {
+    pubkey: pubHex,
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 27235,
+    tags: [],
+    content: challenge,
+  });
+  await card
+    .getByPlaceholder('{"id":...,"pubkey":...,"sig":...}')
+    .fill(JSON.stringify(event));
+  await card.getByRole("button", { name: "Verify and sign in" }).click();
+  await expect(page).toHaveURL("/");
+
+  const tok = await tokenOf(page);
+  const me = await request.get(`${API}/api/v1/auth/me`, {
+    headers: { Authorization: `Bearer ${tok}` },
+  });
+  expect(me.ok()).toBeTruthy();
+  expect((await me.json()).npub).toBe(pubHex);
+});
+
 test("tampered nostr event is rejected", async ({ page }) => {
   const { pubHex, skHex } = genKey();
   await page.goto("/login");

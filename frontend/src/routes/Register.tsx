@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import SocialLogin from "../components/SocialLogin";
 
 export default function Register() {
-  const { register } = useAuth();
+  const { register, loginWithToken } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -25,9 +26,15 @@ export default function Register() {
     }
   }
 
+  async function onNostrToken(accessToken: string): Promise<void> {
+    await loginWithToken(accessToken);
+    navigate("/", { replace: true });
+  }
+
   return (
     <div className="login-page">
-      <form className="card" onSubmit={onSubmit}>
+      <div className="card">
+      <form className="auth-form" onSubmit={onSubmit}>
         <h1>Create account</h1>
         <label>
           Username
@@ -66,6 +73,8 @@ export default function Register() {
           Have an account? <Link to="/login">Sign in</Link>
         </p>
       </form>
+      <SocialLogin onNostrToken={onNostrToken} />
+      </div>
     </div>
   );
 }
