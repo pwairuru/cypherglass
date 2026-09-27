@@ -3,19 +3,69 @@
 All tests run without a live database (fakes + TestClient seed fallback).
 """
 
+import asyncio
+import secrets
 import time
 import uuid
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
+from sqlmodel import SQLModel
 
 from app.auth import challenge_store, oauth_state_store
 from app.auth import router as auth_router
 from app.auth.deps import _TRANSIENT_SEED_IDS, is_transient_user
 from app.auth.models import SocialAuth, User
 from app.auth.schemas import MeUpdate
+from app.config import settings
+from app.db import get_session
 from app.main import app
+
+
+def _run(coro):
+    return asyncio.run(coro)
+
+
+# NullPool: app-global engine pins pooled connections to first TestClient
+# portal loop; second TestClient request in same process hits cross-loop
+# RuntimeError masked as 401. Fresh connection per session avoids it.
+test_engine = create_async_engine(settings.database_url, poolclass=NullPool)
+TestSession = async_sessionmaker(test_engine, expire_on_commit=False)
+
+
+async def _override_get_session():
+    async with TestSession() as s:
+        yield s
+
+
+async def _create_tables():
+    async with test_engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+
+
+async def _wipe():
+    async with test_engine.begin() as conn:
+        await conn.execute(delete(SocialAuth))
+        await conn.execute(delete(User))
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _tables():
+    _run(_create_tables())
+    app.dependency_overrides[get_session] = _override_get_session
+    yield
+    app.dependency_overrides.pop(get_session, None)
+
+
+@pytest.fixture(autouse=True)
+def _clean():
+    _run(_wipe())
+    yield
+    _run(_wipe())
 
 
 # ---------- fakes ----------
@@ -71,10 +121,13 @@ class FakeSession:
         pass
 
 
-def _valid_event(**kw):
+def _valid_event(key: bytes | None = None, **kw):
     from coincurve import PrivateKey
 
-    sk = PrivateKey(b"\x44" * 32)
+    # Fresh random key per call: a fixed key collides with challenges
+    # persisting in Valkey across runs (content "chal" mismatch -> 401
+    # instead of expected 404 unknown_challenge).
+    sk = PrivateKey(key or secrets.token_bytes(32))
     pub = sk.public_key.format(compressed=False)[1:33].hex()
     from app.auth.nostr_crypto import nostr_event_id
 
@@ -91,13 +144,14 @@ def _valid_event(**kw):
     return ev
 
 
-def _nip98_signed(created_at):
+def _nip98_signed(created_at, key: bytes | None = None):
     """Real signed NIP-98 HTTP-auth event (u + method tags)."""
     from coincurve import PrivateKey
 
     from app.auth.nostr_crypto import nostr_event_id
 
-    sk = PrivateKey(b"\x55" * 32)
+    # Fresh random key per call (same Valkey-collision reason as _valid_event).
+    sk = PrivateKey(key or secrets.token_bytes(32))
     pub = sk.public_key.format(compressed=False)[1:33].hex()
     ev = {
         "pubkey": pub,
