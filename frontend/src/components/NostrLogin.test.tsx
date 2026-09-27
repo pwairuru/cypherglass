@@ -23,7 +23,7 @@ test("shows extension and QR options", () => {
 test("QR tab renders a scannable code after challenge", async () => {
   render(<NostrLogin onToken={() => {}} />);
   fireEvent.click(screen.getAllByRole("button", { name: /qr \/ mobile/i })[0]);
-  fireEvent.change(screen.getByPlaceholderText("64 hex chars"), {
+  fireEvent.change(screen.getByPlaceholderText(/64 hex chars/), {
     target: { value: "a".repeat(64) },
   });
   fireEvent.click(screen.getByRole("button", { name: /get login challenge/i }));

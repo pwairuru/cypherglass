@@ -1,5 +1,6 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { hashes, schnorr, utils } from "@noble/secp256k1";
+import { bech32 } from "@scure/base";
 
 hashes.sha256 = sha256;
 
@@ -23,6 +24,14 @@ export interface SignedNostrEvent extends NostrDraft {
 export function genKey(): { skHex: string; pubHex: string } {
   const sk = utils.randomSecretKey();
   return { skHex: hex(sk), pubHex: hex(schnorr.getPublicKey(sk)) };
+}
+
+export function toNpub(pubHex: string): string {
+  return bech32.encode(
+    "npub",
+    bech32.toWords(unhex(pubHex)),
+    200,
+  );
 }
 
 export function eventId(ev: NostrDraft): string {

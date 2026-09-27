@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { nostrChallenge, nostrVerify, type NostrEvent } from "../lib/api";
+import { normalizePubkey } from "../lib/nostr";
 
 declare global {
   interface Window {
@@ -55,8 +56,7 @@ export default function NostrLogin({ onToken }: { onToken: (t: string) => void }
     setError(null);
     setPending(true);
     try {
-      const pk = pubkey.trim().toLowerCase();
-      if (!/^[0-9a-f]{64}$/.test(pk)) throw new Error("Invalid pubkey (need 64 hex chars)");
+      const pk = normalizePubkey(pubkey);
       const { challenge: ch } = await nostrChallenge(pk);
       setChallenge(ch);
       setUri(buildNostrConnectUri(pk, ch));
@@ -122,12 +122,12 @@ export default function NostrLogin({ onToken }: { onToken: (t: string) => void }
         <div>
           <p>Mobile wallet: enter your pubkey, scan or copy the nostrconnect URI, sign the challenge, paste the signed event.</p>
           <label>
-            Pubkey (hex)
+            Pubkey (hex or npub)
             <input
               className="input"
               value={pubkey}
               onChange={(e) => setPubkey(e.target.value)}
-              placeholder="64 hex chars"
+              placeholder="64 hex chars or npub1…"
             />
           </label>
           <button className="btn" type="button" onClick={() => void fetchChallenge()} disabled={pending}>

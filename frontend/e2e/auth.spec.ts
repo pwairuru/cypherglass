@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { genKey, signEvent } from "./nostr-sign";
+import { genKey, signEvent, toNpub } from "./nostr-sign";
 import { promoteAdmin } from "./global-setup";
 
 const API = `http://localhost:${process.env.E2E_API_PORT ?? 8100}`;
@@ -155,6 +155,43 @@ test("register page offers social signup, nostr creates account", async ({
     .getByPlaceholder('{"id":...,"pubkey":...,"sig":...}')
     .fill(JSON.stringify(event));
   await card.getByRole("button", { name: "Verify and sign in" }).click();
+  await expect(page).toHaveURL("/");
+
+  const tok = await tokenOf(page);
+  const me = await request.get(`${API}/api/v1/auth/me`, {
+    headers: { Authorization: `Bearer ${tok}` },
+  });
+  expect(me.ok()).toBeTruthy();
+  expect((await me.json()).npub).toBe(pubHex);
+});
+
+test("nostr login accepts a pasted npub address", async ({
+  page,
+  request,
+}) => {
+  const { pubHex, skHex } = genKey();
+  const npub = toNpub(pubHex);
+  expect(npub.startsWith("npub1")).toBe(true);
+
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Continue with Nostr" }).click();
+  await page.getByRole("button", { name: "QR / mobile" }).click();
+  await page.getByPlaceholder(/64 hex chars/).fill(`  ${npub} `);
+  await page.getByRole("button", { name: "Get login challenge" }).click();
+  const challenge = (await page.locator("p code").first().innerText()).trim();
+  expect(challenge.length).toBeGreaterThan(16);
+
+  const event = signEvent(skHex, {
+    pubkey: pubHex,
+    created_at: Math.floor(Date.now() / 1000),
+    kind: 27235,
+    tags: [],
+    content: challenge,
+  });
+  await page
+    .getByPlaceholder('{"id":...,"pubkey":...,"sig":...}')
+    .fill(JSON.stringify(event));
+  await page.getByRole("button", { name: "Verify and sign in" }).click();
   await expect(page).toHaveURL("/");
 
   const tok = await tokenOf(page);

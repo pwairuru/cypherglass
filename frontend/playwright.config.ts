@@ -10,6 +10,9 @@ export default defineConfig({
   testDir: "./e2e",
   globalSetup: "./e2e/global-setup.ts",
   timeout: 60_000,
+  // Serial: this box runs ~28/31GB used; parallel browsers get OOM-killed.
+  workers: 1,
+  fullyParallel: false,
   expect: { timeout: 10_000 },
   // Container has no display server; run headless. The headed preference
   // in AGENTS.md applies to interactive MCP browser sessions, not CI runs.

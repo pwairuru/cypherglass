@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@qfo/qfchart": "^0.8.7",
+    "@scure/base": "^2.4.0",
     "@tanstack/react-query": "^5.50.0",
     "clsx": "^2.1.0",
     "echarts": "^5.5.1",
