@@ -18,11 +18,11 @@ describe("DrawingPanel", () => {
   it("activates rectangle/text via QFDraw registry groups", () => {
     const onTool = setup();
     fireEvent.click(screen.getByRole("button", { name: /shapes tools/i }));
-    const rect = screen.getByRole("button", { name: /^rectangle$/i });
+    const rect = screen.getByRole("menuitem", { name: /^rectangle$/i });
     expect(rect).toBeEnabled();
     fireEvent.click(rect);
     fireEvent.click(screen.getByRole("button", { name: /annotations tools/i }));
-    const text = screen.getByRole("button", { name: /^text$/i });
+    const text = screen.getByRole("menuitem", { name: /^text$/i });
     expect(text).toBeEnabled();
     fireEvent.click(text);
     expect(onTool).toHaveBeenCalledWith("rectangle");
@@ -37,9 +37,34 @@ describe("DrawingPanel", () => {
   it("group headers toggle open without emitting a tool", () => {
     const onTool = setup();
     fireEvent.click(screen.getByRole("button", { name: /gann tools/i }));
-    expect(screen.getByRole("button", { name: /^gann box$/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /^gann box$/i })).toBeInTheDocument();
     expect(onTool).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: /^gann fan$/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^gann fan$/i }));
     expect(onTool).toHaveBeenCalledWith("gannFan");
+  });
+  it("marks every group with an arrow badge and menu semantics", () => {
+    setup();
+    for (const g of PANEL_GROUPS) {
+      const header = screen.getByRole("button", { name: new RegExp(`${g.label} tools`, "i") });
+      expect(header).toHaveAttribute("aria-haspopup", "menu");
+      // Tiny arrow indicator inside each group button.
+      expect(header.querySelector(".group-arrow")).not.toBeNull();
+    }
+  });
+  it("opens the flyout to the side and closes it on select", () => {
+    const onTool = setup();
+    fireEvent.click(screen.getByRole("button", { name: /fibonacci tools/i }));
+    const menu = screen.getByRole("menu", { name: /fibonacci/i });
+    expect(menu).toHaveClass("drawing-flyout");
+    fireEvent.click(screen.getByRole("menuitem", { name: /^fibonacci extension$/i }));
+    expect(onTool).toHaveBeenCalledWith("fibExtension");
+    expect(screen.queryByRole("menu", { name: /fibonacci/i })).not.toBeInTheDocument();
+  });
+  it("closes the flyout on Escape", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: /gann tools/i }));
+    expect(screen.getByRole("menu", { name: /gann/i })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("menu", { name: /gann/i })).not.toBeInTheDocument();
   });
 });

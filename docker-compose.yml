@@ -12,6 +12,7 @@ services:
     volumes:
       - ./volumes/rustfs:/data
     command: server /data --console-address :9001
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-s", "-o", "/dev/null", "http://localhost:9000/"]
       interval: 10s
@@ -44,6 +45,7 @@ services:
       - ./valkey/valkey.conf:/usr/local/etc/valkey/valkey.conf
       - ./volumes/valkey:/data
     command: valkey-server /usr/local/etc/valkey/valkey.conf
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
@@ -97,6 +99,7 @@ services:
       - ./clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
       - ./clickhouse/init:/docker-entrypoint-initdb.d:ro
       - ./volumes/clickhouse:/var/lib/clickhouse
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "clickhouse-client", "-q", "SELECT 1"]
       interval: 10s
@@ -115,6 +118,7 @@ services:
       - "5433:5432"
     volumes:
       - ./volumes/pg:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cypher"]
       interval: 10s
@@ -128,6 +132,7 @@ services:
       - "6382:6379"
     volumes:
       - ./volumes/valkey-app:/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 5s

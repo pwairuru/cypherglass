@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     github_client_id: str = ""
     github_client_secret: str = ""
-    oauth_redirect_base: str = "http://localhost:8000"
+    oauth_redirect_base: str = "http://localhost:8002"
 
 
 settings = Settings()

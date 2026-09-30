@@ -10,7 +10,7 @@
         </default>
         <bitcoin>
             <!-- PRODUCTION: Set CLICKHOUSE_PASSWORD env var. This file uses from_env; fallback is dev-only. -->
-            <password from_env="CLICKHOUSE_PASSWORD">bitcoin_clickhouse</password>
+            <password>bitcoin_clickhouse</password>
             <networks>
                 <ip>::/0</ip>
             </networks>

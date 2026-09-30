@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { QFChart, LineTool, RayTool, HorizontalLineTool, FibonacciTool, MeasureTool } from "@qfo/qfchart";
-import type { OhlcBar } from "./PriceChart";
+import type { ChartMode, OhlcBar } from "./PriceChart";
 import { registerChartTools } from "../lib/chartTools";
 import { registerAllQfDrawings } from "../lib/qfdraw/registry";
 
@@ -14,17 +14,22 @@ interface OnchainChartProps {
   title: string;
   points: SeriesPoint[];
   priceBars?: OhlcBar[];
+  mode?: ChartMode;
   onReady?: (chart: QFChart) => void;
 }
 
 const toTime = (t: string) => Date.parse(t); // unix ms: QFChart labels use new Date(time)
 
-export default function OnchainChart({ chartKey, title, points, priceBars, onReady }: OnchainChartProps) {
+export default function OnchainChart({ chartKey, title, points, priceBars, mode = "line", onReady }: OnchainChartProps) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<QFChart | null>(null);
 
   useEffect(() => {
     if (!divRef.current) return;
+    // Candles mode reuses the price overlay's real OHLC as market data (the
+    // metric itself is single-value: flat o=h=l=c "candles" would carry no
+    // information). Without price bars, fall back to line mode.
+    const candleMode = mode === "candles" && priceBars !== undefined && priceBars.length > 0;
     // No hide-candles flag exists in QFChart typings (checked 0.8.7
     // index.d.ts: only upColor/downColor/fontColor styling). The synthetic
     // flat bars (o=h=l=c=v, volume 0) exist only to build the time axis, so
@@ -35,8 +40,7 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
       backgroundColor: "transparent",
       layout: { left: "2%", right: "7%" },
       dataZoom: { visible: false },
-      upColor: "transparent",
-      downColor: "transparent",
+      ...(!candleMode ? { upColor: "transparent", downColor: "transparent" } : {}),
     });
     // Registration contract mirrors PriceChart (direct calls; tests mock
     // the full QFChart instance the same way).
@@ -63,16 +67,19 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
       ...qf,
     });
     // QFChart requires market data via setMarketData to build its time axis,
-    // even when only indicator series are shown. Feed synthetic flat bars
-    // (o=h=l=c=v, volume 0) derived from the onchain points as a hidden base.
-    const base = points.map((p) => ({
-      time: toTime(p.t),
-      open: p.v,
-      high: p.v,
-      low: p.v,
-      close: p.v,
-      volume: 0,
-    }));
+    // even when only indicator series are shown. Line mode feeds synthetic
+    // flat bars (o=h=l=c=v, volume 0) derived from the onchain points as a
+    // hidden base; candles mode feeds the real price OHLC instead.
+    const base = candleMode
+      ? priceBars!
+      : points.map((p) => ({
+        time: toTime(p.t),
+        open: p.v,
+        high: p.v,
+        low: p.v,
+        close: p.v,
+        volume: 0,
+      }));
     chart.setMarketData(base);
     // Single-pane: the onchain line must overlay (pane 0), otherwise QFChart
     // splits into main-candle pane + indicator pane with duplicate Y axes
@@ -89,7 +96,7 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
       },
       { isOverlay: true },
     );
-    if (priceBars) {
+    if (priceBars && !candleMode) {
       chart.addIndicator(
         "price",
         {
@@ -109,9 +116,13 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
     };
     // Rebuild on data-prop changes (not chartKey alone): overlay/series
     // switches must re-add indicators, which updateData alone cannot do.
-  }, [chartKey, title, points, priceBars, onReady]);
+  }, [chartKey, title, points, priceBars, mode, onReady]);
 
   useEffect(() => {
+    if (mode === "candles" && priceBars !== undefined && priceBars.length > 0) {
+      chartRef.current?.updateData?.(priceBars);
+      return;
+    }
     chartRef.current?.updateData?.(
       points.map((p) => ({
         time: toTime(p.t),
@@ -122,7 +133,7 @@ export default function OnchainChart({ chartKey, title, points, priceBars, onRea
         volume: 0,
       })),
     );
-  }, [points]);
+  }, [points, priceBars, mode]);
 
   return <div ref={divRef} data-testid="onchain-chart" style={{ height: "100%", width: "100%" }} />;
 }

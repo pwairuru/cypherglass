@@ -153,8 +153,8 @@ describe("Dashboard QFChart integration", () => {
     fireEvent.click(await screen.findByRole("button", { name: /MVRV/ }));
     await screen.findByTestId("onchain-chart");
     const group = screen.getByRole("group", { name: /range/i });
-    const b7 = screen.getByRole("button", { name: "7 days" });
-    const b30 = screen.getByRole("button", { name: "30 days" });
+    const b7 = screen.getByRole("button", { name: "1 week" });
+    const b30 = screen.getByRole("button", { name: "1 month" });
     expect(group).toContainElement(b7);
     expect(b7).toHaveAttribute("aria-pressed", "true");
     expect(b30).toHaveAttribute("aria-pressed", "false");
@@ -166,6 +166,44 @@ describe("Dashboard QFChart integration", () => {
     expect(last).toContain("to=");
   });
 
+  it("range offers 1D/1W/1M/3M/6M/1Y", async () => {
+    renderDashboard();
+    fireEvent.click(await screen.findByRole("button", { name: /MVRV/ }));
+    await screen.findByTestId("onchain-chart");
+    for (const name of ["1 day", "1 week", "1 month", "3 months", "6 months", "1 year"]) {
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
+    }
+  });
+
+  it("grain buttons are mutually exclusive and switch the series", async () => {
+    mockedFetch.mockImplementation((path: string) => {
+      if (path === "/api/v1/metrics")
+        return Promise.resolve([
+          { id: "price_ohlc_daily", title: "BTC/USDT / Day", category: "price" },
+          { id: "mvrv_daily", title: "MVRV / Day", category: "valuation" },
+          { id: "mvrv_hourly", title: "MVRV / Hour", category: "valuation" },
+        ]);
+      if (path === "/api/v1/metrics/coverage")
+        return Promise.resolve({ min_day: "2024-01-01", max_day: "2024-02-01" });
+      if (path.includes("/series")) return Promise.resolve({ points: [{ t: "2024-01-15T00:00:00Z", v: 1.5 }], unit: "" });
+      if (path.includes("/ohlc"))
+        return Promise.resolve({ bars: [{ time: 1704067200000, open: 1, high: 2, low: 0.5, close: 1.5, volume: 10 }] });
+      return Promise.reject(new Error(`unexpected path ${path}`));
+    });
+    renderDashboard();
+    fireEvent.click(await screen.findByRole("button", { name: /MVRV/ }));
+    await screen.findByTestId("onchain-chart");
+    const group = screen.getByRole("group", { name: /grain/i });
+    const day = screen.getByRole("button", { name: "Day" });
+    const hour = screen.getByRole("button", { name: "Hour" });
+    expect(group).toContainElement(day);
+    expect(day).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(hour);
+    expect(hour).toHaveAttribute("aria-pressed", "true");
+    expect(day).toHaveAttribute("aria-pressed", "false");
+    expect(mockedFetch.mock.calls.some(([p]) => (p as string).includes("mvrv_hourly/series"))).toBe(true);
+  });
+
   it("overlay selector toggles price overlay without unmounting card", async () => {
     renderDashboard();
     fireEvent.click(await screen.findByRole("button", { name: /MVRV/ }));
@@ -174,6 +212,51 @@ describe("Dashboard QFChart integration", () => {
     fireEvent.change(overlay, { target: { value: "none" } });
     const chart = await screen.findByTestId("onchain-chart");
     expect(chart.closest("section")).not.toBeNull();
+  });
+
+  it("price hero defaults to candles with a line-chart toggle", async () => {
+    const start = vi.mocked(QFChart).mock.results.length;
+    const mine = () => vi.mocked(QFChart).mock.results.slice(start).map((r) => r.value as { addIndicator: ReturnType<typeof vi.fn> });
+    renderDashboard();
+    await screen.findByTestId("price-chart");
+    const toggle = screen.getByRole("button", { name: "Switch to line chart" });
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    // Default candles mode: no close-price line indicator.
+    expect(mine().some((i) => i.addIndicator.mock.calls.some(([n]) => n === "price"))).toBe(false);
+    const before = vi.mocked(QFChart).mock.results.length;
+    fireEvent.click(toggle);
+    expect(screen.getByRole("button", { name: "Switch to candlestick chart" })).toBeInTheDocument();
+    const added = vi.mocked(QFChart).mock.results.slice(before).map((r) => r.value as { addIndicator: ReturnType<typeof vi.fn> });
+    expect(added.length).toBeGreaterThan(0);
+    expect(added.some((i) => i.addIndicator.mock.calls.some(([n]) => n === "price"))).toBe(true);
+  });
+
+  it("onchain candle toggle needs the price overlay; candles use real OHLC", async () => {
+    renderDashboard();
+    fireEvent.click(await screen.findByRole("button", { name: /MVRV/ }));
+    await screen.findByTestId("onchain-chart");
+    expect(screen.getByRole("button", { name: "Switch to candlestick chart" })).toBeInTheDocument();
+    const overlay = screen.getByLabelText(/overlay/i);
+    fireEvent.change(overlay, { target: { value: "none" } });
+    expect(screen.queryByRole("button", { name: /candlestick chart|line chart/ })).not.toBeInTheDocument();
+    fireEvent.change(overlay, { target: { value: "price" } });
+    fireEvent.click(screen.getByRole("button", { name: "Switch to candlestick chart" }));
+    const before = vi.mocked(QFChart).mock.results.length;
+    // Re-click after recording: the toggle rebuild already happened above, so
+    // toggle back to line and to candles again to capture a fresh instance.
+    fireEvent.click(screen.getByRole("button", { name: "Switch to line chart" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch to candlestick chart" }));
+    const added = vi.mocked(QFChart).mock.results.slice(before).map(
+      (r) => r.value as { setMarketData: ReturnType<typeof vi.fn> },
+    );
+    expect(added.length).toBeGreaterThan(0);
+    expect(
+      added.some((i) =>
+        i.setMarketData.mock.calls.some(([bars]) =>
+          Array.isArray(bars) && bars.length > 0 && bars[0].time === 1704067200000 && bars[0].open === 1,
+        ),
+      ),
+    ).toBe(true);
   });
 
   it("restores saved drawings on reload; Undo/Clear act on real drawings", async () => {

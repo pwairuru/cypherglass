@@ -34,4 +34,33 @@ describe("OnchainChart", () => {
       { time: Date.parse("2024-01-01"), value: 1.2 },
     ]);
   });
+  it("candles mode uses real price OHLC, keeps metric line, drops price line", () => {
+    const priceBars = [{ time: 1704067200000, open: 1, high: 2, low: 0.5, close: 1.5, volume: 10 }];
+    render(<OnchainChart chartKey="k" title="MVRV" points={[{ t: "2024-01-01", v: 1.2 }]} priceBars={priceBars} mode="candles" />);
+    const calls = vi.mocked(QFChart).mock.calls;
+    const opts = calls[calls.length - 1][1];
+    expect(opts).not.toMatchObject({ upColor: "transparent" });
+    const results = vi.mocked(QFChart).mock.results;
+    const inst = results[results.length - 1].value as {
+      setMarketData: ReturnType<typeof vi.fn>;
+      addIndicator: ReturnType<typeof vi.fn>;
+    };
+    expect(inst.setMarketData.mock.calls[0][0]).toEqual(priceBars);
+    const names = inst.addIndicator.mock.calls.map(([n]) => n);
+    expect(names).toContain("MVRV");
+    expect(names).not.toContain("price");
+  });
+  it("candles mode without price bars falls back to line behavior", () => {
+    render(<OnchainChart chartKey="k" title="MVRV" points={[{ t: "2024-01-01", v: 1.2 }]} mode="candles" />);
+    const calls = vi.mocked(QFChart).mock.calls;
+    const opts = calls[calls.length - 1][1];
+    expect(opts).toMatchObject({ upColor: "transparent", downColor: "transparent" });
+    const results = vi.mocked(QFChart).mock.results;
+    const inst = results[results.length - 1].value as {
+      setMarketData: ReturnType<typeof vi.fn>;
+    };
+    expect(inst.setMarketData.mock.calls[0][0]).toEqual([
+      { time: Date.parse("2024-01-01"), open: 1.2, high: 1.2, low: 1.2, close: 1.2, volume: 0 },
+    ]);
+  });
 });

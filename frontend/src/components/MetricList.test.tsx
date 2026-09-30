@@ -1,22 +1,35 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MetricList from "./MetricList";
 
+afterEach(() => cleanup());
+
 const METRICS = [
-  { id: "block_stats_daily", title: "Blocks / day" },
-  { id: "tx_volume_hourly", title: "TX volume / hour" },
-  { id: "address_activity_daily", title: "Active addresses / day" },
+  { id: "blocks_hourly", title: "Blocks / hour" },
+  { id: "blocks_daily", title: "Blocks / day" },
+  { id: "tx_count_daily", title: "Transactions / day" },
 ];
 
-describe("MetricList filter", () => {
-  it("typing block narrows 3 items to 1", async () => {
+describe("MetricList groups", () => {
+  it("renders one title-only row per group, no underscore ids", async () => {
     const onSelect = vi.fn();
     render(<MetricList metrics={METRICS} selected={null} onSelect={onSelect} />);
-    expect(screen.getAllByRole("button").filter((b) => b.textContent?.includes("/"))).toHaveLength(3);
-    await userEvent.type(screen.getByPlaceholderText(/search metrics/i), "block");
-    const visible = screen.getAllByRole("button").filter((b) => b.textContent?.includes("/"));
-    expect(visible).toHaveLength(1);
-    expect(visible[0].textContent).toContain("block_stats_daily");
+    const buttons = screen.getAllByRole("button");
+    expect(buttons).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Blocks" })).toBeInTheDocument();
+    expect(screen.queryByText("blocks_hourly")).toBeNull();
+    expect(screen.queryByText("blocks_daily")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Blocks" }));
+    expect(onSelect).toHaveBeenCalledWith("blocks");
+  });
+
+  it("typing trans narrows 2 groups to 1", async () => {
+    const onSelect = vi.fn();
+    render(<MetricList metrics={METRICS} selected={null} onSelect={onSelect} />);
+    await userEvent.type(screen.getByPlaceholderText(/search metrics/i), "trans");
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /transactions/i })).toBeInTheDocument();
   });
 });

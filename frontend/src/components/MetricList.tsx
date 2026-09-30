@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { groupMetrics } from "../lib/metricGroups";
 
 export interface MetricSummary {
   id: string;
@@ -13,19 +14,25 @@ export interface MetricSummary {
 interface MetricListProps {
   metrics: MetricSummary[];
   selected: string | null;
-  onSelect: (id: string) => void;
+  onSelect: (groupKey: string) => void;
 }
 
 export default function MetricList({ metrics, selected, onSelect }: MetricListProps) {
   const [query, setQuery] = useState("");
+  const groups = useMemo(() => groupMetrics(metrics), [metrics]);
   const q = query.trim().toLowerCase();
   const visible = q
-    ? metrics.filter(
-        (m) =>
-          m.id.toLowerCase().includes(q) ||
-          m.title.toLowerCase().includes(q),
+    ? groups.filter(
+        (g) =>
+          g.label.toLowerCase().includes(q) ||
+          g.key.toLowerCase().includes(q) ||
+          g.variants.some(
+            (v) =>
+              v.id.toLowerCase().includes(q) ||
+              v.title.toLowerCase().includes(q),
+          ),
       )
-    : metrics;
+    : groups;
 
   return (
     <div className="metric-list">
@@ -38,23 +45,25 @@ export default function MetricList({ metrics, selected, onSelect }: MetricListPr
         onChange={(e) => setQuery(e.target.value)}
       />
       <ul>
-        {visible.map((m) => (
-          <li key={m.id}>
-            <button
-              type="button"
-              className="metric-item"
-              disabled={Boolean(m.disabled)}
-              aria-disabled={Boolean(m.disabled)}
-              aria-current={selected === m.id}
-              onClick={() => {
-                if (!m.disabled) onSelect(m.id);
-              }}
-            >
-              <span>{m.id}</span>
-              <span>{m.title}</span>
-            </button>
-          </li>
-        ))}
+        {visible.map((g) => {
+          const disabled = g.variants.every((v) => v.disabled);
+          return (
+            <li key={g.key}>
+              <button
+                type="button"
+                className="metric-item"
+                disabled={disabled}
+                aria-disabled={disabled}
+                aria-current={selected === g.key}
+                onClick={() => {
+                  if (!disabled) onSelect(g.key);
+                }}
+              >
+                <span>{g.label}</span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

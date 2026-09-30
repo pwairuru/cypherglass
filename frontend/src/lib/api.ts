@@ -1,5 +1,5 @@
 export const API_BASE =
-  import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+  import.meta.env.VITE_API_URL ?? "http://localhost:8002";
 
 export interface TokenOut {
   access_token: string;
@@ -81,7 +81,22 @@ export async function apiFetch<T>(
     const detail = await res.text().catch(() => res.statusText);
     throw new Error(`API ${res.status} ${path}: ${detail}`);
   }
-  return (await res.json()) as T;
+  const contentType = res.headers?.get?.("content-type") ?? "";
+  if (contentType.includes("text/html")) {
+    throw new Error(
+      `API ${path}: expected JSON but got HTML from ${API_BASE} — wrong backend port or backend down?`,
+    );
+  }
+  try {
+    return (await res.json()) as T;
+  } catch (err) {
+    if (err instanceof SyntaxError) {
+      throw new Error(
+        `API ${path}: expected JSON but got non-JSON from ${API_BASE} — wrong backend port or backend down?`,
+      );
+    }
+    throw err;
+  }
 }
 
 function postJson<T>(path: string, body: unknown, token?: string): Promise<T> {

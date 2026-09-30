@@ -24,7 +24,7 @@ describe("api auth helpers", () => {
     expect(out.access_token).toBe("jwt-abc");
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://localhost:8000/api/v1/auth/login");
+    expect(url).toBe("http://localhost:8002/api/v1/auth/login");
     expect(init.method).toBe("POST");
     expect(init.headers).toMatchObject({ "Content-Type": "application/json" });
     expect(JSON.parse(init.body as string)).toEqual({
@@ -44,7 +44,7 @@ describe("api auth helpers", () => {
     await apiFetch("/api/v1/metrics", "tok");
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://localhost:8000/api/v1/metrics");
+    expect(url).toBe("http://localhost:8002/api/v1/metrics");
     expect((init.headers as Record<string, string>)["Authorization"]).toBe(
       "Bearer tok",
     );
@@ -62,7 +62,7 @@ describe("api auth helpers", () => {
 
     expect(out.access_token).toBe("jwt-new");
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://localhost:8000/api/v1/auth/register");
+    expect(url).toBe("http://localhost:8002/api/v1/auth/register");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual({
       username: "bob",
@@ -82,7 +82,7 @@ describe("api auth helpers", () => {
     const me = await fetchMe("tok");
     expect(me.username).toBe("bob");
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://localhost:8000/api/v1/auth/me");
+    expect(url).toBe("http://localhost:8002/api/v1/auth/me");
     expect((init.headers as Record<string, string>)["Authorization"]).toBe("Bearer tok");
   });
 
@@ -97,7 +97,7 @@ describe("api auth helpers", () => {
     const out = await nostrChallenge("a".repeat(64));
     expect(out.challenge).toBe("abc");
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://localhost:8000/api/v1/auth/nostr/challenge");
+    expect(url).toBe("http://localhost:8002/api/v1/auth/nostr/challenge");
     expect(JSON.parse(init.body as string)).toEqual({ pubkey: "a".repeat(64) });
   });
 
@@ -121,7 +121,7 @@ describe("api auth helpers", () => {
     const out = await nostrVerify(event);
     expect(out.access_token).toBe("jwt-n");
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://localhost:8000/api/v1/auth/nostr/verify");
+    expect(url).toBe("http://localhost:8002/api/v1/auth/nostr/verify");
     expect(JSON.parse(init.body as string)).toEqual({ event });
   });
 
@@ -136,6 +136,21 @@ describe("api auth helpers", () => {
     const out = await oauthStart("google");
     expect(out.state).toBe("s");
     const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("http://localhost:8000/api/v1/auth/oauth/google/start");
+    expect(url).toBe("http://localhost:8002/api/v1/auth/oauth/google/start");
+  });
+
+  it("apiFetch throws clear error when backend returns HTML (wrong port)", async () => {
+    const { apiFetch } = await import("./api");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: { get: () => "text/html; charset=utf-8" },
+      text: async () => "<!doctype html><html></html>",
+      json: async () => {
+        throw new SyntaxError(`Unexpected token '<', "<!doctype ..." is not valid JSON`);
+      },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(apiFetch("/api/v1/auth/oauth/github/start")).rejects.toThrow(/HTML/i);
   });
 });

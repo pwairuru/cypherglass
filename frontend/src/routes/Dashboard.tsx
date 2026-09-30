@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, Maximize, Maximize2, Minimize, Minimize2 } from "lucide-react";
+import { CandlestickChart, LineChart, LogOut, Maximize, Maximize2, Minimize, Minimize2 } from "lucide-react";
 import type { QFChart } from "@qfo/qfchart";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import MetricList, { type MetricSummary } from "../components/MetricList";
-import PriceChart, { type OhlcBar } from "../components/PriceChart";
+import PriceChart, { type ChartMode, type OhlcBar } from "../components/PriceChart";
 import OnchainChart, { type SeriesPoint } from "../components/OnchainChart";
 import DrawingPanel from "../components/DrawingPanel";
 import ThemeSwitcher from "../components/ThemeSwitcher";
@@ -34,12 +34,26 @@ interface OhlcOut {
   bars: OhlcBar[];
 }
 
-const RANGES = [7, 30, 90, 180, 365] as const;
+const RANGES = [
+  { label: "1D", days: 1, aria: "1 day" },
+  { label: "1W", days: 7, aria: "1 week" },
+  { label: "1M", days: 30, aria: "1 month" },
+  { label: "3M", days: 90, aria: "3 months" },
+  { label: "6M", days: 180, aria: "6 months" },
+  { label: "1Y", days: 365, aria: "1 year" },
+] as const;
 
 const GRAIN_LABELS: Record<string, string> = {
   hourly: "Hour",
   daily: "Day",
   weekly: "Week",
+};
+
+// Compact single-letter grain buttons (full name stays in aria-label).
+const GRAIN_SHORT: Record<string, string> = {
+  hourly: "H",
+  daily: "D",
+  weekly: "W",
 };
 
 // Backend returns bar time in ms; QFChart renders x labels via
@@ -64,12 +78,17 @@ function ChartCard({
   description,
   headerRight,
   renderChart,
+  supportsCandles = false,
+  defaultMode = "line",
 }: {
   chartKey: string;
   title: string;
   description?: string;
   headerRight?: ReactNode;
-  renderChart: (onReady: (chart: QFChart) => void) => ReactNode;
+  renderChart: (onReady: (chart: QFChart) => void, mode: ChartMode) => ReactNode;
+  /** Show the candles/line toggle (only for charts backed by real OHLC). */
+  supportsCandles?: boolean;
+  defaultMode?: ChartMode;
 }) {
   const chartRef = useRef<QFChart | null>(null);
   const wrapRef = useRef<HTMLElement>(null);
@@ -77,6 +96,7 @@ function ChartCard({
   const fileRef = useRef<HTMLInputElement>(null);
   const [isFull, setIsFull] = useState(false);
   const [ioError, setIoError] = useState<string | null>(null);
+  const [mode, setMode] = useState<ChartMode>(defaultMode);
 
   useEffect(() => {
     const onFs = () =>
@@ -163,6 +183,22 @@ function ChartCard({
         </div>
         <div className="chart-filters">
           {headerRight}
+          {supportsCandles && (
+            <button
+              className="btn btn-icon"
+              type="button"
+              onClick={() => setMode(mode === "candles" ? "line" : "candles")}
+              aria-label={mode === "candles" ? "Switch to line chart" : "Switch to candlestick chart"}
+              title={mode === "candles" ? "Switch to line chart" : "Switch to candlestick chart"}
+              aria-pressed={mode === "candles"}
+            >
+              {mode === "candles" ? (
+                <CandlestickChart size={16} aria-hidden="true" />
+              ) : (
+                <LineChart size={16} aria-hidden="true" />
+              )}
+            </button>
+          )}
           <button
             className="btn btn-icon"
             type="button"
@@ -203,7 +239,7 @@ function ChartCard({
           onImport={() => fileRef.current?.click()}
         />
         <div className="chart-fill" style={{ flex: 1 }}>
-          {renderChart(handleReady)}
+          {renderChart(handleReady, mode)}
         </div>
       </div>
       {description && <p className="chart-desc chart-desc-below">{description}</p>}
@@ -420,7 +456,9 @@ export default function Dashboard() {
             chartKey={`price-${priceGrain}`}
             title="BTC/USDT"
             description="Price hero: candles, volume and SMA overlay."
-            renderChart={(onReady) => (
+            supportsCandles
+            defaultMode="candles"
+            renderChart={(onReady, mode) => (
               <>
                 <ChartStatus
                   title="BTC/USDT"
@@ -432,6 +470,7 @@ export default function Dashboard() {
                   <PriceChart
                     bars={priceBars}
                     chartKey={`price-${priceGrain}`}
+                    mode={mode}
                     onReady={onReady}
                   />
                 )}
@@ -444,41 +483,45 @@ export default function Dashboard() {
               chartKey={activeMetric.id}
               title={activeMetric.title}
               description={activeMetric.description}
+              supportsCandles={overlay === "price" && (overlayBars?.length ?? 0) > 0}
+              defaultMode="line"
               headerRight={
                 <>
                   {grains.length > 1 && (
-                    <label className="filter-label">
-                      Grain{" "}
-                      <select
-                        className="input input-select"
-                        aria-label="Grain"
-                        value={grain ?? ""}
-                        onChange={(e) => setGrain(e.target.value)}
-                      >
+                    <div className="filter-label">
+                      <span aria-hidden="true">Grain</span>
+                      <div className="chart-segmented" role="group" aria-label="Grain">
                         {selectedGroup!.variants.map((v) => {
                           const g = grainOf(v.id);
                           return (
-                            <option key={g} value={g}>
-                              {GRAIN_LABELS[g] ?? g}
-                            </option>
+                            <button
+                              key={g}
+                              type="button"
+                              className={`btn-segmented${grain === g ? " is-active" : ""}`}
+                              aria-label={GRAIN_LABELS[g] ?? g}
+                              aria-pressed={grain === g}
+                              onClick={() => setGrain(g)}
+                            >
+                              {GRAIN_SHORT[g] ?? g}
+                            </button>
                           );
                         })}
-                      </select>
-                    </label>
+                      </div>
+                    </div>
                   )}
                   <div className="filter-label">
                     <span aria-hidden="true">Range</span>
                     <div className="chart-segmented" role="group" aria-label="Range">
-                      {RANGES.map((d) => (
+                      {RANGES.map((r) => (
                         <button
-                          key={d}
+                          key={r.days}
                           type="button"
-                          className={`btn-segmented${rangeDays === d ? " is-active" : ""}`}
-                          aria-label={`${d} days`}
-                          aria-pressed={rangeDays === d}
-                          onClick={() => setRangeDays(d)}
+                          className={`btn-segmented${rangeDays === r.days ? " is-active" : ""}`}
+                          aria-label={r.aria}
+                          aria-pressed={rangeDays === r.days}
+                          onClick={() => setRangeDays(r.days)}
                         >
-                          {d}D
+                          {r.label}
                         </button>
                       ))}
                     </div>
@@ -497,7 +540,7 @@ export default function Dashboard() {
                   </label>
                 </>
               }
-              renderChart={(onReady) => (
+              renderChart={(onReady, mode) => (
                 <>
                   <ChartStatus
                     title={activeMetric.title}
@@ -515,6 +558,7 @@ export default function Dashboard() {
                       title={activeMetric.title}
                       points={seriesQuery.data!.points}
                       priceBars={overlayBars}
+                      mode={mode}
                       onReady={onReady}
                     />
                   )}

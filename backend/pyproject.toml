@@ -2,7 +2,7 @@
 name = "cypherglass-backend"
 version = "0.1.0"
 description = "CypherGlass Analytics API (FastAPI + SQLModel + ClickHouse read + Valkey)"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.110,<1",
     "sqlmodel>=0.0.14",

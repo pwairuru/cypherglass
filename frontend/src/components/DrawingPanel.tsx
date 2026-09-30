@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Activity,
   AlignLeft,
@@ -180,12 +180,32 @@ export default function DrawingPanel({ chartKey: _chartKey, onTool, onClear, onU
   void _chartKey;
   const [active, setActive] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const pick = (name: string) => {
     setActive(name);
+    setOpen(null);
     onTool(name);
   };
+  // Dismiss the side flyout on outside click / Escape (TradingView behavior).
+  useEffect(() => {
+    if (open === null) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setOpen(null);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(null);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
   return (
-    <aside aria-label="Drawing tools" className="drawing-panel">
+    <aside ref={panelRef} aria-label="Drawing tools" className="drawing-panel">
       {QUICK.map(({ name, label, Icon }) => (
         <button
           key={name}
@@ -205,27 +225,34 @@ export default function DrawingPanel({ chartKey: _chartKey, onTool, onClear, onU
             type="button"
             aria-label={`${label} tools`}
             title={`${label} tools`}
+            aria-haspopup="menu"
             aria-expanded={open === id}
             data-active={open === id || undefined}
+            data-group={id}
             onClick={() => setOpen(open === id ? null : id)}
           >
             <Icon size={16} aria-hidden="true" />
+            <span className="group-arrow" aria-hidden="true" />
           </button>
-          {open === id &&
-            tools.map(({ name, label: toolLabel, Icon: ToolIcon }) => (
-              <button
-                key={name}
-                type="button"
-                aria-label={toolLabel}
-                title={toolLabel}
-                aria-pressed={active === name}
-                data-active={active === name || undefined}
-                data-group-tool={id}
-                onClick={() => pick(name)}
-              >
-                <ToolIcon size={16} aria-hidden="true" />
-              </button>
-            ))}
+          {open === id && (
+            <div role="menu" aria-label={label} className="drawing-flyout">
+              {tools.map(({ name, label: toolLabel, Icon: ToolIcon }) => (
+                <button
+                  key={name}
+                  type="button"
+                  role="menuitem"
+                  aria-label={toolLabel}
+                  title={toolLabel}
+                  aria-pressed={active === name}
+                  data-active={active === name || undefined}
+                  data-group-tool={id}
+                  onClick={() => pick(name)}
+                >
+                  <ToolIcon size={16} aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       ))}
       <button
