@@ -42,7 +42,9 @@ pub struct Syncer<W: DbWriter> {
     state_file: PathBuf,
     state: SyncState,
     utxo: UtxoStore,
-    writer: ClickHouseWriter<W>,
+    /// The writer backend (public so integration tests and the binary can
+    /// inspect a [`FakeWriter`](crate::ch::FakeWriter) after a run).
+    pub writer: ClickHouseWriter<W>,
     batch_blocks: usize,
     prev_hash: String,
     prev_time: Option<u32>,
@@ -97,11 +99,11 @@ pub fn resolve_blk_path(blocks_dir: &Path, path: &Path) -> Result<PathBuf> {
     if !valid_blk_name(base) {
         anyhow::bail!("not a block file: {base:?}");
     }
-    let dir_abs =
-        std::fs::canonicalize(blocks_dir).with_context(|| format!("resolving {}", blocks_dir.display()))?;
+    let dir_abs = std::fs::canonicalize(blocks_dir)
+        .with_context(|| format!("resolving {}", blocks_dir.display()))?;
     let candidate = dir_abs.join(base);
-    let resolved =
-        std::fs::canonicalize(&candidate).with_context(|| format!("resolving {}", candidate.display()))?;
+    let resolved = std::fs::canonicalize(&candidate)
+        .with_context(|| format!("resolving {}", candidate.display()))?;
     if !resolved.starts_with(&dir_abs) {
         anyhow::bail!("block file escapes data dir: {}", path.display());
     }
@@ -176,7 +178,12 @@ impl<W: DbWriter> Syncer<W> {
     /// Cursor fields (`seen`/`prev_*`/`next_height`) update eagerly per block
     /// (Go parity for `interval_sec` chaining inside a batch); a batch-start
     /// snapshot restores them if the batch flush later fails.
-    fn ingest(&mut self, mut block: ParsedBlock, end_offset: u64, file_name: &str) -> Result<usize> {
+    fn ingest(
+        &mut self,
+        mut block: ParsedBlock,
+        end_offset: u64,
+        file_name: &str,
+    ) -> Result<usize> {
         if block.height != 0 {
             match self.seen.get(&block.height) {
                 Some(known) if *known == block.hash => {
@@ -236,7 +243,8 @@ impl<W: DbWriter> Syncer<W> {
         }
         if let Some(snap) = self.batch_snapshot.as_mut() {
             if !snap.seen_prev.iter().any(|(h, _)| *h == height) {
-                snap.seen_prev.push((height, self.seen.get(&height).cloned()));
+                snap.seen_prev
+                    .push((height, self.seen.get(&height).cloned()));
             }
         }
         self.seen.insert(height, block.hash.clone());
@@ -304,15 +312,11 @@ impl<W: DbWriter> Syncer<W> {
                 .extend(p.batch.transactions.iter().cloned());
             combined.outputs.extend(p.batch.outputs.iter().cloned());
             combined.inputs.extend(p.batch.inputs.iter().cloned());
-            combined
-                .blocks_v2
-                .extend(p.batch.blocks_v2.iter().cloned());
+            combined.blocks_v2.extend(p.batch.blocks_v2.iter().cloned());
             combined
                 .transactions_v2
                 .extend(p.batch.transactions_v2.iter().cloned());
-            combined
-                .inputs_v2
-                .extend(p.batch.inputs_v2.iter().cloned());
+            combined.inputs_v2.extend(p.batch.inputs_v2.iter().cloned());
             combined
                 .outputs_v2
                 .extend(p.batch.outputs_v2.iter().cloned());
@@ -366,10 +370,7 @@ impl<W: DbWriter> Syncer<W> {
         let resolved = match resolve_blk_path(&self.blocks_dir, path) {
             Ok(p) => p,
             Err(e) => {
-                eprintln!(
-                    "Skipping untrusted block path {}: {e:#}",
-                    path.display()
-                );
+                eprintln!("Skipping untrusted block path {}: {e:#}", path.display());
                 return Ok(0);
             }
         };
@@ -390,17 +391,11 @@ impl<W: DbWriter> Syncer<W> {
         eprintln!("Processing {}", resolved.display());
         let deob = self.deob.clone();
         let mut inserted = 0usize;
-        let scan_result = scan_blocks(
-            &resolved,
-            file_num,
-            start,
-            deob.as_ref(),
-            &mut |scan| {
-                let end = scan.offset_start + scan.bytes_read;
-                inserted += self.ingest(scan.block, end, &file_name)?;
-                Ok(())
-            },
-        );
+        let scan_result = scan_blocks(&resolved, file_num, start, deob.as_ref(), &mut |scan| {
+            let end = scan.offset_start + scan.bytes_read;
+            inserted += self.ingest(scan.block, end, &file_name)?;
+            Ok(())
+        });
         if let Err(e) = scan_result {
             // Do NOT checkpoint past a failed block: offsets still point at
             // the last success; the open batch replays on restart.
@@ -524,8 +519,10 @@ mod tests {
         use bitcoin::block::{Block, Header, Version};
         use bitcoin::consensus::serialize;
         use bitcoin::hashes::Hash as _;
-        use bitcoin::{Amount, CompactTarget, OutPoint, ScriptBuf, Sequence,
-                      Transaction, TxIn, TxMerkleNode, TxOut, Witness};
+        use bitcoin::{
+            Amount, CompactTarget, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxMerkleNode,
+            TxOut, Witness,
+        };
         let mut script = height.to_le_bytes().to_vec();
         script.extend_from_slice(b"cb");
         let coinbase = Transaction {
@@ -656,9 +653,7 @@ mod tests {
         assert_eq!(n, 2);
         let calls_before = s.writer.inner.calls().len();
         // Resume offset is past EOF: second run scans nothing, inserts nothing.
-        let n2 = s
-            .process_file(&blocks.join("blk00001.dat"))
-            .unwrap();
+        let n2 = s.process_file(&blocks.join("blk00001.dat")).unwrap();
         assert_eq!(n2, 0, "second run must insert nothing new");
         assert_eq!(s.writer.inner.calls().len(), calls_before);
         assert_eq!(s.state().last_height, 2);

@@ -80,6 +80,11 @@ impl UtxoStore {
         table.len().unwrap_or(0)
     }
 
+    /// Task 7 gate addition: `clippy::len_without_is_empty` companion.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn misses(&self) -> u64 {
         self.misses.load(Ordering::Relaxed)
     }

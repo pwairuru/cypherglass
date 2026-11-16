@@ -34,6 +34,8 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
+use clickhouse::Row;
+use serde::Serialize;
 
 use crate::enrich::{change_heavy, fee_rate, subsidy_at};
 use crate::parser::ParsedBlock;
@@ -74,7 +76,7 @@ pub const TABLE_ORDER: [&str; 8] = [
 // ---------------------------------------------------------------------------
 
 /// One `blocks` (v1) row: 13 cols (`client.go` `InsertBlock`).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Row)]
 pub struct BlockRow {
     pub height: u32,
     pub hash: String,
@@ -92,7 +94,7 @@ pub struct BlockRow {
 }
 
 /// One `transactions` (v1) row: 13 cols (`client.go` `InsertTransactions`).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Row)]
 pub struct TxRow {
     pub txid: String,
     pub block_height: u32,
@@ -110,7 +112,7 @@ pub struct TxRow {
 }
 
 /// One `outputs` (v1) row: 10 cols (`client.go` `InsertOutputs`).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Row)]
 pub struct OutputRow {
     pub txid: String,
     pub output_index: u16,
@@ -125,7 +127,7 @@ pub struct OutputRow {
 }
 
 /// One `inputs` (v1) row: 9 cols (`client.go` `InsertInputs`).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Row)]
 pub struct InputRow {
     pub txid: String,
     pub input_index: u16,
@@ -139,7 +141,7 @@ pub struct InputRow {
 }
 
 /// One `blocks_v2` row: 17 cols (`client_v2.go` `InsertBlockV2`).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Row)]
 pub struct BlockRowV2 {
     pub height: u32,
     pub hash: String,
@@ -161,7 +163,7 @@ pub struct BlockRowV2 {
 }
 
 /// One `transactions_v2` row: 17 cols (`client_v2.go` `InsertTransactionsV2`).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Row)]
 pub struct TxRowV2 {
     pub txid: String,
     pub block_height: u32,
@@ -183,7 +185,7 @@ pub struct TxRowV2 {
 }
 
 /// One `outputs_v2` row: 13 cols (`client_v2.go` `InsertOutputsV2`).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Row)]
 pub struct OutputRowV2 {
     pub txid: String,
     pub output_index: u16,
@@ -201,7 +203,7 @@ pub struct OutputRowV2 {
 }
 
 /// One `inputs_v2` row: 11 cols (`client_v2.go` `InsertInputsV2`).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Row)]
 pub struct InputRowV2 {
     pub txid: String,
     pub input_index: u16,
@@ -834,10 +836,7 @@ mod tests {
         // Only now advance the store: parents spent, block outputs indexed.
         apply_utxo(&block, &utxo).unwrap();
         assert_eq!(utxo.get(&"11".repeat(32), 0).unwrap(), None);
-        assert_eq!(
-            utxo.get(&block.txs[0].hash, 0).unwrap(),
-            Some(312_501_000)
-        );
+        assert_eq!(utxo.get(&block.txs[0].hash, 0).unwrap(), Some(312_501_000));
         assert_eq!(utxo.get(&block.txs[1].hash, 0).unwrap(), Some(7_000));
     }
 
@@ -848,11 +847,10 @@ mod tests {
         // store writes (store miss counter stays 0).
         use bitcoin::Txid;
         let mut block = fixture_block();
-        let cb_txid: Txid = bitcoin::consensus::deserialize(
-            &bitcoin::consensus::serialize(&block.txdata[0]),
-        )
-        .map(|tx: Transaction| tx.compute_txid())
-        .unwrap();
+        let cb_txid: Txid =
+            bitcoin::consensus::deserialize(&bitcoin::consensus::serialize(&block.txdata[0]))
+                .map(|tx: Transaction| tx.compute_txid())
+                .unwrap();
         block.txdata[1].input[0].previous_output = OutPoint {
             txid: cb_txid,
             vout: 0,
@@ -906,12 +904,10 @@ mod tests {
         // no Go toolchain exists in this env for a direct chainhash
         // comparison. If the display convention drifts, this breaks loudly
         // before Task 6/7 lock anything in.
-        const BLOCK_HASH: &str =
-            "c1df5d36061d12e3cdf7a678cf84216b5586ea4f7f81033abd4a86b698d02d53";
+        const BLOCK_HASH: &str = "c1df5d36061d12e3cdf7a678cf84216b5586ea4f7f81033abd4a86b698d02d53";
         const COINBASE_TXID: &str =
             "0da83339cc2f058dd937aabb42e13d1de473e5ad62133c7cb0eeb565f8ffe392";
-        const SPEND_TXID: &str =
-            "73dace905a21b1bd89446a9765a7ceeac31c04e434904294ad53406d6440d43c";
+        const SPEND_TXID: &str = "73dace905a21b1bd89446a9765a7ceeac31c04e434904294ad53406d6440d43c";
 
         let block = parsed_fixture();
         assert_eq!(block.hash, BLOCK_HASH);
