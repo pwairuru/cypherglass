@@ -9,6 +9,7 @@ mod config;
 mod parser;
 mod state;
 mod address;
+mod ch;
 mod enrich;
 mod utxo;
 
