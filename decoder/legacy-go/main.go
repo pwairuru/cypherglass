@@ -34,10 +34,9 @@ func main() {
 		if err == nil {
 			break
 		}
-		if attempt >= 30 {
-			log.Fatalf("Failed to connect to ClickHouse after 30 attempts: %v", err)
-		}
-		log.Printf("ClickHouse not ready (attempt %d/30): %v", attempt, err)
+		// Infinite backoff: long CH/S3 outages must not kill decoder
+		// (Fatal + unless-stopped = crash loop). Log lag via attempt count.
+		log.Printf("ClickHouse not ready (attempt %d): %v", attempt, err)
 		select {
 		case <-ctx.Done():
 			log.Fatalf("Aborted waiting for ClickHouse: %v", ctx.Err())
@@ -74,6 +73,29 @@ func loadState(path string) *syncer.SyncState {
 	var state syncer.SyncState
 	if err := json.Unmarshal(data, &state); err != nil {
 		log.Printf("ERROR parsing state: %v", err)
+		return &syncer.SyncState{}
+	}
+	// Fail-closed state hygiene: a tampered LastFile must never steer resume.
+	// Strict Bitcoin Core name (blkNNNNN.dat); anything else restarts cleanly.
+	if state.LastFile != "" {
+		ok := len(state.LastFile) >= 8 &&
+			len(state.LastFile) <= 32 &&
+			state.LastFile[:3] == "blk" &&
+			state.LastFile[len(state.LastFile)-4:] == ".dat"
+		digits := true
+		for _, c := range state.LastFile[3 : len(state.LastFile)-4] {
+			if c < '0' || c > '9' {
+				digits = false
+				break
+			}
+		}
+		if !ok || !digits {
+			log.Printf("WARNING: ignoring suspicious LastFile %q, resuming clean", state.LastFile)
+			return &syncer.SyncState{}
+		}
+	}
+	if state.LastOffset < 0 {
+		log.Printf("WARNING: ignoring negative LastOffset %d, resuming clean", state.LastOffset)
 		return &syncer.SyncState{}
 	}
 	return &state

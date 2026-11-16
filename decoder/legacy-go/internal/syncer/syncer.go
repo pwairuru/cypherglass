@@ -2,10 +2,12 @@ package syncer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,6 +36,7 @@ type Syncer struct {
 	deobf     *parser.XORDeobfuscator
 	utxo      *enrich.UTXOMap
 	prevTime  time.Time
+	prevHash  string
 }
 
 func New(client *clickhouse.Client, blocksDir, stateFile string, state *SyncState) *Syncer {
@@ -46,6 +49,41 @@ func New(client *clickhouse.Client, blocksDir, stateFile string, state *SyncStat
 		deobf:     loadDeobfuscator(blocksDir),
 		utxo:      enrich.NewUTXOMap(),
 	}
+}
+
+// blkFileRe strictly matches Bitcoin Core block file names (blkNNNNN.dat).
+// Anything else (traversal, absolute paths, odd names) is rejected before open.
+var blkFileRe = regexp.MustCompile(`^blk[0-9]+\.dat$`)
+
+// resolveBlkPath confines an event/listed path to blocksDir: strict name
+// match, symlink resolution, and prefix containment. A symlink inside
+// blocksDir pointing outside (e.g. blk99999.dat -> /etc/passwd) is rejected.
+func resolveBlkPath(blocksDir, path string) (string, error) {
+	base := filepath.Base(path)
+	if !blkFileRe.MatchString(base) {
+		return "", fmt.Errorf("not a block file: %q", base)
+	}
+	dirAbs, err := filepath.Abs(blocksDir)
+	if err != nil {
+		return "", err
+	}
+	candidate := filepath.Join(dirAbs, base)
+	resolved, err := filepath.EvalSymlinks(candidate)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Racy delete between event and open: not fatal, caller skips.
+			return "", err
+		}
+		return "", err
+	}
+	resolvedAbs, err := filepath.Abs(resolved)
+	if err != nil {
+		return "", err
+	}
+	if resolvedAbs != dirAbs && !strings.HasPrefix(resolvedAbs, dirAbs+string(os.PathSeparator)) {
+		return "", fmt.Errorf("block file escapes data dir: %q", path)
+	}
+	return resolvedAbs, nil
 }
 
 // loadDeobfuscator reads the xor.dat obfuscation key Bitcoin Core uses for
@@ -95,10 +133,12 @@ func (s *Syncer) Run(ctx context.Context) {
 			s.pollForBlocks(ctx)
 		case event := <-watcher.Events:
 			if event.Has(fsnotify.Create) || event.Has(fsnotify.Write) {
-				if strings.HasPrefix(filepath.Base(event.Name), "blk") && strings.HasSuffix(event.Name, ".dat") {
-					time.Sleep(2 * time.Second)
-					s.processFile(ctx, event.Name)
+				resolved, err := resolveBlkPath(s.blocksDir, event.Name)
+				if err != nil {
+					continue
 				}
+				time.Sleep(2 * time.Second)
+				s.processFile(ctx, resolved)
 			}
 		case err := <-watcher.Errors:
 			log.Printf("Watcher error: %v", err)
@@ -148,6 +188,12 @@ func (s *Syncer) catchUpHistorical(ctx context.Context) error {
 }
 
 func (s *Syncer) processFile(ctx context.Context, path string) {
+	resolved, err := resolveBlkPath(s.blocksDir, path)
+	if err != nil {
+		log.Printf("Skipping untrusted block path %q: %v", path, err)
+		return
+	}
+	path = resolved
 	log.Printf("Processing %s", path)
 
 	f, err := os.Open(path)
@@ -181,24 +227,36 @@ func (s *Syncer) processFile(ctx context.Context, path string) {
 			return nil
 		}
 
-		result.Block.Height = nextHeight
+		// Prefer parser height (BIP34 coinbase); fall back to sequential
+		// only for pre-BIP34 blocks where height is 0.
+		height := result.Block.Height
+		if height == 0 {
+			height = nextHeight
+			result.Block.Height = height
+		}
+		// Reorg detection: prev_hash must link to previous block hash.
+		prev := result.Block.Header.PrevBlock.String()
+		if s.prevHash != "" && prev != "" && prev != s.prevHash && height != 0 {
+			log.Printf("REORG suspected at height %d: prev %s != last %s (keeping both, needs backfill)", height, prev, s.prevHash)
+		}
 
 		if err := s.insertBlock(ctx, result.Block); err != nil {
-			log.Printf("ERROR inserting block %d: %v", nextHeight, err)
+			log.Printf("ERROR inserting block %d: %v", height, err)
 			return err
 		}
 
 		s.mu.Lock()
-		s.state.LastHeight = nextHeight
+		s.state.LastHeight = height
 		s.state.LastFile = fileName
 		s.state.LastOffset = result.OffsetStart + result.BytesRead
 		s.mu.Unlock()
 
-		nextHeight++
+		s.prevHash = result.Block.Hash.String()
+		nextHeight = height + 1
 
-		if result.Block.Height%1000 == 0 {
+		if height%1000 == 0 {
 			s.saveState()
-			log.Printf("Synced block %d", result.Block.Height)
+			log.Printf("Synced block %d", height)
 		}
 
 		return nil
@@ -206,6 +264,9 @@ func (s *Syncer) processFile(ctx context.Context, path string) {
 
 	if err != nil {
 		log.Printf("ERROR processing %s: %v", path, err)
+		// Do NOT checkpoint past a failed block: offsets in state still
+		// point at last success (updated incrementally above).
+		return
 	}
 	s.saveState()
 	log.Printf("Done processing %s", path)
@@ -280,9 +341,13 @@ func (s *Syncer) listBlkFiles() ([]string, error) {
 func (s *Syncer) saveState() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	data := fmt.Sprintf(`{"last_height":%d,"last_file":"%s","last_offset":%d}`,
-		s.state.LastHeight, s.state.LastFile, s.state.LastOffset)
-	os.WriteFile(s.stateFile, []byte(data), 0644)
+	// encoding/json (not Sprintf): file names can never break state integrity.
+	data, err := json.Marshal(s.state)
+	if err != nil {
+		log.Printf("ERROR marshaling state: %v", err)
+		return
+	}
+	os.WriteFile(s.stateFile, data, 0600)
 }
 
 func parseBlkNum(filename string) int {
