@@ -11,6 +11,7 @@ mod state;
 mod address;
 mod ch;
 mod enrich;
+mod syncer;
 mod utxo;
 
 use std::process::ExitCode;
