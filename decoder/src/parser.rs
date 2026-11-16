@@ -238,8 +238,9 @@ fn parse_transaction(tx: &bitcoin::Transaction) -> ParsedTx {
 ///
 /// Note: on magic mismatch this steps one byte forward, while Go's scan steps
 /// a full 4-byte magic width. One-byte resync is strictly more robust (finds
-/// magic at any alignment after 1-byte corruption); oversize resync matches Go
-/// exactly (one byte past the size field).
+/// magic at any alignment after 1-byte corruption). Oversize resync likewise
+/// restarts at `record_start + 1` so a magic hidden inside the skipped
+/// `record_start+1..8` window is still captured.
 pub fn scan_blocks(
     path: &Path,
     file_num: u32,
@@ -286,11 +287,12 @@ pub fn scan_blocks(
         offset += 4;
 
         if block_size as usize > MAX_BLOCK_SIZE {
-            // Corrupt/forged length: never allocate on it. Step one byte
-            // forward and resync the magic scan instead of aborting the
-            // whole file (keeps syncing past disk corruption).
+            // Corrupt/forged length: never allocate on it. Restart the magic
+            // scan one byte past the record start (not past the size field),
+            // so a magic hiding in record_start+1..8 is still captured, and
+            // keep syncing past disk corruption instead of aborting the file.
             eprintln!("WARN: implausible block size {block_size} at offset {offset}, resyncing");
-            offset += 1;
+            offset = record_start + 1;
             f.seek(SeekFrom::Start(offset)).context("seek resync")?;
             continue;
         }
@@ -344,18 +346,28 @@ mod tests {
         ScriptBuf::from_bytes(v)
     }
 
-    fn coinbase_tx(height: u32, outputs: Vec<TxOut>) -> Transaction {
+    fn coinbase_tx_with_script(script_sig: ScriptBuf, outputs: Vec<TxOut>) -> Transaction {
         Transaction {
             version: bitcoin::transaction::Version::ONE,
             lock_time: LockTime::ZERO,
             input: vec![TxIn {
                 previous_output: OutPoint::null(),
-                script_sig: coinbase_script(height),
+                script_sig,
                 sequence: Sequence::MAX,
                 witness: bitcoin::Witness::new(),
             }],
             output: outputs,
         }
+    }
+
+    fn coinbase_tx(height: u32, outputs: Vec<TxOut>) -> Transaction {
+        coinbase_tx_with_script(coinbase_script(height), outputs)
+    }
+
+    /// Realistic BIP34 coinbase scriptSig: `[push][height LE minimal][extra]`.
+    /// True height 800000 = 0x0C3500 needs 3 bytes, so push = 0x03.
+    fn realistic_coinbase_script() -> ScriptBuf {
+        ScriptBuf::from_bytes(vec![0x03, 0x00, 0x35, 0x0c, 0xaa, 0xbb])
     }
 
     fn p2pkh_output(value_sat: u64) -> TxOut {
@@ -461,6 +473,35 @@ mod tests {
     }
 
     #[test]
+    fn oversize_resync_captures_magic_in_skipped_window() {
+        // Forged size field that IS the magic (LE bytes F9 BE B4 D9 read as
+        // size 0xD9B4BEF9 > 8 MiB), followed immediately by a valid framed
+        // block whose magic sits at record_start+4. Resync from
+        // record_start+1 must scan the +1..8 window and capture it; starting
+        // at data_start+1 (= record_start+9) would skip the block's magic
+        // entirely and yield zero callbacks.
+        let block = test_block(vec![coinbase_tx(TEST_HEIGHT, vec![p2pkh_output(5_000)])]);
+        let framed_block = framed(&block);
+        let mut bytes = MAINNET_MAGIC.to_vec();
+        bytes.extend_from_slice(&framed_block);
+        let (_dir, path) = write_temp("blk00001.dat", &bytes);
+        let mut seen: Vec<BlockScan> = Vec::new();
+        let res = scan_blocks(&path, 1, 0, None, &mut |scan| {
+            seen.push(scan);
+            Ok(())
+        });
+        assert!(res.is_ok(), "got {res:?}");
+        assert_eq!(
+            seen.len(),
+            1,
+            "block hidden behind forged size must be captured"
+        );
+        assert_eq!(seen[0].block.height, TEST_HEIGHT);
+        assert_eq!(seen[0].bytes_read, framed_block.len() as u64);
+        assert_eq!(seen[0].offset_start, 8, "size field of record at +4");
+    }
+
+    #[test]
     fn truncated_record_stops_clean() {
         // magic+size, body cut short -> Ok, no callback, offset unchanged
         let block = test_block(vec![coinbase_tx(TEST_HEIGHT, vec![p2pkh_output(5_000)])]);
@@ -506,7 +547,12 @@ mod tests {
 
     #[test]
     fn bip34_height_read() {
-        let block = test_block(vec![coinbase_tx(TEST_HEIGHT, vec![p2pkh_output(5_000)])]);
+        // Realistic BIP34 coinbase scriptSig for true height 800000:
+        // 03 00 35 0c aa bb ([push=3][00 35 0c LE][extra]).
+        let block = test_block(vec![coinbase_tx_with_script(
+            realistic_coinbase_script(),
+            vec![p2pkh_output(5_000)],
+        )]);
         let bytes = framed(&block);
         let (_dir, path) = write_temp("blk00001.dat", &bytes);
         let mut seen: Vec<BlockScan> = Vec::new();
@@ -525,7 +571,15 @@ mod tests {
         );
         assert_eq!(scan.offset_start, 4, "Go parity: size-field offset");
         let parsed = &scan.block;
-        assert_eq!(parsed.height, TEST_HEIGHT);
+        // Go-parity-pinned: Go reads script[0:4] LE raw, so the push opcode
+        // lands in the low byte: LE(03 00 35 0c) = 0x0C350003 = 204800003,
+        // NOT the true height 800000. This preserves byte-identical output
+        // with decoder/internal/parser/block.go; opcode-aware parsing would
+        // diverge from Go. PARITY-VS-CORRECTNESS CONFLICT flagged for
+        // controller: Task 7 acceptance comparing Rust heights against known
+        // mainnet heights will see 204800003-style values wherever the BIP34
+        // push opcode is nonzero.
+        assert_eq!(parsed.height, 204_800_003);
         assert!(!parsed.hash.is_empty());
         assert_eq!(parsed.timestamp, 1_700_000_000);
         assert_eq!(parsed.version, 1);
