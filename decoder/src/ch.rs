@@ -12,7 +12,24 @@
 //! first failure so the caller never checkpoints past a partial flush. The
 //! production writer issues every batch with `wait_for_async_insert=1`
 //! ([`WAIT_FOR_ASYNC_INSERT`]); Go used fire-and-forget `0`.
+//!
+//! Call contract (Task 6 syncer consumes this; replay-safety pinned by
+//! `failed_flush_retry_is_identical`):
+//!
+//! 1. `build_batch(block, utxo, prev_time, now)` — PURE READ-ONLY. Only
+//!    `UtxoStore::get`; never `put`/`delete`. Safe to call any number of
+//!    times, before or after failed flushes, with identical results.
+//! 2. `writer.flush(&batch)` — on `Err`, retry step 1–2 freely (the store is
+//!    untouched) and do NOT checkpoint.
+//! 3. Only after `flush` returns `Ok`: `apply_utxo(block, utxo)` — index the
+//!    block's outputs, then delete spent entries. Only then checkpoint.
+//!
+//! Same-block spends resolve without mutation: resolution consults an
+//! in-memory overlay of the block's own outputs first (Go `syncer.go` pass 1
+//! makes those visible by pre-indexing; the overlay yields identical values,
+//! including Go's overwrite-wins precedence on duplicate keys).
 
+use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -237,24 +254,31 @@ pub fn now_utc_secs() -> u32 {
         .unwrap_or(0)
 }
 
-/// Build all 8 table payloads for `block`.
+/// Build all 8 table payloads for `block`. PURE READ-ONLY against `utxo`
+/// (only `get`, never `put`/`delete`): a failed [`ClickHouseWriter::flush`]
+/// leaves the store untouched, so the caller can rebuild/retry and derive
+/// byte-identical fees and miss counts.
 ///
-/// UTXO lifecycle mirrors Go `syncer.go` `insertBlock`: pass 1 indexes ALL of
-/// the block's outputs first (so V2 input resolution also hits same-block
-/// spends), V2 rows resolve against that view, pass 2 deletes spent entries.
-/// `prev_time` is the previous block's timestamp (`None` for genesis/unknown
-/// → 600 s default interval, Go parity).
+/// Same-block spends resolve via an in-memory overlay of the block's own
+/// outputs (checked before the store), mirroring Go `syncer.go` pass 1
+/// pre-indexing with identical values — including overwrite-wins precedence
+/// on duplicate keys and the `value_sat >= 0` guard. `prev_time` is the
+/// previous block's timestamp (`None` for genesis/unknown → 600 s default
+/// interval, Go parity).
+///
+/// Caller contract: build → flush → only on `Ok`, [`apply_utxo`].
 pub fn build_batch(
     block: &ParsedBlock,
     utxo: &UtxoStore,
     prev_time: Option<u32>,
     now_unix: u32,
 ) -> Result<BlockBatch> {
-    // Pass 1: index all outputs (Go: `if out.ValueSat >= 0`).
+    // In-block overlay: (txid, vout) -> value, Go pass-1 parity.
+    let mut own: HashMap<(&str, u32), u64> = HashMap::new();
     for tx in &block.txs {
         for out in &tx.outputs {
             if out.value_sat >= 0 {
-                utxo.put(&tx.hash, out.index, out.value_sat as u64)?;
+                own.insert((tx.hash.as_str(), out.index), out.value_sat as u64);
             }
         }
     }
@@ -268,6 +292,10 @@ pub fn build_batch(
         for inp in &tx.inputs {
             if tx.is_coinbase {
                 vals.push(0);
+                continue;
+            }
+            if let Some(&v) = own.get(&(inp.prev_txid.as_str(), inp.prev_index)) {
+                vals.push(v);
                 continue;
             }
             match utxo.get(&inp.prev_txid, inp.prev_index)? {
@@ -450,7 +478,26 @@ pub fn build_batch(
         }
     }
 
-    // Pass 2: remove spent entries (Go parity; no-op for missing keys).
+    Ok(batch)
+}
+
+/// Advance the UTXO set after a successful flush. Mirrors Go `syncer.go`
+/// `insertBlock`: index ALL of the block's outputs first (Go:
+/// `if out.ValueSat >= 0`), then delete spent entries (no-op for missing
+/// keys).
+///
+/// MUST be called only after [`ClickHouseWriter::flush`] returns `Ok`
+/// (then checkpoint). Never before/during build: [`build_batch`] is
+/// read-only precisely so a failed flush leaves the store untouched and a
+/// retry derives identical values.
+pub fn apply_utxo(block: &ParsedBlock, utxo: &UtxoStore) -> Result<()> {
+    for tx in &block.txs {
+        for out in &tx.outputs {
+            if out.value_sat >= 0 {
+                utxo.put(&tx.hash, out.index, out.value_sat as u64)?;
+            }
+        }
+    }
     for tx in &block.txs {
         if tx.is_coinbase {
             continue;
@@ -459,8 +506,7 @@ pub fn build_batch(
             utxo.delete(&inp.prev_txid, inp.prev_index)?;
         }
     }
-
-    Ok(batch)
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -747,6 +793,89 @@ mod tests {
         assert_eq!(tx.input_total_sat, 8_000);
         // Fee stays signed (8000 - 7000); no u64 wrap-around.
         assert_eq!(tx.fee_sat, 1_000);
+    }
+
+    #[test]
+    fn failed_flush_retry_is_identical() {
+        // Replay-safety: build is read-only, so a failed flush leaves the
+        // store untouched and a retry derives identical fees/miss counts
+        // (the old delete-before-flush shape corrupted retries).
+        let (_dir, utxo) = mem_utxo();
+        utxo.put(&"11".repeat(32), 0, 8_000).unwrap();
+        let block = parsed_fixture();
+
+        let batch1 = build_batch(&block, &utxo, None, NOW).unwrap();
+        let bad = ClickHouseWriter::new(FakeWriter::failing_at(5));
+        assert!(bad.flush(&batch1).is_err());
+
+        // Store untouched: parent still present, block outputs NOT indexed.
+        assert_eq!(utxo.get(&"11".repeat(32), 0).unwrap(), Some(8_000));
+        assert_eq!(utxo.get(&block.txs[0].hash, 0).unwrap(), None);
+        assert_eq!(utxo.get(&block.txs[1].hash, 0).unwrap(), None);
+
+        // Retry from scratch: identical derivation.
+        let batch2 = build_batch(&block, &utxo, None, NOW).unwrap();
+        assert_eq!(batch2.utxo_misses, batch1.utxo_misses);
+        assert_eq!(batch2.transactions_v2, batch1.transactions_v2);
+        assert_eq!(batch2.inputs_v2, batch1.inputs_v2);
+        let good = ClickHouseWriter::new(FakeWriter::new());
+        let stats = good.flush(&batch2).unwrap();
+        assert_eq!(stats.utxo_misses, 1);
+        assert_eq!(
+            batch2
+                .transactions_v2
+                .iter()
+                .find(|r| r.txid == block.txs[1].hash)
+                .unwrap()
+                .fee_sat,
+            1_000
+        );
+
+        // Only now advance the store: parents spent, block outputs indexed.
+        apply_utxo(&block, &utxo).unwrap();
+        assert_eq!(utxo.get(&"11".repeat(32), 0).unwrap(), None);
+        assert_eq!(
+            utxo.get(&block.txs[0].hash, 0).unwrap(),
+            Some(312_501_000)
+        );
+        assert_eq!(utxo.get(&block.txs[1].hash, 0).unwrap(), Some(7_000));
+    }
+
+    #[test]
+    fn same_block_spend_resolves_without_mutation() {
+        // Child spends the coinbase output of the SAME block: Go pass 1
+        // pre-indexing hits it; the in-block overlay must too — with zero
+        // store writes (store miss counter stays 0).
+        use bitcoin::Txid;
+        let mut block = fixture_block();
+        let cb_txid: Txid = bitcoin::consensus::deserialize(
+            &bitcoin::consensus::serialize(&block.txdata[0]),
+        )
+        .map(|tx: Transaction| tx.compute_txid())
+        .unwrap();
+        block.txdata[1].input[0].previous_output = OutPoint {
+            txid: cb_txid,
+            vout: 0,
+        };
+        let raw = serialize(&block);
+        let parsed = parse_block(&raw).unwrap();
+
+        let (_dir, utxo) = mem_utxo();
+        let batch = build_batch(&parsed, &utxo, None, NOW).unwrap();
+        let spend_txid = parsed.txs[1].hash.clone();
+        let vals: Vec<u64> = batch
+            .inputs_v2
+            .iter()
+            .filter(|r| r.txid == spend_txid)
+            .map(|r| r.value_sat)
+            .collect();
+        // First input hits the same-block coinbase output; second still misses.
+        assert!(vals.contains(&312_501_000), "same-block output must hit");
+        assert_eq!(batch.utxo_misses, 1);
+        // Read-only: nothing indexed (the store's internal miss metric may
+        // increment on `get` — Task 4 behavior — but no entries are added).
+        assert_eq!(utxo.len(), 0);
+        assert_eq!(utxo.get(&parsed.txs[0].hash, 0).unwrap(), None);
     }
 
     #[test]
