@@ -10,6 +10,7 @@ mod parser;
 mod state;
 mod address;
 mod enrich;
+mod utxo;
 
 use std::process::ExitCode;
 
