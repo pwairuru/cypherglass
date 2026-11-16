@@ -254,10 +254,6 @@ fn bip34_coinbase_height_go_parity() {
 /// [`NativeWriter`](decoder::native::NativeWriter) into an ephemeral
 /// `decoder_it` database. Run with:
 /// `CH_TEST_ADDR=http://user:pass@127.0.0.1:8124 cargo test --test integration -- --ignored --nocapture`
-/// Live ClickHouse roundtrip: same one-block fixture through [`Syncer`] +
-/// [`NativeWriter`](decoder::native::NativeWriter) into an ephemeral
-/// `decoder_it` database. Run with:
-/// `CH_TEST_ADDR=http://user:pass@127.0.0.1:8124 cargo test --test integration -- --ignored --nocapture`
 #[test]
 #[ignore]
 fn live_clickhouse_roundtrip() {

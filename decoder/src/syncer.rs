@@ -13,7 +13,9 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 
-use crate::ch::{apply_utxo, build_batch, now_utc_secs, BlockBatch, ClickHouseWriter, DbWriter};
+use crate::ch::{
+    build_batch, collect_utxo_ops, now_utc_secs, BlockBatch, ClickHouseWriter, DbWriter,
+};
 use crate::parser::{scan_blocks, ParsedBlock, XorDeobfuscator};
 use crate::state::{save_state_atomic, SyncState};
 use crate::utxo::UtxoStore;
@@ -297,9 +299,9 @@ impl<W: DbWriter> Syncer<W> {
     /// `{last_height,last_file,last_offset}` per block, and atomically save
     /// state. Any error: no UTXO apply, no checkpoint (batch replays).
     ///
-    /// Each `put`/`delete` in [`apply_utxo`] is its own redb commit, so the
-    /// UTXO store is durable before the state file advances (CH flush OK ->
-    /// redb commit -> state save).
+    /// Each flush commits the whole batch's UTXO ops in a SINGLE redb write
+    /// transaction, so the store is durable before the state file advances
+    /// (CH flush OK -> redb commit -> state save).
     fn flush_pending(&mut self) -> Result<usize> {
         if self.pending.is_empty() {
             return Ok(0);
@@ -334,10 +336,16 @@ impl<W: DbWriter> Syncer<W> {
         // look like exact duplicates and be skipped (data loss). Re-apply
         // itself is idempotent (`put` overwrites, `delete` of a missing key
         // is a no-op), and uninserted rows collapse in ClickHouse.
-        if let Err(e) = items
-            .iter()
-            .try_for_each(|p| apply_utxo(&p.block, &self.utxo))
-        {
+        // One write transaction for the whole batch (puts then deletes per
+        // block, Go pass-1+2 order); a single commit instead of one per op.
+        let mut puts = Vec::new();
+        let mut deletes = Vec::new();
+        for p in &items {
+            let (pp, dd) = collect_utxo_ops(&p.block);
+            puts.extend(pp);
+            deletes.extend(dd);
+        }
+        if let Err(e) = self.utxo.batch_write(&puts, &deletes) {
             self.restore_snapshot();
             return Err(e).context("UTXO apply failed; no checkpoint, will replay");
         }
@@ -454,11 +462,11 @@ impl<W: DbWriter> Syncer<W> {
     /// Catch-up, then watch (`notify`) + poll until `stop`; the partial
     /// batch flushes before return (graceful shutdown).
     pub fn run(&mut self, stop: &AtomicBool) -> Result<()> {
+        std::fs::create_dir_all(&self.blocks_dir)
+            .with_context(|| format!("creating {}", self.blocks_dir.display()))?;
         if let Err(e) = self.catch_up() {
             eprintln!("Historical sync error: {e:#}");
         }
-        std::fs::create_dir_all(&self.blocks_dir)
-            .with_context(|| format!("creating {}", self.blocks_dir.display()))?;
 
         let (tx, rx) = std::sync::mpsc::channel::<Result<notify::Event, notify::Error>>();
         use notify::Watcher as _;
@@ -658,9 +666,38 @@ mod tests {
         assert_eq!(s.writer.inner.calls().len(), calls_before);
         assert_eq!(s.state().last_height, 2);
         assert_eq!(s.state().last_file, "blk00001.dat");
-        // Go parity: checkpoint = OffsetStart(size field) + BytesRead(8+body),
-        // which overshoots the true EOF by 4 bytes per trailing block.
-        assert_eq!(s.state().last_offset, bytes.len() as i64 + 4);
+        // Checkpoint = size-field offset + (size field + body) = exact EOF,
+        // so a same-file resume seeks to the next record, not past it.
+        assert_eq!(s.state().last_offset, bytes.len() as i64);
+    }
+
+    #[test]
+    fn append_after_process_inserts_exactly_one_new_block() {
+        // Regression: the old +4 overshoot made a same-file resume seek 4
+        // bytes past the true EOF and miss the first appended block.
+        let dir = tempfile::tempdir().unwrap();
+        let (mut s, blocks) = test_syncer(&dir, BATCH, FakeWriter::new());
+        let b1 = block_bytes(10, 11, ZERO_HASH);
+        std::fs::write(blocks.join("blk00001.dat"), &b1).unwrap();
+        assert_eq!(s.process_file(Path::new("blk00001.dat")).unwrap(), 1);
+        assert_eq!(s.state().last_height, 10);
+        assert_eq!(s.state().last_offset, b1.len() as i64);
+
+        // Append a chained block and reprocess: exactly one new insert.
+        let b2 = block_bytes(11, 22, &hash_of_framed(&b1));
+        {
+            use std::io::Write as _;
+            let mut f = std::fs::OpenOptions::new()
+                .append(true)
+                .open(blocks.join("blk00001.dat"))
+                .unwrap();
+            f.write_all(&b2).unwrap();
+        }
+        let n2 = s.process_file(&blocks.join("blk00001.dat")).unwrap();
+        assert_eq!(n2, 1, "appended block must be picked up on resume");
+        assert_eq!(s.state().last_height, 11);
+        assert_eq!(s.state().last_offset, (b1.len() + b2.len()) as i64);
+        assert_eq!(s.state().last_file, "blk00001.dat");
     }
 
     #[test]

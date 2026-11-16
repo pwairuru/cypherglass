@@ -7,8 +7,10 @@
 //! Primary derivation is `bitcoin::Address::from_script` (P2PKH, P2SH,
 //! witness programs). Bare pubkey and multisig scripts are not convertible
 //! by `from_script`, so — like Go, which returns one pubkey-hash address
-//! per pubkey and keeps `addresses[0]` — the HASH160 P2PKH address of the
-//! first valid pubkey is used. Class checks run in Go's
+//! per VALID pubkey (skipping unparsable ones) and keeps the first — the
+//! HASH160 P2PKH address of the first valid pubkey is used, hashed over the
+//! canonical serialization (compressed as-is, hybrid as `04||x||y`).
+//! Class checks run in Go's
 //! `ExtractPkScriptAddrs` order (pubkeyhash, scripthash, pubkey, multisig,
 //! nulldata, witness v0/v1); Go never returns an error from that function,
 //! so every script maps to a class string.
@@ -189,13 +191,55 @@ fn read_push(s: &[u8]) -> Option<(&[u8], usize)> {
     }
 }
 
-/// Valid secp256k1 pubkey prefix (compressed, uncompressed, hybrid).
-fn is_valid_pubkey(data: &[u8]) -> bool {
+/// Canonical on-curve pubkey bytes for hashing, or `None` when Go would
+/// yield no address.
+///
+/// Go parity chain (`txscript/standard.go` + `btcutil/address.go` +
+/// `btcec`/`secp256k1`, all verified against the vendored sources and by
+/// executing `ExtractPkScriptAddrs` on the test vectors below):
+/// - class detection is shape-only (`isStrictPubKeyEncoding`: 33B `02`/`03`,
+///   65B `04`/`06`/`07`);
+/// - `NewAddressPubKey` then runs `btcec.ParsePubKey`, which validates the
+///   curve point AND the hybrid parity bit (`06` = even y, `07` = odd y;
+///   decred secp256k1 rejects mismatches);
+/// - an unparsable key yields the class with an EMPTY address list, and in
+///   multisig such keys are SKIPPED (`Convert the public keys while skipping
+///   any that are invalid`);
+/// - the hashed bytes are the CANONICAL serialization: compressed for
+///   `02`/`03`, uncompressed `04||x||y` for `04`/`06`/`07` (hybrid inputs
+///   hash as `04...`, so valid `07` + odd-y hashes to the same address as
+///   the `04` form).
+///
+/// This function returns the canonical bytes (validating everything above);
+/// multisig callers filter with it, pubkey callers hash with it.
+fn canonical_pubkey(data: &[u8]) -> Option<Vec<u8>> {
     match data.len() {
-        33 => data[0] == 0x02 || data[0] == 0x03,
-        65 => data[0] == 0x04 || data[0] == 0x06 || data[0] == 0x07,
-        _ => false,
+        33 if data[0] == 0x02 || data[0] == 0x03 => {
+            let pk = secp256k1::PublicKey::from_slice(data).ok()?;
+            Some(pk.serialize().to_vec())
+        }
+        65 if data[0] == 0x04 || data[0] == 0x06 || data[0] == 0x07 => {
+            if data[0] != 0x04 {
+                // Hybrid parity bit must match y (Go rejects mismatches).
+                let y_odd = data[64] & 1 == 1;
+                if (data[0] == 0x07) != y_odd {
+                    return None;
+                }
+            }
+            // Normalize to uncompressed for validation + hashing (Go parity).
+            let mut norm = data.to_vec();
+            norm[0] = 0x04;
+            secp256k1::PublicKey::from_slice(&norm).ok()?;
+            Some(norm)
+        }
+        _ => None,
     }
+}
+
+/// Valid secp256k1 pubkey: strict-encoding shape AND on-curve (see
+/// [`canonical_pubkey`]).
+fn is_valid_pubkey(data: &[u8]) -> bool {
+    canonical_pubkey(data).is_some()
 }
 
 /// Go parity for `pubkey` / `multisig`: P2PKH address of the first valid
@@ -220,7 +264,10 @@ fn first_pubkey_address(script: &[u8], class: &str) -> Option<String> {
     if !is_valid_pubkey(first) {
         return None;
     }
-    let hash = hash160::Hash::hash(first);
+    // Hash the CANONICAL serialization (Go `AddressPubKey.serialize`:
+    // compressed stays compressed, hybrid normalizes to `04||x||y`).
+    let canonical = canonical_pubkey(first)?;
+    let hash = hash160::Hash::hash(&canonical);
     Some(Address::p2pkh(hash, Network::Bitcoin).to_string())
 }
 
@@ -233,8 +280,7 @@ mod tests {
         // NOTE: brief printed `...ebb88f188ac` (49 hex chars, undecodable);
         // corrected to `...ebb88f1888ac`: hash160 `...ebb88f18` + `88ac`
         // suffix, verified as HASH160(genesis pubkey) via python hashlib.
-        let script =
-            hex::decode("76a91462e907b15cbf27d5425399ebf6f0fb50ebb88f1888ac").unwrap();
+        let script = hex::decode("76a91462e907b15cbf27d5425399ebf6f0fb50ebb88f1888ac").unwrap();
         let (addr, typ) = extract_address(&script);
         assert_eq!(addr, "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa");
         assert_eq!(typ, "pubkeyhash");
@@ -256,8 +302,7 @@ mod tests {
 
     #[test]
     fn bip173_p2wpkh_vector() {
-        let script =
-            hex::decode("0014751e76e8199196d454941c45d1b3a323f1433bd6").unwrap();
+        let script = hex::decode("0014751e76e8199196d454941c45d1b3a323f1433bd6").unwrap();
         let (addr, typ) = extract_address(&script);
         assert_eq!(addr, "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4");
         assert_eq!(typ, "witness_v0_keyhash");
@@ -282,12 +327,116 @@ mod tests {
         let genesis_pk = "04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb\
                           649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f";
         let other_pk = "021111111111111111111111111111111111111111111111111111111111111111";
-        let script = hex::decode(
-            ["51", "41", genesis_pk, "21", other_pk, "52", "ae"].concat(),
-        )
-        .unwrap();
+        let script =
+            hex::decode(["51", "41", genesis_pk, "21", other_pk, "52", "ae"].concat()).unwrap();
         let (addr, typ) = extract_address(&script);
         assert_eq!(addr, "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa");
         assert_eq!(typ, "multisig");
+    }
+
+    // All expected values below were produced by executing Go
+    // `txscript.ExtractPkScriptAddrs` (btcd v0.24.2, the pinned dep) on the
+    // same scripts via a docker probe — parity is measured, not assumed.
+    // Compressed Satoshi key (valid control):
+    // 02678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb6
+    const COMP_SATOSHI: &str = "02678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb6";
+    // x = 5 / x = 7 are provably off-curve (Legendre(x^3+7) = -1 mod p).
+    const INV_X5: &str = "020000000000000000000000000000000000000000000000000000000000000005";
+    const INV_X7: &str = "020000000000000000000000000000000000000000000000000000000000000007";
+
+    #[test]
+    fn invalid_curve_pubkey_yields_empty() {
+        // Shape-valid (33B `02`) but off-curve: Go classifies `pubkey` and
+        // `NewAddressPubKey` fails, so the address list is empty.
+        let script = hex::decode(format!("21{INV_X5}ac")).unwrap();
+        let (addr, typ) = extract_address(&script);
+        assert_eq!(addr, "");
+        assert_eq!(typ, "pubkey");
+    }
+
+    #[test]
+    fn valid_compressed_p2pk_vector() {
+        let script = hex::decode(format!("21{COMP_SATOSHI}ac")).unwrap();
+        let (addr, typ) = extract_address(&script);
+        assert_eq!(addr, "1GgkcZcXsMNeoxAqc6iEUq6QrP4SW9aTa2");
+        assert_eq!(typ, "pubkey");
+    }
+
+    #[test]
+    fn invalid_curve_multisig_skips_invalid() {
+        // Go converts multisig pubkeys "while skipping any that are invalid":
+        // the off-curve leader is skipped, the valid key yields the address.
+        let script = hex::decode(format!("5121{INV_X5}21{COMP_SATOSHI}52ae")).unwrap();
+        let (addr, typ) = extract_address(&script);
+        assert_eq!(addr, "1GgkcZcXsMNeoxAqc6iEUq6QrP4SW9aTa2");
+        assert_eq!(typ, "multisig");
+    }
+
+    #[test]
+    fn all_invalid_multisig_yields_empty() {
+        let script = hex::decode(format!("5121{INV_X5}21{INV_X7}52ae")).unwrap();
+        let (addr, typ) = extract_address(&script);
+        assert_eq!(addr, "");
+        assert_eq!(typ, "multisig");
+    }
+
+    #[test]
+    fn hybrid_prefix_must_match_y_parity() {
+        // Satoshi key y is odd (ends 0x5f): Go/decred rejects `06` with
+        // "y oddness does not match", accepts `07` and hashes the canonical
+        // `04||x||y` (same address as the uncompressed form).
+        let x = &COMP_SATOSHI[2..];
+        let y = "49f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f";
+        let bad = hex::decode(format!("4106{x}{y}ac")).unwrap();
+        let (addr, typ) = extract_address(&bad);
+        assert_eq!(addr, "");
+        assert_eq!(typ, "pubkey");
+        let good = hex::decode(format!("4107{x}{y}ac")).unwrap();
+        let (addr, typ) = extract_address(&good);
+        assert_eq!(addr, "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa");
+        assert_eq!(typ, "pubkey");
+    }
+
+    #[test]
+    fn p2sh_vector() {
+        // Redeem: 1-of-2 multisig (genesis key + 0x11..11); address + script
+        // generated by an independent python implementation (base58check
+        // validated against the genesis P2PKH address first).
+        let script = hex::decode("a914932423ff2dc0b75c18e59773069f7a97a57401a187").unwrap();
+        let (addr, typ) = extract_address(&script);
+        assert_eq!(addr, "3F72YqUanp3ydqUfphcNvpL4AnZWsKGNyT");
+        assert_eq!(typ, "scripthash");
+    }
+
+    #[test]
+    fn p2wsh_vector() {
+        // Witness program sha256(b'fixwave-witness-script'); bech32 encoder
+        // validated against the BIP173 P2WPKH vector first.
+        let script =
+            hex::decode("0020f345881111914757f9a888f0a69c6680fc5c22c9e8f7060b2ac5db13c926b283")
+                .unwrap();
+        let (addr, typ) = extract_address(&script);
+        assert_eq!(
+            addr,
+            "bc1q7dzcsyg3j9r407dg3rc2d8rxsr79cgkfarmsvze2chd38jfxk2pszfyt7d"
+        );
+        assert_eq!(typ, "witness_v0_scripthash");
+    }
+
+    #[test]
+    fn p2tr_vector() {
+        // Witness program sha256(b'fixwave-taproot-key'); bech32m encoder
+        // validated by constant discrimination (accepts 0x2bc830a3, rejects
+        // 1 on the same string and vice versa on a bech32 string) plus a
+        // decode roundtrip of the program bytes.
+        let script =
+            hex::decode("512025a74dc94785f08e1e544333776406c6884d1bc597c986ba9abff3be942c76e6")
+                .unwrap();
+        let (addr, typ) = extract_address(&script);
+        assert_eq!(
+            addr,
+            "bc1pykn5mj28shcgu8j5gvehweqxc6yy6x79jlycdw56hlema9pvwmnqces8v8"
+        );
+        assert_eq!(typ, "witness_v1_taproot");
     }
 }

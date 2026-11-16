@@ -23,5 +23,5 @@ RUN apk add --no-cache ca-certificates && adduser -D -u 10001 decoder
 COPY --from=rust-builder /decoder /usr/local/bin/decoder
 COPY --from=go-builder /decoder-go-legacy /usr/local/bin/decoder-go-legacy
 USER decoder
-HEALTHCHECK --interval=60s --timeout=5s --retries=3 CMD test -f /data/decoder_state.json || exit 1
+HEALTHCHECK --interval=60s --timeout=5s --retries=3 CMD test -f "${STATE_FILE:-/data/decoder_state.json}" || exit 1
 ENTRYPOINT ["/usr/local/bin/decoder"]

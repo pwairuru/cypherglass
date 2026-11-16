@@ -82,7 +82,7 @@ fn pipeline(cfg: Config, stop: &AtomicBool) -> Outcome {
     };
 
     eprintln!(
-        "Connecting to ClickHouse http://{}:{}",
+        "ClickHouse ready after {attempt} attempt(s) at http://{}:{}",
         cfg.clickhouse_host, cfg.clickhouse_port
     );
     let st = load_state(&cfg.state_file);
@@ -155,10 +155,6 @@ async fn main() -> ExitCode {
         return ExitCode::from(2);
     }
 
-    eprintln!(
-        "Connecting to ClickHouse http://{}:{}",
-        cfg.clickhouse_host, cfg.clickhouse_port
-    );
     let stop = Arc::new(AtomicBool::new(false));
     let stop_pipe = Arc::clone(&stop);
     let handle = std::thread::spawn(move || pipeline(cfg, &stop_pipe));

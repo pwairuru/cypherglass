@@ -109,12 +109,16 @@ pub struct ParsedBlock {
 
 /// One scan hit: the parsed block plus its framing, mirroring Go's
 /// `BlockScanResult`. `offset_start` is the size-field offset (Go parity:
-/// block-data start minus 4); resume seeks use `offset_start + bytes_read`.
+/// block-data start minus 4); `bytes_read` covers the size field + body
+/// (magic excluded), so resume seeks use `offset_start + bytes_read` and
+/// land exactly on the next record.
 #[derive(Debug, Clone)]
 pub struct BlockScan {
     pub block: ParsedBlock,
+    /// Size field (4) + body; the 4 magic bytes are NOT counted.
     pub bytes_read: u64,
     pub file_num: u32,
+    /// Offset of the 4-byte size prefix (block-data start minus 4).
     pub offset_start: u64,
 }
 
@@ -310,7 +314,13 @@ pub fn scan_blocks(
         let data_start = offset;
         match parse_block(&body) {
             Ok(block) => {
-                let total_read = 4 + 4 + block_size as u64;
+                // `bytes_read` covers the size field + body (NOT the magic):
+                // `offset_start` already points at the size field, so the
+                // syncer checkpoint `offset_start + bytes_read` lands exactly
+                // on the next record start (`data_start + body`). Counting
+                // the magic here would overshoot by 4 and skip the first
+                // block appended after a resume.
+                let total_read = 4 + block_size as u64;
                 cb(BlockScan {
                     block,
                     bytes_read: total_read,
@@ -497,7 +507,10 @@ mod tests {
             "block hidden behind forged size must be captured"
         );
         assert_eq!(seen[0].block.height, TEST_HEIGHT);
-        assert_eq!(seen[0].bytes_read, framed_block.len() as u64);
+        // `bytes_read` covers size field + body (magic excluded):
+        // `offset_start + bytes_read` == exact next-record offset, so a
+        // same-file resume seeks to the next record, not 4 bytes past it.
+        assert_eq!(seen[0].bytes_read, framed_block.len() as u64 - 4);
         assert_eq!(seen[0].offset_start, 8, "size field of record at +4");
     }
 
@@ -566,8 +579,8 @@ mod tests {
         assert_eq!(scan.file_num, 7);
         assert_eq!(
             scan.bytes_read,
-            bytes.len() as u64,
-            "framing must be 8 + body"
+            bytes.len() as u64 - 4,
+            "size field + body (magic excluded)"
         );
         assert_eq!(scan.offset_start, 4, "Go parity: size-field offset");
         let parsed = &scan.block;

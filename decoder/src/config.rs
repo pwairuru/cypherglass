@@ -49,7 +49,8 @@ where
 
 impl Config {
     /// Build configuration from the environment, applying documented defaults:
-    /// `CLICKHOUSE_HOST=clickhouse`, `CLICKHOUSE_PORT=9000`,
+    /// `CLICKHOUSE_HOST=clickhouse`, `CLICKHOUSE_PORT=8123` (HTTP; the
+    /// retired Go client used native 9000),
     /// `CLICKHOUSE_USER=bitcoin`, `CLICKHOUSE_PASSWORD=bitcoin_clickhouse`,
     /// `CLICKHOUSE_DATABASE=bitcoin`, `BLOCKS_DIR=/data/bitcoin/blocks`,
     /// `STATE_FILE=/data/decoder_state.json`,
@@ -68,7 +69,7 @@ impl Config {
         let batch_blocks = batch_blocks.max(1);
         Self {
             clickhouse_host: env_or("CLICKHOUSE_HOST", "clickhouse"),
-            clickhouse_port: env_or_parse("CLICKHOUSE_PORT", 9000),
+            clickhouse_port: env_or_parse("CLICKHOUSE_PORT", 8123),
             clickhouse_user: env_or("CLICKHOUSE_USER", "bitcoin"),
             clickhouse_password: env_or("CLICKHOUSE_PASSWORD", "bitcoin_clickhouse"),
             clickhouse_database: env_or("CLICKHOUSE_DATABASE", "bitcoin"),
@@ -154,7 +155,7 @@ mod tests {
         }
         let cfg = Config::from_env();
         assert_eq!(cfg.clickhouse_host, "clickhouse");
-        assert_eq!(cfg.clickhouse_port, 9000);
+        assert_eq!(cfg.clickhouse_port, 8123);
         assert_eq!(cfg.clickhouse_user, "bitcoin");
         assert_eq!(cfg.clickhouse_password, "bitcoin_clickhouse");
         assert_eq!(cfg.clickhouse_database, "bitcoin");
@@ -181,7 +182,7 @@ mod tests {
         std::env::set_var("CLICKHOUSE_PORT", "not-a-port");
         std::env::set_var("BATCH_BLOCKS", "0");
         let cfg = Config::from_env();
-        assert_eq!(cfg.clickhouse_port, 9000);
+        assert_eq!(cfg.clickhouse_port, 8123);
         assert_eq!(cfg.batch_blocks, 1);
 
         for key in [

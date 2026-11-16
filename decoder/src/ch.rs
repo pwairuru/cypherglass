@@ -334,7 +334,10 @@ pub fn build_batch(
         height: block.height,
         hash: block.hash.clone(),
         timestamp: block.timestamp,
-        size: 0, // not tracked by parser yet (Go parity)
+        // Verified zero-by-construction: Go `client.go InsertBlock` Appends
+        // literal `uint32(0), uint32(0)` for size/weight (same for v1 txs
+        // below), so plumbing parser values here would DIVERGE from Go.
+        size: 0,
         weight: 0,
         version: block.version as u32,
         bits: block.bits,
@@ -349,6 +352,10 @@ pub fn build_batch(
         height: block.height,
         hash: block.hash.clone(),
         timestamp: block.timestamp,
+        // Verified zero-by-construction: Go `client_v2.go InsertBlockV2`
+        // Appends `uint32(0), // size: not tracked by parser yet` and the
+        // same for weight. Only v2 TRANSACTIONS carry real values
+        // (`tx.SizeVBytes, tx.WeightUnits`, plumbed below), exactly as here.
         size: 0,
         weight: 0,
         version: block.version as u32,
@@ -394,6 +401,10 @@ pub fn build_batch(
             timestamp: block.timestamp,
             version: tx.version as u32,
             locktime: tx.lock_time,
+            // Verified zero-by-construction: Go `client.go InsertTransactions`
+            // Appends literal `uint32(0), uint32(0)` for v1 size/weight.
+            // (v2 transactions below carry the real parser vsize/weight,
+            // matching Go `client_v2.go`.)
             size: 0,
             weight: 0,
             vin_count: tx.vin_count,
@@ -483,20 +494,22 @@ pub fn build_batch(
     Ok(batch)
 }
 
-/// Advance the UTXO set after a successful flush. Mirrors Go `syncer.go`
-/// `insertBlock`: index ALL of the block's outputs first (Go:
-/// `if out.ValueSat >= 0`), then delete spent entries (no-op for missing
-/// keys).
-///
-/// MUST be called only after [`ClickHouseWriter::flush`] returns `Ok`
-/// (then checkpoint). Never before/during build: [`build_batch`] is
-/// read-only precisely so a failed flush leaves the store untouched and a
-/// retry derives identical values.
-pub fn apply_utxo(block: &ParsedBlock, utxo: &UtxoStore) -> Result<()> {
+/// UTXO mutations for one batch: `(txid, vout, value)` puts (pass 1) and
+/// `(txid, vout)` deletes (pass 2).
+pub type UtxoPuts = Vec<(String, u32, u64)>;
+pub type UtxoDeletes = Vec<(String, u32)>;
+
+/// Collect a block's UTXO mutations without touching the store: all outputs
+/// with `value_sat >= 0` as puts (Go `insertBlock` pass 1), then spent
+/// entries as deletes (pass 2). Pure function so the syncer can merge ops
+/// across a whole batch into ONE write transaction.
+pub fn collect_utxo_ops(block: &ParsedBlock) -> (UtxoPuts, UtxoDeletes) {
+    let mut puts = Vec::new();
+    let mut deletes = Vec::new();
     for tx in &block.txs {
         for out in &tx.outputs {
             if out.value_sat >= 0 {
-                utxo.put(&tx.hash, out.index, out.value_sat as u64)?;
+                puts.push((tx.hash.clone(), out.index, out.value_sat as u64));
             }
         }
     }
@@ -505,10 +518,24 @@ pub fn apply_utxo(block: &ParsedBlock, utxo: &UtxoStore) -> Result<()> {
             continue;
         }
         for inp in &tx.inputs {
-            utxo.delete(&inp.prev_txid, inp.prev_index)?;
+            deletes.push((inp.prev_txid.clone(), inp.prev_index));
         }
     }
-    Ok(())
+    (puts, deletes)
+}
+
+/// Advance the UTXO set after a successful flush. Mirrors Go `syncer.go`
+/// `insertBlock`: index ALL of the block's outputs first (Go:
+/// `if out.ValueSat >= 0`), then delete spent entries (no-op for missing
+/// keys). Single write transaction via [`UtxoStore::batch_write`].
+///
+/// MUST be called only after [`ClickHouseWriter::flush`] returns `Ok`
+/// (then checkpoint). Never before/during build: [`build_batch`] is
+/// read-only precisely so a failed flush leaves the store untouched and a
+/// retry derives identical values.
+pub fn apply_utxo(block: &ParsedBlock, utxo: &UtxoStore) -> Result<()> {
+    let (puts, deletes) = collect_utxo_ops(block);
+    utxo.batch_write(&puts, &deletes)
 }
 
 // ---------------------------------------------------------------------------

@@ -242,6 +242,7 @@ dependencies = [
  "hex",
  "notify",
  "redb",
+ "secp256k1",
  "serde",
  "serde_json",
  "tempfile",

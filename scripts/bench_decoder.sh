@@ -77,8 +77,12 @@ sha256sum "$FIX" | tee "$BENCH_DIR/fixture.sha256"
 ls -l "$FIX"
 
 echo "== build Go (release-equivalent plain go build) =="
+# Persist the module cache across runs (still hermetic: go.sum verifies).
+GOMODCACHE_DIR="${GOMODCACHE_DIR:-$BENCH_DIR/gomodcache}"
+mkdir -p "$GOMODCACHE_DIR"
 docker run --rm -v "$REPO/decoder/legacy-go:/src" -w /src \
-    -v "$BENCH_DIR:/out" "$GO_IMAGE" \
+    -v "$BENCH_DIR:/out" -v "$GOMODCACHE_DIR:/go/pkg/mod" \
+    -e GOMODCACHE=/go/pkg/mod -e GOTOOLCHAIN=local "$GO_IMAGE" \
     sh -c 'go build -o /out/decoder-go . && go build -ldflags="-s -w" -o /out/decoder-go-stripped .'
 echo "== build Rust (release) =="
 cargo build --release --manifest-path "$REPO/decoder/Cargo.toml"
