@@ -6,6 +6,7 @@
 //! signal shutdown).
 
 mod config;
+mod parser;
 mod state;
 
 use std::process::ExitCode;
