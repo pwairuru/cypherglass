@@ -8,6 +8,8 @@
 mod config;
 mod parser;
 mod state;
+mod address;
+mod enrich;
 
 use std::process::ExitCode;
 
