@@ -1,9 +1,11 @@
-use axum::extract::{Path, Query, State};
+use axum::extract::rejection::{JsonRejection, QueryRejection};
+use axum::extract::{FromRequest, FromRequestParts, Path, Query, State};
 use axum::http::header::AUTHORIZATION;
 use axum::http::request::Parts;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::{Json, Router};
+use std::ops::Deref;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::{Error as SqlxError, PgPool};
@@ -28,7 +30,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/auth/users/{user_id}", axum::routing::patch(admin_update_user))
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AuthError {
     InvalidCredentials,
     NotAuthenticated,
@@ -72,6 +74,76 @@ impl IntoResponse for AuthError {
     }
 }
 
+pub struct AppJson<T>(pub T);
+
+impl<T, S> FromRequest<S> for AppJson<T>
+where
+    T: serde::de::DeserializeOwned,
+    S: Send + Sync,
+{
+    type Rejection = AuthError;
+
+    async fn from_request(
+        req: axum::http::Request<axum::body::Body>,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        match Json::<T>::from_request(req, state).await {
+            Ok(value) => Ok(AppJson(value.0)),
+            Err(rejection) => {
+                let detail = match rejection {
+                    JsonRejection::JsonSyntaxError(_) => "invalid json",
+                    JsonRejection::JsonDataError(_) => "invalid request data",
+                    JsonRejection::MissingJsonContentType(_) => "missing content-type",
+                    _ => "invalid request body",
+                };
+                Err(AuthError::UnprocessableEntity(detail))
+            }
+        }
+    }
+}
+
+impl<T> Deref for AppJson<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+pub struct AppQuery<T>(pub T);
+
+impl<T, S> FromRequestParts<S> for AppQuery<T>
+where
+    T: serde::de::DeserializeOwned,
+    S: Send + Sync,
+{
+    type Rejection = AuthError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        match Query::<T>::from_request_parts(parts, state).await {
+            Ok(value) => Ok(AppQuery(value.0)),
+            Err(rejection) => {
+                let detail = match rejection {
+                    QueryRejection::FailedToDeserializeQueryString(_) => {
+                        "invalid query parameters"
+                    }
+                    _ => "invalid query",
+                };
+                Err(AuthError::UnprocessableEntity(detail))
+            }
+        }
+    }
+}
+
+impl<T> Deref for AppQuery<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 fn is_setup_error(err: &SqlxError) -> bool {
     matches!(
         err,
@@ -81,6 +153,17 @@ fn is_setup_error(err: &SqlxError) -> bool {
             | SqlxError::PoolClosed
             | SqlxError::Tls(_)
     )
+}
+
+pub fn classify_unique_violation(db_err: &dyn sqlx::error::DatabaseError) -> AuthError {
+    if db_err.constraint() == Some("ix_users_email") {
+        return AuthError::EmailTaken;
+    }
+    // Fallback for drivers/locales that do not surface the constraint name.
+    if db_err.message().to_lowercase().contains("email") {
+        return AuthError::EmailTaken;
+    }
+    AuthError::UsernameTaken
 }
 
 async fn fetch_user_by_username(pool: &PgPool, username: &str) -> Result<Option<User>, SqlxError> {
@@ -290,7 +373,7 @@ fn user_out(user: &User) -> Value {
 
 async fn login(
     State(state): State<AppState>,
-    Json(data): Json<LoginIn>,
+    AppJson(data): AppJson<LoginIn>,
 ) -> Result<(StatusCode, Json<Value>), AuthError> {
     data.validate().map_err(AuthError::UnprocessableEntity)?;
 
@@ -321,7 +404,7 @@ async fn login(
 
 async fn register(
     State(state): State<AppState>,
-    Json(data): Json<RegisterIn>,
+    AppJson(data): AppJson<RegisterIn>,
 ) -> Result<(StatusCode, Json<Value>), AuthError> {
     data.validate().map_err(AuthError::UnprocessableEntity)?;
 
@@ -362,12 +445,7 @@ async fn register(
     match insert_result {
         Ok(_) => {}
         Err(SqlxError::Database(db_err)) if db_err.is_unique_violation() => {
-            // Determine which constraint triggered the violation.
-            let message = db_err.message();
-            if message.contains("users_email_key") || message.contains("email") {
-                return Err(AuthError::EmailTaken);
-            }
-            return Err(AuthError::UsernameTaken);
+            return Err(classify_unique_violation(&*db_err));
         }
         Err(_) => return Err(AuthError::UpdateConflict),
     }
@@ -401,7 +479,7 @@ async fn me(
 async fn update_me(
     State(state): State<AppState>,
     CurrentUser(user): CurrentUser,
-    Json(data): Json<MeUpdate>,
+    AppJson(data): AppJson<MeUpdate>,
 ) -> Result<Json<Value>, AuthError> {
     data.validate().map_err(AuthError::UnprocessableEntity)?;
 
@@ -460,7 +538,7 @@ async fn update_me(
 async fn change_password(
     State(state): State<AppState>,
     CurrentUser(user): CurrentUser,
-    Json(data): Json<ChangePasswordIn>,
+    AppJson(data): AppJson<ChangePasswordIn>,
 ) -> Result<Json<Value>, AuthError> {
     data.validate().map_err(AuthError::UnprocessableEntity)?;
 
@@ -511,10 +589,25 @@ fn escape_like(s: &str) -> String {
 async fn list_users(
     State(state): State<AppState>,
     AdminUser(_admin): AdminUser,
-    Query(query): Query<ListUsersQuery>,
+    AppQuery(query): AppQuery<ListUsersQuery>,
 ) -> Result<Json<Value>, AuthError> {
-    let limit = query.limit.clamp(1, 200);
-    let offset = query.offset.max(0);
+    if let Some(q) = &query.q {
+        if q.len() > 64 {
+            return Err(AuthError::UnprocessableEntity(
+                "q must be at most 64 characters",
+            ));
+        }
+    }
+    if query.limit < 1 || query.limit > 200 {
+        return Err(AuthError::UnprocessableEntity(
+            "limit must be between 1 and 200",
+        ));
+    }
+    if query.offset < 0 {
+        return Err(AuthError::UnprocessableEntity(
+            "offset must be non-negative",
+        ));
+    }
 
     let rows: Vec<User> = if let Some(q) = query.q.as_ref().filter(|s| !s.is_empty()) {
         let like = format!("%{}%", escape_like(q));
@@ -528,8 +621,8 @@ async fn list_users(
         )
         .bind(&like)
         .bind(query.active)
-        .bind(offset)
-        .bind(limit)
+        .bind(query.offset)
+        .bind(query.limit)
         .fetch_all(&state.pg)
         .await
         .map_err(|_| AuthError::UpdateConflict)?
@@ -542,8 +635,8 @@ async fn list_users(
              OFFSET $2 LIMIT $3",
         )
         .bind(query.active)
-        .bind(offset)
-        .bind(limit)
+        .bind(query.offset)
+        .bind(query.limit)
         .fetch_all(&state.pg)
         .await
         .map_err(|_| AuthError::UpdateConflict)?
@@ -557,7 +650,7 @@ async fn admin_update_user(
     State(state): State<AppState>,
     AdminUser(_admin): AdminUser,
     Path(user_id): Path<String>,
-    Json(data): Json<AdminUserUpdate>,
+    AppJson(data): AppJson<AdminUserUpdate>,
 ) -> Result<Json<Value>, AuthError> {
     data.validate().map_err(AuthError::UnprocessableEntity)?;
 

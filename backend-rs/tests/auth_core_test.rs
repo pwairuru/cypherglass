@@ -1,5 +1,6 @@
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode};
+use backend_rs::auth::routes::{classify_unique_violation, AuthError};
 use backend_rs::auth::{decode_token, password_ver};
 use backend_rs::db::{run_migrations, seed_user_for, User};
 use backend_rs::{build_router_with, AppState, ChClient, Settings};
@@ -114,6 +115,11 @@ async fn insert_user(pool: &PgPool, username: &str, password: &str, is_admin: bo
     .fetch_one(pool)
     .await
     .expect("insert user")
+}
+
+async fn admin_login(router: &axum::Router, username: &str, password: &str, pool: &sqlx::PgPool) -> String {
+    insert_user(pool, username, password, true).await;
+    login(router, username, password).await
 }
 
 async fn login(router: &axum::Router, username: &str, password: &str) -> String {
@@ -368,4 +374,166 @@ async fn seed_user_for_unset_none() {
     env::remove_var("SEED_ADMIN_PASSWORD");
 
     assert!(seed_user_for("admin", "admin").is_none());
+}
+
+#[tokio::test]
+async fn db_unique_violation_classifies_email_and_username() {
+    let (_guard, _settings, state) = setup().await;
+
+    // Email conflict.
+    let email = "dup@example.com";
+    sqlx::query(
+        "INSERT INTO users (id, username, email, password_hash, is_active, is_admin, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())",
+    )
+    .bind(Uuid::new_v4())
+    .bind("user_a")
+    .bind(email)
+    .bind("hash")
+    .bind(true)
+    .bind(false)
+    .execute(&state.pg)
+    .await
+    .unwrap();
+
+    let err = sqlx::query(
+        "INSERT INTO users (id, username, email, password_hash, is_active, is_admin, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())",
+    )
+    .bind(Uuid::new_v4())
+    .bind("user_b")
+    .bind(email)
+    .bind("hash")
+    .bind(true)
+    .bind(false)
+    .execute(&state.pg)
+    .await
+    .unwrap_err();
+
+    let db_err = match err {
+        sqlx::Error::Database(db_err) => db_err,
+        other => panic!("expected database error, got {:?}", other),
+    };
+    assert_eq!(classify_unique_violation(&*db_err), AuthError::EmailTaken);
+
+    // Username conflict.
+    sqlx::query("TRUNCATE users CASCADE")
+        .execute(&state.pg)
+        .await
+        .unwrap();
+    sqlx::query(
+        "INSERT INTO users (id, username, email, password_hash, is_active, is_admin, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())",
+    )
+    .bind(Uuid::new_v4())
+    .bind("dupuser")
+    .bind("a@example.com")
+    .bind("hash")
+    .bind(true)
+    .bind(false)
+    .execute(&state.pg)
+    .await
+    .unwrap();
+
+    let err = sqlx::query(
+        "INSERT INTO users (id, username, email, password_hash, is_active, is_admin, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())",
+    )
+    .bind(Uuid::new_v4())
+    .bind("dupuser")
+    .bind("b@example.com")
+    .bind("hash")
+    .bind(true)
+    .bind(false)
+    .execute(&state.pg)
+    .await
+    .unwrap_err();
+
+    let db_err = match err {
+        sqlx::Error::Database(db_err) => db_err,
+        other => panic!("expected database error, got {:?}", other),
+    };
+    assert_eq!(classify_unique_violation(&*db_err), AuthError::UsernameTaken);
+}
+
+#[tokio::test]
+async fn malformed_json_returns_422_json() {
+    let (_guard, settings, state) = setup().await;
+    let router = build_router_with(state, &settings);
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/auth/login")
+                .header("content-type", "application/json")
+                .body(Body::from("{bad json"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let (status, body) = body_json(response).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(body["detail"].is_string());
+}
+
+#[tokio::test]
+async fn missing_field_returns_422_json() {
+    let (_guard, settings, state) = setup().await;
+    let router = build_router_with(state, &settings);
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/auth/login")
+                .header("content-type", "application/json")
+                .body(Body::from("{}"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let (status, body) = body_json(response).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(body["detail"].is_string());
+}
+
+#[tokio::test]
+async fn users_query_validation_422() {
+    let (_guard, settings, state) = setup().await;
+    let router = build_router_with(state.clone(), &settings);
+    let token = admin_login(&router, "adminval", "hunter2!X", &state.pg).await;
+
+    let long_q = format!("/api/v1/auth/users?q={}", "x".repeat(65));
+    let cases: Vec<(&str, StatusCode)> = vec![
+        ("/api/v1/auth/users?limit=abc", StatusCode::UNPROCESSABLE_ENTITY),
+        ("/api/v1/auth/users?limit=999", StatusCode::UNPROCESSABLE_ENTITY),
+        ("/api/v1/auth/users?offset=-5", StatusCode::UNPROCESSABLE_ENTITY),
+        (&long_q, StatusCode::UNPROCESSABLE_ENTITY),
+        ("/api/v1/auth/users?limit=10&offset=0", StatusCode::OK),
+    ];
+
+    for (uri, expected) in cases {
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(uri)
+                    .header("authorization", format!("Bearer {}", token))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let (status, body) = body_json(response).await;
+        assert_eq!(
+            status, expected,
+            "{} returned unexpected status: {:?}",
+            uri, body
+        );
+        if expected != StatusCode::OK {
+            assert!(body["detail"].is_string(), "{} should have detail", uri);
+        }
+    }
 }
