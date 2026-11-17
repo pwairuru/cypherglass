@@ -1,5 +1,4 @@
-use backend_rs::{build_router_with, AppState, ChClient, Settings};
-use sqlx::postgres::PgPoolOptions;
+use backend_rs::{build_router_with, db::pg_pool, AppState, ChClient, Settings};
 
 #[tokio::main]
 async fn main() {
@@ -8,9 +7,7 @@ async fn main() {
 
     let settings = Settings::from_env();
 
-    let pg = PgPoolOptions::new()
-        .connect_lazy(&settings.database_url)
-        .expect("failed to create postgres pool");
+    let pg = pg_pool(&settings.database_url);
 
     let state = AppState {
         pg,

@@ -1,5 +1,6 @@
 pub mod ch;
 pub mod config;
+pub mod db;
 
 use axum::extract::{Request, State};
 use axum::http::header::{self, HeaderValue};
