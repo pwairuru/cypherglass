@@ -131,28 +131,19 @@ pub fn get_oauth_url(provider: &str, state: &AppState) -> Result<OAuthUrlOut, OA
     Ok(OAuthUrlOut { auth_url, state: oauth_state })
 }
 
-pub async fn complete_oauth(provider: &str, code: &str, state: &AppState) -> Result<Identity, OAuthError> {
-    if !PROVIDERS.contains(&provider) {
-        return Err(OAuthError::UnknownProvider);
-    }
-    if code.is_empty() {
-        return Err(OAuthError::ProviderError("missing code".into()));
-    }
-    let (client_id, client_secret) = client_credentials(provider, state)?;
-    let access_token = exchange_code(provider, code, &client_id, &client_secret, state).await?;
-    let info = fetch_userinfo(provider, &access_token).await?;
+pub(crate) fn normalize_identity(provider: &str, info: &serde_json::Value) -> Identity {
     if provider == "google" {
         let uid = info
             .get("sub")
             .map(json_value_to_string)
             .unwrap_or_default();
-        Ok(Identity {
+        Identity {
             provider: provider.to_string(),
             uid,
             email: info.get("email").and_then(|v| v.as_str()).map(|s| s.to_string()),
             name: info.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()),
             avatar_url: info.get("picture").and_then(|v| v.as_str()).map(|s| s.to_string()),
-        })
+        }
     } else {
         let uid = info.get("id").and_then(|v| {
             if let Some(n) = v.as_i64() {
@@ -170,14 +161,27 @@ pub async fn complete_oauth(provider: &str, code: &str, state: &AppState) -> Res
             .or(login)
             .map(|s| s.to_string());
         let avatar_url = info.get("avatar_url").and_then(|v| v.as_str()).map(|s| s.to_string());
-        Ok(Identity {
+        Identity {
             provider: provider.to_string(),
             uid,
             email,
             name,
             avatar_url,
-        })
+        }
     }
+}
+
+pub async fn complete_oauth(provider: &str, code: &str, state: &AppState) -> Result<Identity, OAuthError> {
+    if !PROVIDERS.contains(&provider) {
+        return Err(OAuthError::UnknownProvider);
+    }
+    if code.is_empty() {
+        return Err(OAuthError::ProviderError("missing code".into()));
+    }
+    let (client_id, client_secret) = client_credentials(provider, state)?;
+    let access_token = exchange_code(provider, code, &client_id, &client_secret, state).await?;
+    let info = fetch_userinfo(provider, &access_token).await?;
+    Ok(normalize_identity(provider, &info))
 }
 
 async fn exchange_code(
@@ -291,7 +295,7 @@ mod tests {
             "name": "Alice",
             "picture": "https://example.com/pic.jpg",
         });
-        let id = normalize_google_identity(&info);
+        let id = normalize_identity("google", &info);
         assert_eq!(id.uid, "1234567890");
         assert_eq!(id.email, Some("a@example.com".into()));
         assert_eq!(id.name, Some("Alice".into()));
@@ -307,36 +311,10 @@ mod tests {
             "login": "bob",
             "avatar_url": "https://example.com/avatar.png",
         });
-        let id = normalize_github_identity(&info);
+        let id = normalize_identity("github", &info);
         assert_eq!(id.uid, "42");
         assert_eq!(id.email, Some("b@example.com".into()));
         assert_eq!(id.name, Some("bob".into()));
         assert_eq!(id.avatar_url, Some("https://example.com/avatar.png".into()));
-    }
-
-    fn normalize_google_identity(info: &serde_json::Value) -> Identity {
-        Identity {
-            provider: "google".into(),
-            uid: json_value_to_string(info.get("sub").unwrap()),
-            email: info.get("email").and_then(|v| v.as_str()).map(|s| s.to_string()),
-            name: info.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()),
-            avatar_url: info.get("picture").and_then(|v| v.as_str()).map(|s| s.to_string()),
-        }
-    }
-
-    fn normalize_github_identity(info: &serde_json::Value) -> Identity {
-        let login = info.get("login").and_then(|v| v.as_str());
-        Identity {
-            provider: "github".into(),
-            uid: info.get("id").and_then(|v| v.as_i64()).map(|n| n.to_string()).unwrap_or_default(),
-            email: info.get("email").and_then(|v| v.as_str()).map(|s| s.to_string()),
-            name: info
-                .get("name")
-                .and_then(|v| v.as_str())
-                .filter(|s| !s.trim().is_empty())
-                .or(login)
-                .map(|s| s.to_string()),
-            avatar_url: info.get("avatar_url").and_then(|v| v.as_str()).map(|s| s.to_string()),
-        }
     }
 }

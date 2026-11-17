@@ -647,6 +647,87 @@ async fn distinct_ips_get_distinct_rate_buckets() {
     assert_eq!(status, StatusCode::OK);
 }
 
+#[tokio::test]
+async fn xff_from_loopback_trusted_uses_xff_ip() {
+    let (_guard, _test_guard, settings, state) = setup().await;
+    let router = build_router_with(state, &settings);
+
+    let loopback: SocketAddr = ([127, 0, 0, 1], 12345).into();
+    let client_ip = "1.2.3.4";
+
+    // Exhaust the per-IP bucket for the XFF client.
+    for i in 0..20 {
+        let mut req = req_with_ip(
+            Method::POST,
+            "/api/v1/auth/nostr/challenge",
+            json!({"pubkey": format!("{:064x}", i)}),
+            loopback,
+        );
+        req.headers_mut().insert("x-forwarded-for", client_ip.parse().unwrap());
+        let resp = router.clone().oneshot(req).await.unwrap();
+        let (status, _body) = body_json(resp).await;
+        assert_eq!(status, StatusCode::OK);
+    }
+
+    // 21st request from the same XFF client is rate limited.
+    let mut req = req_with_ip(
+        Method::POST,
+        "/api/v1/auth/nostr/challenge",
+        json!({"pubkey": format!("{:064x}", 20)}),
+        loopback,
+    );
+    req.headers_mut().insert("x-forwarded-for", client_ip.parse().unwrap());
+    let resp = router.clone().oneshot(req).await.unwrap();
+    let (status, _body) = body_json(resp).await;
+    assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+
+    // A different XFF client via the same loopback proxy gets its own bucket.
+    let mut req = req_with_ip(
+        Method::POST,
+        "/api/v1/auth/nostr/challenge",
+        json!({"pubkey": format!("{:064x}", 21)}),
+        loopback,
+    );
+    req.headers_mut().insert("x-forwarded-for", "5.6.7.8".parse().unwrap());
+    let resp = router.clone().oneshot(req).await.unwrap();
+    let (status, _body) = body_json(resp).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn xff_from_untrusted_peer_ignored() {
+    let (_guard, _test_guard, settings, state) = setup().await;
+    let router = build_router_with(state, &settings);
+
+    let untrusted_peer: SocketAddr = ([9, 9, 9, 9], 12345).into();
+
+    // The XFF header is present but the socket peer is not loopback, so it is ignored.
+    for i in 0..20 {
+        let mut req = req_with_ip(
+            Method::POST,
+            "/api/v1/auth/nostr/challenge",
+            json!({"pubkey": format!("{:064x}", i)}),
+            untrusted_peer,
+        );
+        req.headers_mut().insert("x-forwarded-for", "1.2.3.4".parse().unwrap());
+        let resp = router.clone().oneshot(req).await.unwrap();
+        let (status, _body) = body_json(resp).await;
+        assert_eq!(status, StatusCode::OK);
+    }
+
+    // 21st request from the same untrusted socket peer is limited, regardless of XFF.
+    let mut req = req_with_ip(
+        Method::POST,
+        "/api/v1/auth/nostr/challenge",
+        json!({"pubkey": format!("{:064x}", 20)}),
+        untrusted_peer,
+    );
+    req.headers_mut().insert("x-forwarded-for", "99.99.99.99".parse().unwrap());
+    let resp = router.clone().oneshot(req).await.unwrap();
+    let (status, _body) = body_json(resp).await;
+    assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+}
+
 /// Fake Valkey server: accepts the connection, responds OK/PONG to setup
 /// commands (HELLO/AUTH/PING), and returns `-ERR fake failure` to data
 /// commands. This exercises the "Valkey client connected but command failed"

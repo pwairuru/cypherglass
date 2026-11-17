@@ -177,20 +177,30 @@ where
     type Rejection = std::convert::Infallible;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        // Prefer the socket address; only trust X-Forwarded-For when the platform
-        // explicitly places a reverse proxy in front (Caddy is the production ingress).
-        if let Some(addr) = parts.extensions.get::<ConnectInfo<SocketAddr>>() {
-            return Ok(ClientIp(addr.ip().to_string()));
+        // Production traffic arrives via Caddy on the same host (127.0.0.1/::1).
+        // Trust X-Forwarded-For only from loopback peers; otherwise use the socket peer
+        // and ignore a spoofed XFF header.
+        let socket_ip = parts
+            .extensions
+            .get::<ConnectInfo<SocketAddr>>()
+            .map(|addr| addr.ip());
+
+        if socket_ip.map(|ip| ip.is_loopback()).unwrap_or(false) {
+            if let Some(ip) = parts
+                .headers
+                .get("x-forwarded-for")
+                .and_then(|v| v.to_str().ok())
+            {
+                return Ok(ClientIp(
+                    ip.split(',').next().unwrap_or("unknown").trim().to_string(),
+                ));
+            }
         }
-        if let Some(ip) = parts
-            .headers
-            .get("x-forwarded-for")
-            .and_then(|v| v.to_str().ok())
-        {
-            return Ok(ClientIp(
-                ip.split(',').next().unwrap_or("unknown").trim().to_string(),
-            ));
+
+        if let Some(ip) = socket_ip {
+            return Ok(ClientIp(ip.to_string()));
         }
+
         Ok(ClientIp("unknown".to_string()))
     }
 }
