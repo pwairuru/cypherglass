@@ -14,6 +14,7 @@ async fn main() {
         valkey_url: settings.valkey_url.clone(),
         ch: ChClient::from_env(),
         jwt_secret: settings.jwt_secret.clone(),
+        jwt_expire_min: settings.jwt_expire_min,
     };
 
     let app = build_router_with(state, &settings);

@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod ch;
 pub mod config;
 pub mod db;
@@ -22,6 +23,7 @@ pub struct AppState {
     pub valkey_url: String,
     pub ch: ChClient,
     pub jwt_secret: SecretString,
+    pub jwt_expire_min: u64,
 }
 
 pub fn build_router_with(state: AppState, settings: &Settings) -> Router {
@@ -46,6 +48,7 @@ fn build_router_with_origins(state: AppState, origin_strings: Vec<String>) -> Ro
     Router::new()
         .route("/health", get(health_handler))
         .route("/ready", get(ready_handler))
+        .merge(auth::router())
         .with_state(state)
         .layer(cors)
         .layer(axum::middleware::from_fn(audit_middleware))

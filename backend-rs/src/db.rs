@@ -2,6 +2,11 @@ use sqlx::{migrate::MigrateError, postgres::PgPoolOptions, PgPool};
 use std::env;
 use uuid::Uuid;
 
+/// A persisted `users` row.
+///
+/// The all-zero (`Uuid::nil()`) sentinel marks a transient, non-persisted
+/// seed-fallback user. Use [`User::is_transient`] to detect it; write paths
+/// must reject transient sessions.
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct User {
     pub id: Uuid,
@@ -13,6 +18,13 @@ pub struct User {
     pub password_hash: String,
     pub is_active: bool,
     pub is_admin: bool,
+}
+
+impl User {
+    /// True when this user has no DB row (nil-Uuid seed fallback).
+    pub fn is_transient(&self) -> bool {
+        self.id == Uuid::nil()
+    }
 }
 
 #[derive(Debug, Clone, sqlx::FromRow)]
@@ -41,8 +53,10 @@ pub fn seed_allowed() -> bool {
     env::var("ALLOW_SEED_FALLBACK").unwrap_or_default() == "1"
 }
 
-/// Return a transient seed user when `ALLOW_SEED_FALLBACK=1` and both
-/// `SEED_ADMIN_USER` and `SEED_ADMIN_PASSWORD` are set.
+/// Return the identity-only seed user descriptor when seed fallback is
+/// configured. This function performs **no credential check**; never use it
+/// directly as an authentication decision. Compare credentials with
+/// [`seed_user_for`] instead.
 pub fn seed_user() -> Option<User> {
     if !seed_allowed() {
         return None;
