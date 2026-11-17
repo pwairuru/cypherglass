@@ -1,4 +1,5 @@
 use crate::config::Settings;
+use serde::Serialize;
 use std::env;
 use std::fmt;
 use std::time::Duration;
@@ -53,6 +54,18 @@ impl ChError {
             class: "http_error".into(),
         }
     }
+
+    fn parse_error() -> Self {
+        Self {
+            class: "parse_error".into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SeriesPoint {
+    pub t: String,
+    pub v: Option<f64>,
 }
 
 impl ChClient {
@@ -136,4 +149,112 @@ impl ChClient {
             }
         }
     }
+
+    /// Execute an arbitrary ClickHouse query with typed parameters.
+    ///
+    /// Parameters are passed as `param_<name>` URL query arguments; the SQL
+    /// itself is sent in the POST body with `FORMAT JSONCompact` appended so
+    /// rows come back as plain JSON arrays.
+    pub async fn query(
+        &self,
+        sql: &str,
+        params: &[(&str, &str)],
+    ) -> Result<Vec<Vec<serde_json::Value>>, ChError> {
+        let url = self.build_query_url(params);
+        let body = format!("{} FORMAT JSONCompact", sql);
+
+        let response = self
+            .client
+            .post(&url)
+            .basic_auth(&self.user, Some(&self.password))
+            .header(reqwest::header::CONTENT_TYPE, "text/plain")
+            .body(body)
+            .send()
+            .await
+            .map_err(|e| {
+                let classified = ChError::from_reqwest(&e);
+                tracing::warn!(error = %e, class = %classified.class, "clickhouse query request failed");
+                classified
+            })?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            tracing::warn!(%status, "clickhouse query returned non-success status");
+            return Err(ChError::http_error());
+        }
+
+        let json: serde_json::Value = response.json().await.map_err(|e| {
+            tracing::warn!(error = %e, "clickhouse query response is not valid json");
+            ChError::parse_error()
+        })?;
+
+        let data = json
+            .get("data")
+            .and_then(|v| v.as_array())
+            .ok_or_else(ChError::parse_error)?;
+
+        let mut rows = Vec::with_capacity(data.len());
+        for row in data {
+            let cells = row
+                .as_array()
+                .ok_or_else(ChError::parse_error)?
+                .clone();
+            rows.push(cells);
+        }
+
+        Ok(rows)
+    }
+
+    /// Execute a two-column series query and map it to [`SeriesPoint`]s.
+    pub async fn query_series(
+        &self,
+        sql: &str,
+        params: &[(&str, &str)],
+    ) -> Result<Vec<SeriesPoint>, ChError> {
+        let rows = self.query(sql, params).await?;
+        let mut points = Vec::with_capacity(rows.len());
+        for row in rows {
+            if row.len() < 2 {
+                continue;
+            }
+            let t = row[0]
+                .as_str()
+                .map(String::from)
+                .unwrap_or_else(|| row[0].to_string());
+            let v = value_to_f64_opt(&row[1]);
+            points.push(SeriesPoint { t, v });
+        }
+        Ok(points)
+    }
+
+    fn build_query_url(&self, params: &[(&str, &str)]) -> String {
+        let mut url = format!("{}?database={}", self.base_url, self.database);
+        for (name, value) in params {
+            url.push_str(&format!(
+                "&param_{}={}",
+                urlencoding::encode(name),
+                urlencoding::encode(value)
+            ));
+        }
+        url
+    }
+}
+
+pub fn value_to_f64_opt(v: &serde_json::Value) -> Option<f64> {
+    if v.is_null() {
+        return None;
+    }
+    if let Some(n) = v.as_f64() {
+        return Some(n);
+    }
+    if let Some(n) = v.as_i64() {
+        return Some(n as f64);
+    }
+    if let Some(n) = v.as_u64() {
+        return Some(n as f64);
+    }
+    if let Some(s) = v.as_str() {
+        return s.parse::<f64>().ok();
+    }
+    None
 }

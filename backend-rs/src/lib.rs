@@ -2,6 +2,8 @@ pub mod auth;
 pub mod ch;
 pub mod config;
 pub mod db;
+pub mod error;
+pub mod metrics;
 pub mod store;
 
 use axum::extract::{Request, State};
