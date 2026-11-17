@@ -80,6 +80,7 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    stop_grace_period: 300s
 
   # --- ClickHouse ---
   clickhouse:
@@ -117,7 +118,7 @@ services:
         condition: service_started
     environment:
       CLICKHOUSE_HOST: clickhouse
-      CLICKHOUSE_PORT: "9000"
+      CLICKHOUSE_PORT: "8123"
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-bitcoin}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set CLICKHOUSE_PASSWORD in .env for production}
       CLICKHOUSE_DATABASE: bitcoin

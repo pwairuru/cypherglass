@@ -74,10 +74,11 @@ services:
       ACCESS_KEY: ${AWS_ACCESS_KEY_ID:-rustfsadmin}
       SECRET_KEY: ${AWS_SECRET_ACCESS_KEY:-rustfsadmin}
       CLICKHOUSE_HOST: clickhouse
-      CLICKHOUSE_PORT: "9000"
+      CLICKHOUSE_PORT: "8123"
       CLICKHOUSE_DATABASE: bitcoin
       BLOCKS_DIR: /home/bitcoin/.bitcoin/blocks
       STATE_FILE: /data/decoder_state.json
+      BITCOIND_EXTRA_ARGS: ${BITCOIND_EXTRA_ARGS:-}
     volumes:
       - ./bitcoin/bitcoin.conf:/tmp/bitcoin.conf
       - ${DATA_ROOT:-./volumes}/decoder:/data
@@ -85,6 +86,7 @@ services:
       - "127.0.0.1:8332:8332"
       - "127.0.0.1:8333:8333"
     restart: unless-stopped
+    stop_grace_period: 300s
 
   # --- ClickHouse ---
   clickhouse:
