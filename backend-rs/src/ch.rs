@@ -1,3 +1,4 @@
+use crate::config::Settings;
 use std::env;
 use std::fmt;
 use std::time::Duration;
@@ -66,6 +67,26 @@ impl ChClient {
             env::var("CLICKHOUSE_PASSWORD").unwrap_or_else(|_| "bitcoin_clickhouse".into());
         let database = env::var("CLICKHOUSE_DATABASE").unwrap_or_else(|_| "bitcoin".into());
 
+        Self::new(host, port, user, password, database)
+    }
+
+    pub fn from_settings(settings: &Settings) -> Self {
+        Self::new(
+            settings.clickhouse_host.clone(),
+            settings.clickhouse_port,
+            settings.clickhouse_user.clone(),
+            settings.clickhouse_password.clone(),
+            settings.clickhouse_database.clone(),
+        )
+    }
+
+    fn new(
+        host: String,
+        port: u16,
+        user: String,
+        password: String,
+        database: String,
+    ) -> Self {
         let client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(5))
             .timeout(Duration::from_secs(15))

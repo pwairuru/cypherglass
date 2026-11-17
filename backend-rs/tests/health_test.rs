@@ -36,7 +36,7 @@ fn test_state(settings: &Settings) -> AppState {
     AppState {
         pg,
         valkey_url: settings.valkey_url.clone(),
-        ch: ChClient::from_env(),
+        ch: ChClient::from_settings(settings),
         jwt_secret: SecretString::new("test-secret-0123456789abcdef0123456789ab".into()),
     }
 }

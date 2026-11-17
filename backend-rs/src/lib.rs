@@ -15,21 +15,12 @@ use sqlx::{Error as SqlxError, PgPool};
 use std::time::Instant;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-const DEFAULT_CORS_ORIGINS: &[&str] = &["http://localhost:5173", "http://localhost:8002"];
-
 #[derive(Clone)]
 pub struct AppState {
     pub pg: PgPool,
     pub valkey_url: String,
     pub ch: ChClient,
     pub jwt_secret: SecretString,
-}
-
-pub fn build_router(state: AppState) -> Router {
-    build_router_with_origins(
-        state,
-        DEFAULT_CORS_ORIGINS.iter().map(|s| s.to_string()).collect(),
-    )
 }
 
 pub fn build_router_with(state: AppState, settings: &Settings) -> Router {
