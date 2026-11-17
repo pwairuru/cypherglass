@@ -13,28 +13,44 @@ pub struct ChClient {
 
 #[derive(Debug)]
 pub struct ChError {
-    message: String,
+    class: String,
 }
 
 impl fmt::Display for ChError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.message)
+        write!(f, "{}", self.class)
     }
 }
 
 impl std::error::Error for ChError {}
 
 impl ChError {
-    pub fn new(message: impl Into<String>) -> Self {
+    pub fn class(&self) -> &str {
+        &self.class
+    }
+
+    fn from_reqwest(err: &reqwest::Error) -> Self {
+        let class = if err.is_timeout() {
+            "timeout"
+        } else if err.is_connect() || err.is_request() {
+            "unreachable"
+        } else {
+            "error"
+        }
+        .to_string();
+        Self { class }
+    }
+
+    fn auth_error() -> Self {
         Self {
-            message: message.into(),
+            class: "auth_error".into(),
         }
     }
-}
 
-impl From<reqwest::Error> for ChError {
-    fn from(err: reqwest::Error) -> Self {
-        Self::new(format!("{}: {}", std::any::type_name::<reqwest::Error>(), err))
+    fn http_error() -> Self {
+        Self {
+            class: "http_error".into(),
+        }
     }
 }
 
@@ -46,7 +62,8 @@ impl ChClient {
             .and_then(|v| v.parse().ok())
             .unwrap_or(8123);
         let user = env::var("CLICKHOUSE_USER").unwrap_or_else(|_| "bitcoin".into());
-        let password = env::var("CLICKHOUSE_PASSWORD").unwrap_or_else(|_| "bitcoin_clickhouse".into());
+        let password =
+            env::var("CLICKHOUSE_PASSWORD").unwrap_or_else(|_| "bitcoin_clickhouse".into());
         let database = env::var("CLICKHOUSE_DATABASE").unwrap_or_else(|_| "bitcoin".into());
 
         let client = reqwest::Client::builder()
@@ -69,17 +86,33 @@ impl ChClient {
             "{}?query=SELECT%201&database={}",
             self.base_url, self.database
         );
-        let response = self
+        match self
             .client
             .get(&url)
             .basic_auth(&self.user, Some(&self.password))
             .send()
-            .await?;
-
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(ChError::new(format!("HTTP {}", response.status())))
+            .await
+        {
+            Ok(response) => {
+                if response.status().is_success() {
+                    Ok(())
+                } else {
+                    let status = response.status();
+                    tracing::warn!(%status, "clickhouse check returned non-success status");
+                    if status == reqwest::StatusCode::UNAUTHORIZED
+                        || status == reqwest::StatusCode::FORBIDDEN
+                    {
+                        Err(ChError::auth_error())
+                    } else {
+                        Err(ChError::http_error())
+                    }
+                }
+            }
+            Err(err) => {
+                let classified = ChError::from_reqwest(&err);
+                tracing::warn!(error = %err, class = %classified.class, "clickhouse check failed");
+                Err(classified)
+            }
         }
     }
 }

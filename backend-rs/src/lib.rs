@@ -11,9 +11,11 @@ pub use ch::ChClient;
 pub use config::Settings;
 use secrecy::SecretString;
 use serde_json::{json, Value};
-use sqlx::PgPool;
+use sqlx::{Error as SqlxError, PgPool};
 use std::time::Instant;
 use tower_http::cors::{AllowOrigin, CorsLayer};
+
+const DEFAULT_CORS_ORIGINS: &[&str] = &["http://localhost:5173", "http://localhost:8002"];
 
 #[derive(Clone)]
 pub struct AppState {
@@ -24,9 +26,18 @@ pub struct AppState {
 }
 
 pub fn build_router(state: AppState) -> Router {
-    let settings = Settings::from_env();
-    let origins: Vec<HeaderValue> = settings
-        .cors_origin_list()
+    build_router_with_origins(
+        state,
+        DEFAULT_CORS_ORIGINS.iter().map(|s| s.to_string()).collect(),
+    )
+}
+
+pub fn build_router_with(state: AppState, settings: &Settings) -> Router {
+    build_router_with_origins(state, settings.cors_origin_list())
+}
+
+fn build_router_with_origins(state: AppState, origin_strings: Vec<String>) -> Router {
+    let origins: Vec<HeaderValue> = origin_strings
         .into_iter()
         .filter_map(|o| o.parse().ok())
         .collect();
@@ -44,13 +55,24 @@ pub fn build_router(state: AppState) -> Router {
         .route("/health", get(health_handler))
         .route("/ready", get(ready_handler))
         .with_state(state)
-        .layer(axum::middleware::from_fn(security_headers_middleware))
-        .layer(axum::middleware::from_fn(audit_middleware))
         .layer(cors)
+        .layer(axum::middleware::from_fn(audit_middleware))
+        .layer(axum::middleware::from_fn(security_headers_middleware))
 }
 
 async fn health_handler() -> Json<Value> {
     Json(json!({"status": "ok"}))
+}
+
+fn db_error_class(err: &SqlxError) -> &'static str {
+    match err {
+        SqlxError::Database(_) => "database",
+        SqlxError::PoolTimedOut => "timeout",
+        SqlxError::PoolClosed => "pool_closed",
+        SqlxError::Io(_) => "io",
+        SqlxError::Tls(_) => "tls",
+        _ => "error",
+    }
 }
 
 async fn ready_handler(State(state): State<AppState>) -> Json<Value> {
@@ -58,19 +80,17 @@ async fn ready_handler(State(state): State<AppState>) -> Json<Value> {
 
     let db_status = match sqlx::query("SELECT 1").fetch_one(&state.pg).await {
         Ok(_) => "ok".to_string(),
-        Err(e) => format!("error: {}", std::any::type_name_of_val(&e)),
+        Err(e) => format!("error: {}", db_error_class(&e)),
     };
     checks.insert("db".to_string(), json!(db_status));
 
     let ch_status = match state.ch.check().await {
         Ok(_) => "ok".to_string(),
-        Err(e) => format!("error: {}", e),
+        Err(e) => format!("error: {}", e.class()),
     };
     checks.insert("clickhouse".to_string(), json!(ch_status));
 
-    let healthy = checks
-        .values()
-        .all(|v| v.as_str() == Some("ok"));
+    let healthy = checks.values().all(|v| v.as_str() == Some("ok"));
 
     Json(json!({
         "status": if healthy { "ready" } else { "degraded" },

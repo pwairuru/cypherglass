@@ -1,4 +1,4 @@
-use backend_rs::{build_router, AppState, ChClient, Settings};
+use backend_rs::{build_router_with, AppState, ChClient, Settings};
 use sqlx::postgres::PgPoolOptions;
 
 #[tokio::main]
@@ -14,12 +14,12 @@ async fn main() {
 
     let state = AppState {
         pg,
-        valkey_url: settings.valkey_url,
+        valkey_url: settings.valkey_url.clone(),
         ch: ChClient::from_env(),
-        jwt_secret: settings.jwt_secret,
+        jwt_secret: settings.jwt_secret.clone(),
     };
 
-    let app = build_router(state);
+    let app = build_router_with(state, &settings);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000")
         .await
