@@ -60,6 +60,7 @@ pub enum AuthError {
     ProviderError,
     InvalidState,
     StoreUnavailable,
+    OAuthInvalidLogin,
 }
 
 impl IntoResponse for AuthError {
@@ -91,6 +92,7 @@ impl IntoResponse for AuthError {
             AuthError::StoreUnavailable => {
                 (StatusCode::SERVICE_UNAVAILABLE, "challenge store unavailable")
             }
+            AuthError::OAuthInvalidLogin => (StatusCode::UNAUTHORIZED, "invalid_oauth_login"),
         };
         (status, Json(json!({ "detail": detail }))).into_response()
     }
@@ -175,6 +177,11 @@ where
     type Rejection = std::convert::Infallible;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        // Prefer the socket address; only trust X-Forwarded-For when the platform
+        // explicitly places a reverse proxy in front (Caddy is the production ingress).
+        if let Some(addr) = parts.extensions.get::<ConnectInfo<SocketAddr>>() {
+            return Ok(ClientIp(addr.ip().to_string()));
+        }
         if let Some(ip) = parts
             .headers
             .get("x-forwarded-for")
@@ -183,9 +190,6 @@ where
             return Ok(ClientIp(
                 ip.split(',').next().unwrap_or("unknown").trim().to_string(),
             ));
-        }
-        if let Some(addr) = parts.extensions.get::<ConnectInfo<SocketAddr>>() {
-            return Ok(ClientIp(addr.ip().to_string()));
         }
         Ok(ClientIp("unknown".to_string()))
     }
@@ -814,7 +818,7 @@ async fn nostr_verify(
     }
     let now = chrono::Utc::now().timestamp();
     let window = if is_nip98(&ev) { 60 } else { 300 };
-    if (now - ev.created_at).abs() > window {
+    if now.abs_diff(ev.created_at) > window as u64 {
         return Err(AuthError::NostrInvalid);
     }
     let pubkey = ev.pubkey.to_lowercase();
@@ -888,7 +892,7 @@ async fn link_or_create_nostr_user(pool: &PgPool, pubkey: &str, _content: &str) 
         let base = format!("nostr_{}", &pubkey[..8]);
         let mut username = base.clone();
         let mut suffix = 1;
-        while sqlx::query_as::<_, (i64,)>("SELECT 1 FROM users WHERE username = $1")
+        while sqlx::query_as::<_, (i32,)>("SELECT 1 FROM users WHERE username = $1")
             .bind(&username)
             .fetch_optional(&mut *tx)
             .await
@@ -925,7 +929,7 @@ async fn link_or_create_nostr_user(pool: &PgPool, pubkey: &str, _content: &str) 
     }
 
     if let Some(ref u) = user {
-        let exists: Option<(i64,)> = sqlx::query_as(
+        let exists: Option<(i32,)> = sqlx::query_as(
             "SELECT 1 FROM social_auth WHERE provider = 'nostr' AND uid = $1",
         )
         .bind(pubkey)
@@ -948,7 +952,11 @@ async fn link_or_create_nostr_user(pool: &PgPool, pubkey: &str, _content: &str) 
     }
 
     tx.commit().await.map_err(|_| AuthError::NostrInvalid)?;
-    user.ok_or(AuthError::NostrInvalid)
+    let user = user.ok_or(AuthError::NostrInvalid)?;
+    if !user.is_active {
+        return Err(AuthError::NostrInvalid);
+    }
+    Ok(user)
 }
 
 #[derive(Debug, Deserialize)]
@@ -1018,7 +1026,7 @@ async fn oauth_callback(
 }
 
 async fn link_or_create_oauth_user(pool: &PgPool, identity: &crate::auth::oauth::Identity) -> Result<User, AuthError> {
-    let mut tx = pool.begin().await.map_err(|_| AuthError::ProviderError)?;
+    let mut tx = pool.begin().await.map_err(|_| AuthError::OAuthInvalidLogin)?;
     let link: Option<(Uuid,)> = sqlx::query_as(
         "SELECT user_id FROM social_auth WHERE provider = $1 AND uid = $2",
     )
@@ -1026,7 +1034,7 @@ async fn link_or_create_oauth_user(pool: &PgPool, identity: &crate::auth::oauth:
     .bind(&identity.uid)
     .fetch_optional(&mut *tx)
     .await
-    .map_err(|_| AuthError::ProviderError)?;
+    .map_err(|_| AuthError::OAuthInvalidLogin)?;
 
     let mut user: Option<User> = None;
     if let Some((user_id,)) = link {
@@ -1037,7 +1045,7 @@ async fn link_or_create_oauth_user(pool: &PgPool, identity: &crate::auth::oauth:
         .bind(user_id)
         .fetch_optional(&mut *tx)
         .await
-        .map_err(|_| AuthError::ProviderError)?;
+        .map_err(|_| AuthError::OAuthInvalidLogin)?;
     }
 
     if user.is_none() {
@@ -1047,11 +1055,11 @@ async fn link_or_create_oauth_user(pool: &PgPool, identity: &crate::auth::oauth:
         let base = sanitize_username(&local, &fallback);
         let mut username = base.clone();
         let mut suffix = 1;
-        while sqlx::query_as::<_, (i64,)>("SELECT 1 FROM users WHERE username = $1")
+        while sqlx::query_as::<_, (i32,)>("SELECT 1 FROM users WHERE username = $1")
             .bind(&username)
             .fetch_optional(&mut *tx)
             .await
-            .map_err(|_| AuthError::ProviderError)?
+            .map_err(|_| AuthError::OAuthInvalidLogin)?
             .is_some()
         {
             suffix += 1;
@@ -1073,7 +1081,7 @@ async fn link_or_create_oauth_user(pool: &PgPool, identity: &crate::auth::oauth:
         .bind(false)
         .execute(&mut *tx)
         .await
-        .map_err(|_| AuthError::ProviderError)?;
+        .map_err(|_| AuthError::OAuthInvalidLogin)?;
         user = sqlx::query_as::<_, User>(
             "SELECT id, username, email, display_name, npub, avatar_url, password_hash, is_active, is_admin
              FROM users WHERE id = $1",
@@ -1081,19 +1089,19 @@ async fn link_or_create_oauth_user(pool: &PgPool, identity: &crate::auth::oauth:
         .bind(user_id)
         .fetch_one(&mut *tx)
         .await
-        .map_err(|_| AuthError::ProviderError)
+        .map_err(|_| AuthError::OAuthInvalidLogin)
         .ok();
     }
 
     if let Some(ref u) = user {
-        let exists: Option<(i64,)> = sqlx::query_as(
+        let exists: Option<(i32,)> = sqlx::query_as(
             "SELECT 1 FROM social_auth WHERE provider = $1 AND uid = $2",
         )
         .bind(&identity.provider)
         .bind(&identity.uid)
         .fetch_optional(&mut *tx)
         .await
-        .map_err(|_| AuthError::ProviderError)?;
+        .map_err(|_| AuthError::OAuthInvalidLogin)?;
         if exists.is_none() {
             sqlx::query(
                 "INSERT INTO social_auth (id, user_id, provider, uid, extra_data, created_at)
@@ -1106,14 +1114,14 @@ async fn link_or_create_oauth_user(pool: &PgPool, identity: &crate::auth::oauth:
             .bind(json!({}))
             .execute(&mut *tx)
             .await
-            .map_err(|_| AuthError::ProviderError)?;
+            .map_err(|_| AuthError::OAuthInvalidLogin)?;
         }
     }
 
-    tx.commit().await.map_err(|_| AuthError::ProviderError)?;
-    let user = user.ok_or(AuthError::ProviderError)?;
+    tx.commit().await.map_err(|_| AuthError::OAuthInvalidLogin)?;
+    let user = user.ok_or(AuthError::OAuthInvalidLogin)?;
     if !user.is_active {
-        return Err(AuthError::ProviderError);
+        return Err(AuthError::OAuthInvalidLogin);
     }
     Ok(user)
 }

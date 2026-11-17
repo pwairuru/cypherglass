@@ -125,7 +125,7 @@ impl Store {
                 Ok(()) => return Ok(()),
                 Err(_) => {
                     inner.client = None;
-                    // Fall through to in-memory fallback.
+                    return Err(StoreError);
                 }
             }
         }
@@ -145,7 +145,7 @@ impl Store {
                 Ok(val) => return Ok(val),
                 Err(_) => {
                     inner.client = None;
-                    // Fall through to in-memory fallback.
+                    return Err(StoreError);
                 }
             }
         }
@@ -163,7 +163,7 @@ impl Store {
                 Ok(deleted) => return Ok(deleted),
                 Err(_) => {
                     inner.client = None;
-                    // Fall through to in-memory fallback.
+                    return Err(StoreError);
                 }
             }
         }
@@ -223,6 +223,14 @@ impl Store {
 
     pub async fn force_unavailable(&self, unavailable: bool) {
         self.inner.lock().await.force_unavailable = unavailable;
+    }
+
+    /// Test helper: repoint an existing global store at a different URL.
+    pub async fn set_url(&self, url: String) {
+        let mut inner = self.inner.lock().await;
+        inner.valkey_url = url;
+        inner.client = None;
+        inner.failed_at = None;
     }
 
     pub async fn force_expired(&self, pubkey: &str) {

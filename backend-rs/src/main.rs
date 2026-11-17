@@ -1,4 +1,5 @@
 use backend_rs::{build_router_with, db::pg_pool, store, AppState, ChClient, Settings};
+use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() {
@@ -30,7 +31,20 @@ async fn main() {
         .await
         .expect("failed to bind");
 
-    axum::serve(listener, app)
-        .await
-        .expect("server failed");
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    .expect("server failed");
+}
+
+async fn shutdown_signal() {
+    let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        .expect("failed to install SIGTERM handler");
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {},
+        _ = term.recv() => {},
+    }
 }

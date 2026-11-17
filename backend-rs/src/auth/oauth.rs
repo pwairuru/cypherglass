@@ -7,6 +7,22 @@ static PROVIDERS: &[&str] = &["google", "github"];
 static SANITIZE_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"[^a-z0-9_.-]").expect("sanitize regex"));
 
+fn json_value_to_string(v: &serde_json::Value) -> String {
+    if let Some(n) = v.as_i64() {
+        return n.to_string();
+    }
+    if let Some(s) = v.as_str() {
+        return s.to_string();
+    }
+    if let Some(n) = v.as_u64() {
+        return n.to_string();
+    }
+    if let Some(n) = v.as_f64() {
+        return n.to_string();
+    }
+    String::new()
+}
+
 pub struct Identity {
     pub provider: String,
     pub uid: String,
@@ -35,20 +51,30 @@ fn auth_url(provider: &str) -> &str {
     }
 }
 
-fn token_url(provider: &str) -> &str {
-    match provider {
-        "google" => "https://oauth2.googleapis.com/token",
-        "github" => "https://github.com/login/oauth/access_token",
-        _ => "",
-    }
+fn token_url(provider: &str) -> String {
+    let env_key = match provider {
+        "google" => "CYPHER_TEST_GOOGLE_TOKEN_URL",
+        "github" => "CYPHER_TEST_GITHUB_TOKEN_URL",
+        _ => return String::new(),
+    };
+    std::env::var(env_key).unwrap_or_else(|_| match provider {
+        "google" => "https://oauth2.googleapis.com/token".into(),
+        "github" => "https://github.com/login/oauth/access_token".into(),
+        _ => String::new(),
+    })
 }
 
-fn userinfo_url(provider: &str) -> &str {
-    match provider {
-        "google" => "https://www.googleapis.com/oauth2/v3/userinfo",
-        "github" => "https://api.github.com/user",
-        _ => "",
-    }
+fn userinfo_url(provider: &str) -> String {
+    let env_key = match provider {
+        "google" => "CYPHER_TEST_GOOGLE_USERINFO_URL",
+        "github" => "CYPHER_TEST_GITHUB_USERINFO_URL",
+        _ => return String::new(),
+    };
+    std::env::var(env_key).unwrap_or_else(|_| match provider {
+        "google" => "https://www.googleapis.com/oauth2/v3/userinfo".into(),
+        "github" => "https://api.github.com/user".into(),
+        _ => String::new(),
+    })
 }
 
 fn scope(provider: &str) -> &str {
@@ -116,7 +142,10 @@ pub async fn complete_oauth(provider: &str, code: &str, state: &AppState) -> Res
     let access_token = exchange_code(provider, code, &client_id, &client_secret, state).await?;
     let info = fetch_userinfo(provider, &access_token).await?;
     if provider == "google" {
-        let uid = info.get("sub").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let uid = info
+            .get("sub")
+            .map(json_value_to_string)
+            .unwrap_or_default();
         Ok(Identity {
             provider: provider.to_string(),
             uid,
@@ -133,10 +162,12 @@ pub async fn complete_oauth(provider: &str, code: &str, state: &AppState) -> Res
             }
         }).unwrap_or_default();
         let email = info.get("email").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let login = info.get("login").and_then(|v| v.as_str());
         let name = info
             .get("name")
             .and_then(|v| v.as_str())
-            .or_else(|| info.get("login").and_then(|v| v.as_str()))
+            .filter(|s| !s.trim().is_empty())
+            .or(login)
             .map(|s| s.to_string());
         let avatar_url = info.get("avatar_url").and_then(|v| v.as_str()).map(|s| s.to_string());
         Ok(Identity {
@@ -219,5 +250,93 @@ pub fn sanitize_username(candidate: &str, fallback: &str) -> String {
         fallback.to_string()
     } else {
         name
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitize_username_keeps_allowed_chars() {
+        assert_eq!(sanitize_username("John.Doe_123", "fb"), "john.doe_123");
+    }
+
+    #[test]
+    fn sanitize_username_strips_bad_chars() {
+        assert_eq!(sanitize_username("John@Doe!", "fb"), "johndoe");
+    }
+
+    #[test]
+    fn sanitize_username_falls_back_when_empty() {
+        assert_eq!(sanitize_username("!!!", "fb"), "fb");
+    }
+
+    #[test]
+    fn sanitize_username_trims_edge_punctuation() {
+        assert_eq!(sanitize_username("._-john-_.", "fb"), "john");
+    }
+
+    #[test]
+    fn sanitize_username_truncates_to_32() {
+        let long = "a".repeat(40);
+        assert_eq!(sanitize_username(&long, "fb").len(), 32);
+    }
+
+    #[test]
+    fn google_identity_accepts_numeric_sub() {
+        let info = serde_json::json!({
+            "sub": 1234567890i64,
+            "email": "a@example.com",
+            "name": "Alice",
+            "picture": "https://example.com/pic.jpg",
+        });
+        let id = normalize_google_identity(&info);
+        assert_eq!(id.uid, "1234567890");
+        assert_eq!(id.email, Some("a@example.com".into()));
+        assert_eq!(id.name, Some("Alice".into()));
+        assert_eq!(id.avatar_url, Some("https://example.com/pic.jpg".into()));
+    }
+
+    #[test]
+    fn github_identity_falls_back_to_login_on_empty_name() {
+        let info = serde_json::json!({
+            "id": 42,
+            "email": "b@example.com",
+            "name": "   ",
+            "login": "bob",
+            "avatar_url": "https://example.com/avatar.png",
+        });
+        let id = normalize_github_identity(&info);
+        assert_eq!(id.uid, "42");
+        assert_eq!(id.email, Some("b@example.com".into()));
+        assert_eq!(id.name, Some("bob".into()));
+        assert_eq!(id.avatar_url, Some("https://example.com/avatar.png".into()));
+    }
+
+    fn normalize_google_identity(info: &serde_json::Value) -> Identity {
+        Identity {
+            provider: "google".into(),
+            uid: json_value_to_string(info.get("sub").unwrap()),
+            email: info.get("email").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            name: info.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            avatar_url: info.get("picture").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        }
+    }
+
+    fn normalize_github_identity(info: &serde_json::Value) -> Identity {
+        let login = info.get("login").and_then(|v| v.as_str());
+        Identity {
+            provider: "github".into(),
+            uid: info.get("id").and_then(|v| v.as_i64()).map(|n| n.to_string()).unwrap_or_default(),
+            email: info.get("email").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            name: info
+                .get("name")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.trim().is_empty())
+                .or(login)
+                .map(|s| s.to_string()),
+            avatar_url: info.get("avatar_url").and_then(|v| v.as_str()).map(|s| s.to_string()),
+        }
     }
 }
