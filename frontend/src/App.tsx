@@ -8,7 +8,8 @@ import AdminUsers from "./routes/AdminUsers";
 import Dashboard from "./routes/Dashboard";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loadingUser, user } = useAuth();
+  if (loadingUser || (user === null && isAuthenticated)) return <p>Loading…</p>;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return children;
 }
@@ -23,7 +24,12 @@ function RequireAdmin({ children }: { children: JSX.Element }) {
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <a href="#main" className="skip-link">
+        Skip to content
+      </a>
+      <div id="main">
+        <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route
@@ -51,6 +57,8 @@ export default function App() {
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        </Routes>
+      </div>
+    </>
   );
 }

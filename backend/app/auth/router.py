@@ -3,7 +3,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,16 +27,55 @@ from app.auth.schemas import (
     TokenOut,
     UserOut,
 )
-from app.auth.service import authenticate, create_token, hash_password, verify_password
+from app.auth.service import _pwd_ver, authenticate, create_token, hash_password, verify_password
 from app.db import get_session
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
+# --- Minimal in-memory rate limiter (per-process). Prevents login/register
+# challenge spam from exhausting memory. Prod with replicas should move to
+# Valkey, but this bounds single-instance abuse without new deps.
+import collections as _collections
+
+_RATE: dict[str, _collections.deque] = {}
+_RATE_LIMIT = 30
+_RATE_WINDOW = 60.0
+# Stricter buckets for unauthenticated challenge/state issuance (spam-amplified).
+_RATE_LIMIT_CHALLENGE = 20
+_RATE_LIMIT_OAUTH = 20
+_RATE_LIMIT_REGISTER = 10
+
+
+def _client_ip(request=None) -> str:
+    try:
+        if request is not None and hasattr(request, "client") and request.client:
+            return request.client.host or "unknown"
+    except Exception:
+        pass
+    return "unknown"
+
+
+def _rate_ok(key: str, limit: int | None = None) -> bool:
+    now = time.time()
+    dq = _RATE.get(key)
+    if dq is None:
+        dq = _RATE[key] = _collections.deque()
+    while dq and now - dq[0] > _RATE_WINDOW:
+        dq.popleft()
+    if len(dq) >= (limit if limit is not None else _RATE_LIMIT):
+        return False
+    dq.append(now)
+    return True
+
+
+def _escape_like(s: str) -> str:
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _now() -> datetime:
-    # Naive UTC: Task 1 models use TIMESTAMP WITHOUT TIME ZONE and asyncpg
-    # rejects tz-aware datetimes on insert.
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    # TZ-aware UTC: matches models._now + sqlmodel>=0.0.47 UTCDateTime.
+    return datetime.now(timezone.utc)
 
 
 async def _providers_for(session: AsyncSession, user: User) -> list[str]:
@@ -46,6 +85,9 @@ async def _providers_for(session: AsyncSession, user: User) -> list[str]:
         ).scalars().all()
         return list(rows)
     except Exception:
+        import logging
+
+        logging.getLogger(__name__).exception("providers lookup failed")
         return []
 
 
@@ -75,15 +117,22 @@ def _user_out(user: User) -> UserOut:
 
 
 @router.post("/login", response_model=TokenOut)
-async def login(data: LoginIn, session: AsyncSession = Depends(get_session)):
+async def login(data: LoginIn, request: Request, session: AsyncSession = Depends(get_session)):
+    ip = _client_ip(request)
+    if not _rate_ok(f"login:{data.username}") or not _rate_ok(f"login-ip:{ip}"):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="rate limited")
     user = await authenticate(session, data.username, data.password)
     if user is None or not user.is_active:
+        # Generic message avoids user-enumeration timing oracle.
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    return TokenOut(access_token=create_token(user.username, str(user.id)))
+    return TokenOut(access_token=create_token(user.username, str(user.id), _pwd_ver(user.password_hash)))
 
 
 @router.post("/register", response_model=TokenOut, status_code=201)
-async def register(data: RegisterIn, session: AsyncSession = Depends(get_session)):
+async def register(data: RegisterIn, request: Request, session: AsyncSession = Depends(get_session)):
+    ip = _client_ip(request)
+    if not _rate_ok(f"register:{data.username}") or not _rate_ok(f"register-ip:{ip}", limit=_RATE_LIMIT_REGISTER):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="rate limited")
     existing = (
         await session.execute(select(User).where(User.username == data.username))
     ).scalars().first()
@@ -108,7 +157,7 @@ async def register(data: RegisterIn, session: AsyncSession = Depends(get_session
         await session.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="username taken") from None
     await session.refresh(user)
-    return TokenOut(access_token=create_token(user.username, str(user.id)))
+    return TokenOut(access_token=create_token(user.username, str(user.id), _pwd_ver(user.password_hash)))
 
 
 @router.get("/me", response_model=MeOut)
@@ -166,10 +215,16 @@ async def change_password(
         )
     if not verify_password(data.old_password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="incorrect password")
+    if data.old_password == data.new_password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="new password must differ")
     user.password_hash = hash_password(data.new_password)
     user.updated_at = _now()
     session.add(user)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="update conflict") from None
     return {"ok": True}
 
 
@@ -184,8 +239,8 @@ async def list_users(
 ):
     stmt = select(User)
     if q:
-        like = f"%{q}%"
-        stmt = stmt.where(or_(User.username.ilike(like), User.email.ilike(like)))
+        like = f"%{_escape_like(q)}%"
+        stmt = stmt.where(or_(User.username.ilike(like, escape="\\"), User.email.ilike(like, escape="\\")))
     if active is not None:
         stmt = stmt.where(User.is_active == active)
     stmt = stmt.order_by(User.created_at).offset(offset).limit(limit)
@@ -235,7 +290,12 @@ def _is_nip98_http_auth(ev: dict) -> bool:
 
 
 @router.post("/nostr/challenge", response_model=NostrChallengeOut)
-async def nostr_challenge(data: NostrChallengeIn):
+async def nostr_challenge(data: NostrChallengeIn, request: Request):
+    ip = _client_ip(request)
+    if not _rate_ok(f"nostr-chal-ip:{ip}", limit=_RATE_LIMIT_CHALLENGE) or not _rate_ok(
+        f"nostr-chal:{data.pubkey.lower()}", limit=_RATE_LIMIT_CHALLENGE
+    ):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="rate limited")
     challenge = secrets.token_hex(32)
     try:
         challenge_store.issue_challenge(data.pubkey.lower(), challenge)
@@ -368,7 +428,7 @@ async def nostr_verify(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_nostr_event"
         ) from None
-    return TokenOut(access_token=create_token(user.username, str(user.id)))
+    return TokenOut(access_token=create_token(user.username, str(user.id), _pwd_ver(user.password_hash)))
 
 
 class OAuthStartOut(BaseModel):
@@ -377,7 +437,10 @@ class OAuthStartOut(BaseModel):
 
 
 @router.get("/oauth/{provider}/start", response_model=OAuthStartOut)
-async def oauth_start(provider: str):
+async def oauth_start(provider: str, request: Request):
+    ip = _client_ip(request)
+    if not _rate_ok(f"oauth-start-ip:{ip}", limit=_RATE_LIMIT_OAUTH):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="rate limited")
     try:
         out = psa.get_oauth_url(provider)
     except ValueError:
@@ -496,7 +559,7 @@ async def oauth_callback(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_oauth_login"
         ) from None
-    return TokenOut(access_token=create_token(user.username, str(user.id)))
+    return TokenOut(access_token=create_token(user.username, str(user.id), _pwd_ver(user.password_hash)))
 
 
 @router.patch("/users/{user_id}", response_model=UserOut)
@@ -521,6 +584,10 @@ async def admin_update_user(
         user.display_name = data.display_name
     user.updated_at = _now()
     session.add(user)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="update conflict") from None
     await session.refresh(user)
     return _user_out(user)

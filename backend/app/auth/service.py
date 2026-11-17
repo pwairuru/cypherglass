@@ -51,30 +51,51 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_token(sub: str, uid: str | None = None) -> str:
-    exp = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_min)
-    payload = {"sub": sub, "exp": exp}
+def _pwd_ver(password_hash: str) -> str:
+    """Token version bound to password: password change revokes old JWTs."""
+    import hashlib
+
+    return hashlib.sha256((password_hash or "").encode()).hexdigest()[:16]
+
+
+def create_token(sub: str, uid: str | None = None, pwd_ver: str | None = None) -> str:
+    import uuid as _uuid
+
+    now = datetime.now(timezone.utc)
+    exp = now + timedelta(minutes=settings.jwt_expire_min)
+    payload = {"sub": sub, "exp": exp, "iat": now, "iss": "cypherglass", "jti": str(_uuid.uuid4())}
     if uid is not None:
         payload["uid"] = uid
+    if pwd_ver is not None:
+        payload["ver"] = pwd_ver
     return jwt.encode(payload, settings.jwt_secret, algorithm=ALGORITHM)
 
 
 def decode_token(token: str) -> dict:
-    return jwt.decode(token, settings.jwt_secret, algorithms=[ALGORITHM])
+    # Strict: HS256 only (no alg confusion), iss + exp required, no leeway.
+    return jwt.decode(
+        token,
+        settings.jwt_secret,
+        algorithms=[ALGORITHM],
+        issuer="cypherglass",
+        leeway=0,
+        options={"require": ["exp", "iss", "sub"]},
+    )
 
 
 def _seed_allowed() -> bool:
-    if os.getenv("ALLOW_SEED_FALLBACK", "") == "1":
-        return True
-    env = os.getenv("ENV", os.getenv("APP_ENV", "dev")).lower()
-    return env not in ("prod", "production")
+    # Explicit opt-in only: ALLOW_SEED_FALLBACK=1. No implicit dev bypass.
+    # Prevents prod misconfig (ENV unset) from opening admin/admin.
+    return os.getenv("ALLOW_SEED_FALLBACK", "") == "1"
 
 
 def _seed_user(username: str, password: str) -> User | None:
     if not _seed_allowed():
         return None
-    seed_user = os.getenv("SEED_ADMIN_USER", "admin")
-    seed_password = os.getenv("SEED_ADMIN_PASSWORD", "admin")
+    seed_user = os.getenv("SEED_ADMIN_USER", "")
+    seed_password = os.getenv("SEED_ADMIN_PASSWORD", "")
+    if not seed_user or not seed_password:
+        return None
     if username == seed_user and password == seed_password:
         return User(username=username, password_hash="", is_active=True)
     return None
@@ -96,7 +117,11 @@ async def authenticate(session: AsyncSession, identifier: str, password: str) ->
         # Table missing or DB unreachable during setup -> gated dev fallback.
         return _seed_user(identifier, password)
     except Exception:
-        # Unexpected query error -> fail-closed (no seed fallback).
+        # Unexpected query error -> fail-closed (no seed fallback). Logged so
+        # intermittent login 401s leave evidence instead of silent None.
+        import logging as _logging
+
+        _logging.getLogger(__name__).exception("authenticate query failed (fail-closed)")
         return None
     if user is not None:
         if not user.is_active:
@@ -111,6 +136,9 @@ async def authenticate(session: AsyncSession, identifier: str, password: str) ->
     except _SETUP_ERRORS:
         return _seed_user(identifier, password)
     except Exception:
+        import logging as _logging
+
+        _logging.getLogger(__name__).exception("authenticate existence-check failed (fail-closed)")
         return None
     if any_id is None:
         return _seed_user(identifier, password)

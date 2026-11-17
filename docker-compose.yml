@@ -4,13 +4,13 @@ services:
     image: rustfs/rustfs:latest
     container_name: rustfs
     ports:
-      - "9010:9000"
-      - "9011:9001"
+      - "127.0.0.1:9010:9000"
+      - "127.0.0.1:9011:9001"
     environment:
       RUSTFS_ACCESS_KEY: ${AWS_ACCESS_KEY_ID:-rustfsadmin}
       RUSTFS_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY:-rustfsadmin}
     volumes:
-      - ./volumes/rustfs:/data
+      - ${DATA_ROOT:-./volumes}/rustfs:/data
     command: server /data --console-address :9001
     restart: unless-stopped
     healthcheck:
@@ -40,10 +40,10 @@ services:
     image: valkey/valkey:8
     container_name: valkey
     ports:
-      - "6381:6379"
+      - "127.0.0.1:6381:6379"
     volumes:
       - ./valkey/valkey.conf:/usr/local/etc/valkey/valkey.conf
-      - ./volumes/valkey:/data
+      - ${DATA_ROOT:-./volumes}/valkey:/data
     command: valkey-server /usr/local/etc/valkey/valkey.conf
     restart: unless-stopped
     healthcheck:
@@ -56,7 +56,13 @@ services:
   bitcoin-knots:
     image: freegoup-allinone:latest
     container_name: bitcoin-knots
-    privileged: true
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse:/dev/fuse
+    security_opt:
+      - apparmor:unconfined
+      - no-new-privileges:true
     depends_on:
       rustfs:
         condition: service_healthy
@@ -74,10 +80,10 @@ services:
       STATE_FILE: /data/decoder_state.json
     volumes:
       - ./bitcoin/bitcoin.conf:/tmp/bitcoin.conf
-      - ./volumes/decoder:/data
+      - ${DATA_ROOT:-./volumes}/decoder:/data
     ports:
-      - "8332:8332"
-      - "8333:8333"
+      - "127.0.0.1:8332:8332"
+      - "127.0.0.1:8333:8333"
     restart: unless-stopped
 
   # --- ClickHouse ---
@@ -92,13 +98,13 @@ services:
     environment:
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 0
     ports:
-      - "8124:8123"
-      - "9005:9000"
+      - "127.0.0.1:8124:8123"
+      - "127.0.0.1:9005:9000"
     volumes:
       - ./clickhouse/config.xml:/etc/clickhouse-server/config.d/storage.xml:ro
       - ./clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
       - ./clickhouse/init:/docker-entrypoint-initdb.d:ro
-      - ./volumes/clickhouse:/var/lib/clickhouse
+      - ${DATA_ROOT:-./volumes}/clickhouse:/var/lib/clickhouse
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "clickhouse-client", "-q", "SELECT 1"]
@@ -111,13 +117,13 @@ services:
     image: postgres:16
     container_name: cypherglass-pg
     environment:
-      POSTGRES_USER: cypher
-      POSTGRES_PASSWORD: cypher
-      POSTGRES_DB: cypher
+      POSTGRES_USER: ${POSTGRES_USER:-cypher}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cypher}
+      POSTGRES_DB: ${POSTGRES_DB:-cypher}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
-      - ./volumes/pg:/var/lib/postgresql/data
+      - ${DATA_ROOT:-./volumes}/pg:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cypher"]
@@ -129,12 +135,19 @@ services:
     image: valkey/valkey:8
     container_name: cypherglass-valkey-app
     ports:
-      - "6382:6379"
+      - "127.0.0.1:6382:6379"
     volumes:
-      - ./volumes/valkey-app:/data
+      - ${DATA_ROOT:-./volumes}/valkey-app:/data
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:-}
+    # Prod: VALKEY_PASSWORD required; dev empty = no auth (localhost-bound).
+    # Challenge + OAuth state data is ephemeral (TTL 300/600s), so enabling
+    # auth later only drops pending challenges (clients re-issue).
+    command: >
+      sh -c 'if [ -n "$VALKEY_PASSWORD" ]; then exec valkey-server --requirepass "$VALKEY_PASSWORD" --appendonly yes --dir /data; else exec valkey-server --appendonly yes --dir /data; fi'
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      test: ["CMD-SHELL", "if [ -n \"$VALKEY_PASSWORD\" ]; then valkey-cli -a \"$VALKEY_PASSWORD\" ping; else valkey-cli ping; fi"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -150,18 +163,25 @@ services:
       clickhouse:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://cypher:cypher@pg:5432/cypher
-      VALKEY_URL: redis://valkey-app:6379/0
-      REDIS_URL: redis://valkey-app:6379/0
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-cypher}:${POSTGRES_PASSWORD:-cypher}@pg:5432/${POSTGRES_DB:-cypher}
+      VALKEY_URL: ${VALKEY_URL:-redis://valkey-app:6379/0}
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: 8123
-      CLICKHOUSE_USER: bitcoin
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-bitcoin}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-bitcoin_clickhouse}
       CLICKHOUSE_DATABASE: bitcoin
+      JWT_SECRET: ${JWT_SECRET:-dev-only-not-for-prod-0123456789abcdef0123456789abcdef01234567}
+      ENV: ${ENV:-dev}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:8002}
     ports:
-      - "8002:8000"
+      - "127.0.0.1:8002:8000"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   worker:
     build: ./backend
@@ -173,11 +193,11 @@ services:
       pg:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://cypher:cypher@pg:5432/cypher
-      VALKEY_URL: redis://valkey-app:6379/0
-      REDIS_URL: redis://valkey-app:6379/0
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-cypher}:${POSTGRES_PASSWORD:-cypher}@pg:5432/${POSTGRES_DB:-cypher}
+      VALKEY_URL: ${VALKEY_URL:-redis://valkey-app:6379/0}
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-bitcoin}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-bitcoin_clickhouse}
     command: celery -A app.workers.celery_app.celery_app worker --beat --loglevel=info
     restart: unless-stopped
@@ -191,5 +211,5 @@ services:
     depends_on:
       - api
     ports:
-      - "5173:80"
+      - "127.0.0.1:5173:80"
     restart: unless-stopped

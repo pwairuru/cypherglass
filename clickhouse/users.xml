@@ -1,11 +1,13 @@
 <clickhouse>
     <users>
         <default>
+            <!-- Locked down: localhost only, readonly. Was ::/0 + empty pass (critical: unauthenticated remote CH). -->
             <password></password>
             <networks>
-                <ip>::/0</ip>
+                <ip>127.0.0.1</ip>
+                <ip>::1</ip>
             </networks>
-            <profile>default</profile>
+            <profile>readonly</profile>
             <quota>default</quota>
         </default>
         <bitcoin>
@@ -22,17 +24,32 @@
         <default>
             <max_threads>8</max_threads>
             <use_uncompressed_cache>0</use_uncompressed_cache>
+            <!-- DoS backstop: API already caps ranges + LIMIT 5000; per-query
+                 limits contain expensive ad-hoc queries (S3 scan cost). -->
+            <max_execution_time>30</max_execution_time>
+            <max_memory_usage>2147483648</max_memory_usage>
+            <max_rows_to_read>100000000</max_rows_to_read>
+            <max_result_rows>100000</max_result_rows>
         </default>
+        <readonly>
+            <max_threads>4</max_threads>
+            <use_uncompressed_cache>0</use_uncompressed_cache>
+            <max_execution_time>30</max_execution_time>
+            <max_memory_usage>1073741824</max_memory_usage>
+            <max_rows_to_read>100000000</max_rows_to_read>
+            <max_result_rows>100000</max_result_rows>
+            <readonly>1</readonly>
+        </readonly>
     </profiles>
     <quotas>
         <default>
             <interval>
                 <duration>3600</duration>
-                <queries>0</queries>
-                <errors>0</errors>
-                <result_rows>0</result_rows>
-                <read_rows>0</read_rows>
-                <execution_time>0</execution_time>
+                <queries>10000</queries>
+                <errors>500</errors>
+                <result_rows>10000000</result_rows>
+                <read_rows>1000000000</read_rows>
+                <execution_time>7200</execution_time>
             </interval>
         </default>
     </quotas>

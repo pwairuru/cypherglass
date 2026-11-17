@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { groupMetrics } from "../lib/metricGroups";
+import { useEffect, useMemo, useState } from "react";
+import { groupByCategory } from "../lib/metricGroups";
 
 export interface MetricSummary {
   id: string;
@@ -19,20 +19,53 @@ interface MetricListProps {
 
 export default function MetricList({ metrics, selected, onSelect }: MetricListProps) {
   const [query, setQuery] = useState("");
-  const groups = useMemo(() => groupMetrics(metrics), [metrics]);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const cats = useMemo(() => groupByCategory(metrics), [metrics]);
   const q = query.trim().toLowerCase();
-  const visible = q
-    ? groups.filter(
-        (g) =>
-          g.label.toLowerCase().includes(q) ||
-          g.key.toLowerCase().includes(q) ||
-          g.variants.some(
-            (v) =>
-              v.id.toLowerCase().includes(q) ||
-              v.title.toLowerCase().includes(q),
-          ),
-      )
-    : groups;
+
+  const filtered = useMemo(() => {
+    if (!q) return cats;
+    return cats
+      .map((c) => ({
+        ...c,
+        groups: c.groups.filter(
+          (g) =>
+            g.label.toLowerCase().includes(q) ||
+            g.key.toLowerCase().includes(q) ||
+            g.variants.some(
+              (v) =>
+                v.id.toLowerCase().includes(q) ||
+                v.title.toLowerCase().includes(q),
+            ),
+        ),
+      }))
+      .filter((c) => c.groups.length > 0);
+  }, [cats, q]);
+
+  // Keep the selected metric visible: expand its category on change.
+  useEffect(() => {
+    if (!selected) return;
+    const owner = cats.find((c) => c.groups.some((g) => g.key === selected));
+    if (owner) {
+      setCollapsed((prev) => {
+        if (!prev.has(owner.category)) return prev;
+        const next = new Set(prev);
+        next.delete(owner.category);
+        return next;
+      });
+    }
+  }, [selected, cats]);
+
+  const toggle = (cat: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  };
+
+  const total = metrics.length;
 
   return (
     <div className="metric-list">
@@ -44,27 +77,60 @@ export default function MetricList({ metrics, selected, onSelect }: MetricListPr
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
-      <ul>
-        {visible.map((g) => {
-          const disabled = g.variants.every((v) => v.disabled);
+      <p className="metric-total" aria-label={`${total} metrics`}>
+        {q
+          ? `${filtered.reduce((n, c) => n + c.groups.length, 0)} of ${cats.length} groups`
+          : `${total} metrics in ${cats.length} groups`}
+      </p>
+      <div className="metric-groups">
+        {filtered.map((c) => {
+          const isClosed = collapsed.has(c.category);
           return (
-            <li key={g.key}>
+            <section key={c.category} className="metric-group" aria-label={c.label}>
               <button
                 type="button"
-                className="metric-item"
-                disabled={disabled}
-                aria-disabled={disabled}
-                aria-current={selected === g.key}
-                onClick={() => {
-                  if (!disabled) onSelect(g.key);
-                }}
+                className="metric-group-head"
+                aria-expanded={!isClosed}
+                onClick={() => toggle(c.category)}
               >
-                <span>{g.label}</span>
+                <span className="metric-group-caret" aria-hidden="true">
+                  {isClosed ? "▸" : "▾"}
+                </span>
+                <span>{c.label}</span>
+                <span className="metric-group-count">{c.groups.length}</span>
               </button>
-            </li>
+              {!isClosed && (
+                <ul>
+                  {c.groups.map((g) => {
+                    const disabled = g.variants.every((v) => v.disabled);
+                    return (
+                      <li key={g.key}>
+                        <button
+                          type="button"
+                          className="metric-item"
+                          disabled={disabled}
+                          aria-disabled={disabled}
+                          aria-current={selected === g.key ? "true" : undefined}
+                          onClick={() => {
+                            if (!disabled) onSelect(g.key);
+                          }}
+                        >
+                          <span>{g.label}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
           );
         })}
-      </ul>
+        {filtered.length === 0 && (
+          <p className="chart-empty" style={{ minHeight: 0 }}>
+            No metrics match.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

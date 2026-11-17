@@ -4,6 +4,8 @@ from app.auth import oauth_state_store as store
 
 
 def test_expired_state_rejected(monkeypatch):
+    # Force memory path: Valkey enforces real TTL, but this test mocks time.
+    monkeypatch.setattr(store, "_valkey_client", lambda: None)
     store.clear_all()
     t0 = store._now()
     monkeypatch.setattr(store, "_now", lambda: t0)

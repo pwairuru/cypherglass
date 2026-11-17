@@ -35,26 +35,32 @@ export default function Login() {
       <div className="card">
         <form className="auth-form" onSubmit={onSubmit}>
           <h1>CypherGlass login</h1>
-          <label>
+          <label htmlFor="login-username">
             Username
             <input
+              id="login-username"
               className="input"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? "login-error" : undefined}
             />
           </label>
-          <label>
+          <label htmlFor="login-password">
             Password
             <input
+              id="login-password"
               className="input"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? "login-error" : undefined}
             />
           </label>
-          {error && <p className="error">{error}</p>}
+          {error && <p className="error" id="login-error" role="alert">{error}</p>}
           <button className="btn" type="submit" disabled={pending}>
             {pending ? "Signing in…" : "Sign in"}
           </button>

@@ -37,13 +37,34 @@ def get_hourly(symbol="BTCUSDT"):
         return fetch_kraken_hour()
 
 
+def upsert_rows(rows, source="binance", symbol="BTCUSDT"):
+    """Parameterized rows for INSERT. Callers must use client.command(sql, params)
+    or insert() — never f-string values into SQL."""
+    return [
+        (source, symbol, int(r["ts"]), float(r["open"]), float(r["high"]),
+         float(r["low"]), float(r["close"]), float(r["volume"]))
+        for r in rows
+    ]
+
+
 def upsert_sql(rows, source="binance", symbol="BTCUSDT"):
-    vals = ", ".join(f"('{source}','{symbol}','{r['ts']}',{r['open']},{r['high']},{r['low']},{r['close']},{r['volume']})" for r in rows)
+    # Kept for backwards-compat tests: escapes single quotes but prefer
+    # upsert_rows() + parameterized command in production paths.
+    def _esc(v: object) -> str:
+        return str(v).replace("'", "''")
+
+    vals = ", ".join(
+        f"('{_esc(source)}','{_esc(symbol)}','{_esc(r['ts'])}',{float(r['open'])},{float(r['high'])},{float(r['low'])},{float(r['close'])},{float(r['volume'])})"
+        for r in rows
+    )
     return f"INSERT INTO bitcoin.price_ohlc_hourly (source, symbol, ts, open, high, low, close, volume) VALUES {vals}"
 
 
-@celery_app.task(name="app.workers.price.poll_price_hourly")
+@celery_app.task(name="app.workers.price.poll_price_hourly", max_retries=3, autoretry_for=(Exception,), retry_backoff=60)
 def poll_price_hourly(symbol="BTCUSDT"):
+    allowed = {"BTCUSDT", "BTCUSD"}
+    if symbol not in allowed:
+        symbol = "BTCUSDT"
     try:
         rows = fetch_binance_hour(symbol)
         source = "binance"
@@ -54,6 +75,17 @@ def poll_price_hourly(symbol="BTCUSDT"):
         log.info("price poll empty")
         return {"ok": True, "inserted": 0}
     client = ch.get_ch_client()
-    client.command(upsert_sql(rows, source=source, symbol=symbol))
+    try:
+        client.insert(
+            "bitcoin.price_ohlc_hourly",
+            upsert_rows(rows, source=source, symbol=symbol),
+            column_names=["source", "symbol", "ts", "open", "high", "low", "close", "volume"],
+        )
+    except Exception:
+        # Fallback for drivers without insert(): parameterized command.
+        client.command(
+            "INSERT INTO bitcoin.price_ohlc_hourly (source, symbol, ts, open, high, low, close, volume) VALUES",
+            upsert_rows(rows, source=source, symbol=symbol),
+        )
     log.info("price poll inserted %d rows from %s", len(rows), source)
     return {"ok": True, "inserted": len(rows), "source": source}

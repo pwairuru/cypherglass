@@ -14,6 +14,9 @@ _KEY_PREFIX = "nostr:chal:"
 _memory: dict[str, tuple[str, float]] = {}
 _client = None
 _client_failed = False
+_client_failed_at: float = 0.0
+_CLIENT_RETRY_AFTER = 30.0
+_MAX_MEMORY = 10000
 
 
 class ChallengeStoreError(RuntimeError):
@@ -39,11 +42,13 @@ def _valkey_consume_atomic(client, key: str, challenge: str) -> bool | None:
 
 
 def _valkey_client():
-    global _client, _client_failed
+    global _client, _client_failed, _client_failed_at
     if _client is not None:
         return _client
-    if _client_failed:
+    if _client_failed and (time.time() - _client_failed_at) < _CLIENT_RETRY_AFTER:
         return None
+    # Retry window expired -> try again.
+    _client_failed = False
     url = os.getenv("VALKEY_URL") or os.getenv("REDIS_URL")
     if not url:
         try:
@@ -63,6 +68,7 @@ def _valkey_client():
         return _client
     except Exception:
         _client_failed = True
+        _client_failed_at = time.time()
         return None
 
 
@@ -88,6 +94,11 @@ def issue_challenge(pubkey: str, challenge: str) -> None:
             return
         except Exception as exc:
             raise ChallengeStoreError("challenge store unavailable") from exc
+    if len(_memory) >= _MAX_MEMORY:
+        # Evict expired entries first to bound memory (challenge spam DoS).
+        now = time.time()
+        for k in [k for k, (_, e) in _memory.items() if e <= now][:1000]:
+            _memory.pop(k, None)
     _memory[pubkey] = (challenge, exp)
 
 

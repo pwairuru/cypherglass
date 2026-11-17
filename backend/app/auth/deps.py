@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.auth.models import User
-from app.auth.service import _SETUP_ERRORS, ALGORITHM, _seed_allowed
+from app.auth.service import _SETUP_ERRORS, ALGORITHM, _pwd_ver, _seed_allowed
 from app.config import settings
 from app.db import get_session
 
@@ -33,13 +33,9 @@ def is_transient_user(user: User) -> bool:
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> str:
-    if credentials is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-    try:
-        payload = jwt.decode(credentials.credentials, settings.jwt_secret, algorithms=[ALGORITHM])
-        sub = payload.get("sub")
-    except (ExpiredSignatureError, InvalidTokenError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from None
+    # Metrics router path: same strict validation as _decode_bearer.
+    payload = _decode_bearer(credentials)
+    sub = payload.get("sub")
     if not sub:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     return sub
@@ -50,8 +46,22 @@ def _decode_bearer(
 ) -> dict:
     if credentials is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    # Reject non-Bearer schemes explicitly (no alg confusion: HS256 only).
     try:
-        payload = jwt.decode(credentials.credentials, settings.jwt_secret, algorithms=[ALGORITHM])
+        scheme = (credentials.scheme or "").lower()
+    except Exception:
+        scheme = ""
+    if scheme and scheme != "bearer":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            settings.jwt_secret,
+            algorithms=[ALGORITHM],
+            issuer="cypherglass",
+            leeway=0,
+            options={"require": ["exp", "iss", "sub"]},
+        )
     except (ExpiredSignatureError, InvalidTokenError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from None
     if not payload.get("sub"):
@@ -90,11 +100,22 @@ async def get_current_userinfo(
     if user is not None:
         if not user.is_active:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        # Password-change revocation: token bound to password hash version.
+        # Old tokens without ver keep working (back-compat); new tokens enforce.
+        try:
+            tok_ver = payload.get("ver")
+            if tok_ver is not None and tok_ver != _pwd_ver(user.password_hash or ""):
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from None
         return user
     # Dev seed fallback: token proves a prior successful seed login, so a
     # matching seed subject is trusted without a DB row. The user stays
     # transient (tracked): read-only, routers must block writes.
-    if _seed_allowed() and sub == os.getenv("SEED_ADMIN_USER", "admin"):
+    # Explicit opt-in only (ALLOW_SEED_FALLBACK=1 + SEED_ADMIN_USER set).
+    if _seed_allowed() and sub == os.getenv("SEED_ADMIN_USER", "") and sub:
         user = User(username=sub, is_active=True)
         _TRANSIENT_SEED_IDS.add(str(user.id))
         return user

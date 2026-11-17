@@ -28,9 +28,9 @@ def test_stale_flag():
 
 def test_nvt_cumulative_from_genesis():
     # Supply must accumulate from genesis, not from the query window start:
-    # inner selects are uncapped, the date filter applies outside the window.
+    # no lower bound inside; upper bound (<= to) trims future scans only.
     sql = next(m["sql"] for m in METRICS if m["id"] == "nvt_daily")
     assert "OVER (ORDER BY" in sql
-    assert "FROM bitcoin.mv_blocks_daily GROUP BY day) AS b" in sql
-    assert "FROM bitcoin.mv_flow_daily GROUP BY day) AS f" in sql
+    assert "FROM bitcoin.mv_blocks_daily WHERE day <= {to:Date} GROUP BY day) AS b" in sql
+    assert "FROM bitcoin.mv_flow_daily WHERE day BETWEEN {from:Date} AND {to:Date} GROUP BY day) AS f" in sql
     assert ") WHERE day BETWEEN {from:Date} AND {to:Date} ORDER BY day" in sql

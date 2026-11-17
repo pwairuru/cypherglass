@@ -1,0 +1,16 @@
+# Local TLS probe (self-signed via Caddy internal CA — NOT for production).
+# Proves the tls-termination path end to end on this machine.
+# Run with --network host so 127.0.0.1 reaches the host loopback-bound app:
+#   docker run -d --rm --name tls-probe --network host \
+#     -v $PWD/Caddyfile.probe:/etc/caddy/Caddyfile:ro caddy:2-alpine
+#   curl -sk -D - https://localhost:8443/ -o /dev/null
+#   docker stop tls-probe
+{
+	auto_https disable_redirects
+}
+
+localhost:8443 {
+	tls internal
+	header Strict-Transport-Security "max-age=63072000; includeSubDomains"
+	reverse_proxy 127.0.0.1:5173
+}

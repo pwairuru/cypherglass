@@ -1,0 +1,16 @@
+# Caddyfile for the opt-in `tls` profile in docker-compose.prod.yml.
+# Usage: set DOMAIN / API_DOMAIN in .env, then
+#   docker compose -f docker-compose.prod.yml --profile tls up -d caddy
+# Caddy obtains/renews Let's Encrypt certificates automatically.
+# The frontend/API containers are NOT part of prod compose; run the API
+# behind this proxy (or extend the file) so no app port is ever public.
+
+{$DOMAIN} {
+	header Strict-Transport-Security "max-age=63072000; includeSubDomains"
+	reverse_proxy 127.0.0.1:5173
+}
+
+{$API_DOMAIN} {
+	header Strict-Transport-Security "max-age=63072000; includeSubDomains"
+	reverse_proxy 127.0.0.1:8002
+}

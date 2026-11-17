@@ -12,8 +12,8 @@ def _check_email(v: str | None) -> str | None:
 
 
 class LoginIn(BaseModel):
-    username: str
-    password: str
+    username: str = Field(min_length=1, max_length=320)
+    password: str = Field(min_length=1, max_length=128)
 
 
 class TokenOut(BaseModel):
@@ -54,6 +54,28 @@ class MeUpdate(BaseModel):
     @classmethod
     def _validate_email(cls, v: str | None) -> str | None:
         return _check_email(v)
+
+    @field_validator("avatar_url")
+    @classmethod
+    def _validate_avatar(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        vv = v.strip()
+        if vv == "":
+            return None
+        if not (vv.startswith("https://") or vv.startswith("http://") or vv.startswith("/")):
+            raise ValueError("avatar_url must be https://, http://, or site-relative /path")
+        if vv.lower().startswith("javascript:") or vv.lower().startswith("data:"):
+            raise ValueError("avatar_url scheme not allowed")
+        return vv
+
+    @field_validator("display_name")
+    @classmethod
+    def _strip_display(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        vv = v.strip()
+        return vv or None
 
 
 class ChangePasswordIn(BaseModel):

@@ -1,36 +1,48 @@
-version: "3.8"
-
 services:
   # --- Valkey (JuiceFS metadata) ---
   valkey:
     image: valkey/valkey:8
     container_name: valkey
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - ./valkey/valkey.conf:/usr/local/etc/valkey/valkey.conf
-      - ./volumes/valkey:/data
-    command: valkey-server /usr/local/etc/valkey/valkey.conf
+      - ${DATA_ROOT:-./volumes}/valkey:/data
+    # Prod: VALKEY_PASSWORD required; dev empty = no auth (localhost-bound).
+    command: >
+      sh -c 'if [ -n "$VALKEY_PASSWORD" ]; then exec valkey-server /usr/local/etc/valkey/valkey.conf --requirepass "$VALKEY_PASSWORD"; else exec valkey-server /usr/local/etc/valkey/valkey.conf; fi'
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:-}
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      test: ["CMD-SHELL", "if [ -n \"$VALKEY_PASSWORD\" ]; then valkey-cli -a \"$VALKEY_PASSWORD\" ping; else valkey-cli ping; fi"]
       interval: 5s
       timeout: 3s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
 
   # --- JuiceFS mount (FUSE, privileged) ---
   juicefs:
     image: juicedata/juicefs:latest
     container_name: juicefs
-    privileged: true
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse:/dev/fuse
+    security_opt:
+      - apparmor:unconfined
+      - no-new-privileges:true
     depends_on:
       valkey:
         condition: service_healthy
     environment:
       ACCESS_KEY: ${AWS_ACCESS_KEY_ID}
       SECRET_KEY: ${AWS_SECRET_ACCESS_KEY}
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:-}
     entrypoint: /bin/sh
     command: >
       -c "
+      if [ -n \"$VALKEY_PASSWORD\" ]; then export META_URL=\"redis://:$$VALKEY_PASSWORD@valkey:6379/1\"; else export META_URL='redis://valkey:6379/1'; fi;
       echo 'Formatting JuiceFS...';
       /usr/bin/juicefs format
         --storage s3
@@ -39,13 +51,13 @@ services:
         --secret-key ${AWS_SECRET_ACCESS_KEY}
         --compress zstd
         --no-usage-report
-        redis://valkey:6379/1
+        $$META_URL
         juicefs-blockchain 2>&1 | grep -v 'already formatted' || true;
 
       echo 'Mounting JuiceFS...';
       exec /usr/bin/juicefs mount
         --no-usage-report
-        redis://valkey:6379/1
+        $$META_URL
         /mnt/bitcoin
       "
     volumes:
@@ -63,26 +75,29 @@ services:
       - bitcoin_data:/data/bitcoin:rw
       - ./bitcoin/bitcoin.conf:/data/bitcoin/bitcoin.conf:ro
     ports:
-      - "8332:8332"
-      - "8333:8333"
+      - "127.0.0.1:8332:8332"
+      - "127.0.0.1:8333:8333"
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
   # --- ClickHouse ---
   clickhouse:
     image: clickhouse/clickhouse-server:26.7
     container_name: clickhouse
+    restart: unless-stopped
     environment:
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-bitcoin}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set CLICKHOUSE_PASSWORD in .env for production}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     ports:
-      - "8123:8123"
-      - "9000:9000"
+      - "127.0.0.1:8123:8123"
+      - "127.0.0.1:9000:9000"
     volumes:
       - ./clickhouse/config.xml:/etc/clickhouse-server/config.d/storage.xml:ro
       - ./clickhouse/users.xml:/etc/clickhouse-server/users.d/users.xml:ro
       - ./clickhouse/init:/docker-entrypoint-initdb.d:ro
-      - ./volumes/clickhouse:/var/lib/clickhouse
+      - ${DATA_ROOT:-./volumes}/clickhouse:/var/lib/clickhouse
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client -u $$CLICKHOUSE_USER --password $$CLICKHOUSE_PASSWORD -q 'SELECT 1'"]
       interval: 10s
@@ -110,9 +125,37 @@ services:
       STATE_FILE: /data/decoder_state.json
     volumes:
       - bitcoin_data:/data/bitcoin:ro
-      - ./volumes/decoder:/data
+      - ${DATA_ROOT:-./volumes}/decoder:/data
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  # --- TLS termination (opt-in: docker compose --profile tls up -d) ---
+  # Caddy obtains/renews Let's Encrypt certs automatically. Set DOMAIN and
+  # API_DOMAIN in .env to your hostnames. The app/API stay on loopback;
+  # only 80/443 are exposed.
+  caddy:
+    image: caddy:2-alpine
+    container_name: cypherglass-caddy
+    profiles: ["tls"]
+    depends_on:
+      - clickhouse
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN:-analytics.example.com}
+      API_DOMAIN: ${API_DOMAIN:-api.example.com}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   bitcoin_data:
     driver: local
+  caddy_data:
+  caddy_config:

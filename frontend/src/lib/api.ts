@@ -77,9 +77,41 @@ export async function apiFetch<T>(
     headers["Authorization"] = authHeader(token);
   }
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  if (res.status === 401) {
+    if (!token) {
+      throw new Error("Authentication failed (401) — check credentials and try again");
+    }
+    throw new Error("Unauthorized (401) — session expired, please log in again");
+  }
   if (!res.ok) {
-    const detail = await res.text().catch(() => res.statusText);
-    throw new Error(`API ${res.status} ${path}: ${detail}`);
+    // Surface safe backend detail (validation, conflict) without raw dump.
+    // React escapes output, but we still omit `input` echo to avoid
+    // password/username reflection + limit to known-safe shapes.
+    try {
+      const data = (await res.json()) as { detail?: unknown };
+      const detail = data?.detail;
+      if (typeof detail === "string" && detail.length > 0 && detail.length < 200) {
+        if (/^[A-Za-z0-9 _\-.,:()']+$/.test(detail)) {
+          throw new Error(`Request failed (${res.status}): ${detail}`);
+        }
+      }
+      if (Array.isArray(detail) && detail.length > 0) {
+        const first = detail[0] as { loc?: unknown; msg?: unknown };
+        const locParts = Array.isArray(first?.loc) ? (first.loc as unknown[]) : [];
+        const rawField = locParts.length ? String(locParts[locParts.length - 1]) : "field";
+        const rawMsg = typeof first?.msg === "string" ? first.msg : "invalid value";
+        const safeField = rawField.replace(/[^A-Za-z0-9_]/g, "").slice(0, 40) || "field";
+        const safeMsg = rawMsg.slice(0, 200);
+        throw new Error(`Invalid ${safeField}: ${safeMsg} (${res.status})`);
+      }
+    } catch (e) {
+      if (e instanceof Error && (/^Invalid [A-Za-z0-9_]+:/.test(e.message) || /^Request failed \(\d+\): /.test(e.message))) {
+        throw e;
+      }
+      // Non-JSON body or unsafe detail -> fall through to generic.
+    }
+    // Sanitized: status + path only, no raw backend detail (avoids XSS/info leak).
+    throw new Error(`Request failed (${res.status})`);
   }
   const contentType = res.headers?.get?.("content-type") ?? "";
   if (contentType.includes("text/html")) {

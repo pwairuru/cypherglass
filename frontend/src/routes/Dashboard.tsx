@@ -11,12 +11,35 @@ import DrawingPanel from "../components/DrawingPanel";
 import ThemeSwitcher from "../components/ThemeSwitcher";
 import { useTheme } from "../context/ThemeContext";
 import { grainOf, groupMetrics } from "../lib/metricGroups";
+import { PRICE_HERO_COPY, RISK_COPY, describeChart, explainMetric } from "../lib/metricCopy";
 import {
   exportDrawings,
   importDrawings,
   loadDrawings,
   saveDrawings,
 } from "../lib/drawings";
+import MiniCard, { OVERVIEW_METRICS, useRiskSummary } from "../components/MiniCard";
+
+const VIEW_TABS = [
+  { id: "single", label: "Single" },
+  { id: "overview", label: "Overview" },
+  { id: "compare", label: "Compare" },
+] as const;
+
+type ViewId = (typeof VIEW_TABS)[number]["id"];
+
+const PIN_KEY = "cg-pinned:v1";
+
+function loadPinned(): string[] {
+  try {
+    const raw = localStorage.getItem(PIN_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter((x) => typeof x === "string").slice(0, 4) : [];
+  } catch {
+    return [];
+  }
+}
 import {
   activateChartTool,
   clearChartDrawings,
@@ -60,8 +83,13 @@ const GRAIN_SHORT: Record<string, string> = {
 // new Date(m.time), so time MUST stay unix ms everywhere downstream.
 // (A seconds conversion here shifts every axis into 1970.)
 // Unit contract: OhlcBar.time is ms in PriceChart / OnchainChart / indicators.
+// Heuristic: seconds are 10 digits (<1e11), ms are 13 digits (>=1e12).
+// Far-future seconds (>2286) would misclassify, but backend never sends those.
 export const toMsBars = (bars: OhlcBar[]): OhlcBar[] =>
-  bars.map((b) => ({ ...b, time: b.time < 1e12 ? b.time * 1000 : b.time }));
+  bars.map((b) => {
+    if (!Number.isFinite(b.time)) return b;
+    return { ...b, time: b.time < 1e11 ? b.time * 1000 : b.time };
+  });
 
 // Persist drawings on chart change events (chart:updated covers renders after
 // drawing gestures; drawing:* covers select/delete flows).
@@ -138,8 +166,8 @@ function ChartCard({
   const toggleFullscreen = () => {
     const el = wrapRef.current;
     if (!el) return;
-    if (document.fullscreenElement) void document.exitFullscreen();
-    else void el.requestFullscreen().catch(() => {});
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => setIoError("Could not exit fullscreen."));
+    else void el.requestFullscreen().catch(() => setIoError("Fullscreen blocked by browser."));
   };
 
   const handleExport = () => {
@@ -304,15 +332,29 @@ export default function Dashboard() {
   const [grain, setGrain] = useState<string | null>(null);
   const [rangeDays, setRangeDays] = useState<number>(7);
   const [overlay, setOverlay] = useState<"none" | "price">("price");
+  const [view, setView] = useState<ViewId>("single");
+  const [pinned, setPinned] = useState<string[]>(() => loadPinned());
+
+  const togglePin = (key: string) => {
+    setPinned((prev) => {
+      const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key].slice(0, 4);
+      try {
+        localStorage.setItem(PIN_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
 
   const metricsQuery = useQuery({
-    queryKey: ["metrics"],
+    queryKey: ["metrics", token],
     queryFn: () => apiFetch<MetricSummary[]>("/api/v1/metrics", token ?? undefined),
     enabled: token !== null,
   });
 
   const coverageQuery = useQuery({
-    queryKey: ["coverage"],
+    queryKey: ["coverage", token],
     queryFn: () =>
       apiFetch<{ min_day: string; max_day: string }>(
         "/api/v1/metrics/coverage",
@@ -367,7 +409,7 @@ export default function Dashboard() {
   }, [rangeDays, coverageQuery.data]);
 
   const seriesQuery = useQuery({
-    queryKey: ["series", activeMetric?.id, from, to],
+    queryKey: ["series", token, activeMetric?.id, from, to],
     queryFn: () =>
       apiFetch<SeriesOut>(
         `/api/v1/metrics/${activeMetric!.id}/series?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
@@ -377,15 +419,17 @@ export default function Dashboard() {
   });
 
   // Price hero follows the card grain; the OHLC endpoint serves daily/hourly.
+  // Skip fetch when overlay is off and this isn't a price metric (saves OHLC).
   const priceGrain = grain === "hourly" ? "hourly" : "daily";
+  const needOhlc = token !== null && (overlay === "price" || activeMetric?.category === "price");
   const ohlcQuery = useQuery({
-    queryKey: ["ohlc", priceGrain, from, to],
+    queryKey: ["ohlc", token, priceGrain, from, to],
     queryFn: () =>
       apiFetch<OhlcOut>(
         `/api/v1/metrics/price_ohlc_${priceGrain}/ohlc?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
         token ?? undefined,
       ),
-    enabled: token !== null,
+    enabled: needOhlc,
   });
 
   const priceBars = useMemo(
@@ -409,11 +453,52 @@ export default function Dashboard() {
         : "Failed to load price bars"
       : null;
 
+  const risk = useRiskSummary(token, from, to);
+  const pinnedGroups = pinned
+    .map((k) => groups.find((g) => g.key === k))
+    .filter((g): g is NonNullable<typeof g> => Boolean(g));
+
+  const metricById = useMemo(() => {
+    const m = new Map<string, MetricSummary>();
+    for (const item of metrics) m.set(item.id, item);
+    return m;
+  }, [metrics]);
+
+  const seriesPoints = seriesQuery.data?.points ?? [];
+  const seriesUnit = seriesQuery.data?.unit ?? activeMetric?.unit ?? "";
+  const mainDescription = activeMetric
+    ? seriesPoints.length > 0
+      ? describeChart({
+          metricId: activeMetric.id,
+          category: activeMetric.category,
+          backendDesc: activeMetric.description,
+          points: seriesPoints,
+          unit: seriesUnit,
+        })
+      : explainMetric(activeMetric.id, activeMetric.category, activeMetric.description)
+    : undefined;
+
   return (
     <div className="dashboard">
       <header>
         <h1>CypherGlass Analytics</h1>
-        <div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div className="chart-segmented" role="group" aria-label="View">
+            {VIEW_TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={`btn-segmented${view === t.id ? " is-active" : ""}`}
+                aria-pressed={view === t.id}
+                onClick={() => setView(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <span className="chart-meta" aria-label={`${metrics.length} metrics`}>
+            {metrics.length} metrics
+          </span>
           <ThemeSwitcher />
           <button
             className="btn btn-icon"
@@ -449,13 +534,74 @@ export default function Dashboard() {
       <div className="dashboard-body">
         <aside className="metric-rail">
           <MetricList metrics={metrics} selected={selected} onSelect={setSelected} />
+          {selectedGroup && (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => togglePin(selectedGroup.key)}
+              aria-pressed={pinned.includes(selectedGroup.key)}
+              title="Pin to Compare (max 4)"
+              style={{ marginTop: 8 }}
+            >
+              {pinned.includes(selectedGroup.key) ? "Unpin from Compare" : "Pin to Compare"}
+            </button>
+          )}
+          {pinned.length > 0 && (
+            <p className="chart-meta">Pinned: {pinned.join(", ")}</p>
+          )}
         </aside>
         <main className="chart-area" style={{ flexDirection: "column", gap: 16, overflowY: "auto" }}>
+          {view === "overview" && (
+            <>
+              <section className="chart-card" aria-label="Market risk">
+                <div className="chart-head">
+                  <div>
+                    <h2>Market risk {risk.latest !== null ? `${risk.latest.toFixed(1)}/100` : "—"}</h2>
+                  </div>
+                  <span className="chart-meta">{risk.regime}</span>
+                </div>
+                <p className="chart-desc chart-desc-below">
+                  {RISK_COPY}
+                </p>
+              </section>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
+                {OVERVIEW_METRICS.map((m) => {
+                  const meta = metricById.get(m.id);
+                  return (
+                    <MiniCard
+                      key={m.id}
+                      metricId={m.id}
+                      title={m.title}
+                      category={meta?.category}
+                      description={meta?.description}
+                      token={token}
+                      from={from}
+                      to={to}
+                      priceBars={undefined}
+                    />
+                  );
+                })}
+              </div>
+            </>
+          )}
+          {view === "compare" && (
+            <>
+              {pinnedGroups.length === 0 && <p>Pin up to 4 metric groups from the left rail to compare them side-by-side.</p>}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
+                {pinnedGroups.map((g) => {
+                  const best = g.variants.find((v) => grainOf(v.id) === "daily") ?? g.variants.find((v) => !v.disabled) ?? g.variants[0];
+                  return <MiniCard key={g.key} metricId={best.id} title={g.label} category={best.category} description={best.description} token={token} from={from} to={to} priceBars={overlayBars} />;
+                })}
+              </div>
+            </>
+          )}
+          {view === "single" && (
+          <>
           {isPriceMetric && (
           <ChartCard
             chartKey={`price-${priceGrain}`}
             title="BTC/USDT"
-            description="Price hero: candles, volume and SMA overlay."
+            description={PRICE_HERO_COPY}
             supportsCandles
             defaultMode="candles"
             renderChart={(onReady, mode) => (
@@ -482,7 +628,7 @@ export default function Dashboard() {
             <ChartCard
               chartKey={activeMetric.id}
               title={activeMetric.title}
-              description={activeMetric.description}
+              description={mainDescription}
               supportsCandles={overlay === "price" && (overlayBars?.length ?? 0) > 0}
               defaultMode="line"
               headerRight={
@@ -565,6 +711,8 @@ export default function Dashboard() {
                 </>
               )}
             />
+          )}
+          </>
           )}
         </main>
       </div>

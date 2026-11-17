@@ -61,13 +61,39 @@ def _norm(raw: str, kind: str) -> str:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Bad date: {raw!r}")
 
 
+def _check_range(f: str, t: str, kind: str) -> None:
+    """Bound query ranges: hourly max 370 days, daily max 5 years."""
+    fmt = "%Y-%m-%d %H:%M:%S" if kind == "DateTime" else "%Y-%m-%d"
+    try:
+        df = datetime.strptime(f, fmt)
+        dt = datetime.strptime(t, fmt)
+    except ValueError:
+        return
+    days = (dt - df).days
+    max_days = 370 if kind == "DateTime" else 1826
+    if days < 0 or days > max_days:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"range too large: max {max_days} days",
+        )
+
+
 def get_series(metric_id: str, frm: str, to: str):
     m = _by_id(metric_id)
     if m is None or m.get("disabled"):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown metric")
     kind = "DateTime" if "{from:DateTime}" in m["sql"] else "Date"
-    params = {"from": _norm(frm, kind), "to": _norm(to, kind)}
-    points = ch.query_series(m["sql"], params)
+    f = _norm(frm, kind)
+    t = _norm(to, kind)
+    if f > t:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="from must be <= to")
+    _check_range(f, t, kind)
+    sql = m["sql"] + " LIMIT 5000"
+    params = {"from": f, "to": t}
+    try:
+        points = ch.query_series(sql, params)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     stale = (len(points) == 0) or any(p.get("v") is None for p in points)
     return {"points": points, "unit": m["unit"], "stale": stale}
 
@@ -117,14 +143,23 @@ def _to_ms(ts) -> int:
 
 def get_ohlc(grain: str, frm: str, to: str):
     if grain == "hourly":
-        sql = "SELECT ts, open, high, low, close, volume FROM bitcoin.price_ohlc_hourly WHERE symbol = 'BTCUSDT' AND ts BETWEEN {from:DateTime} AND {to:DateTime} ORDER BY ts"
-        params = {"from": _norm(frm, "DateTime"), "to": _norm(to, "DateTime")}
+        kind: str = "DateTime"
+        sql = "SELECT ts, open, high, low, close, volume FROM bitcoin.price_ohlc_hourly WHERE symbol = 'BTCUSDT' AND ts BETWEEN {from:DateTime} AND {to:DateTime} ORDER BY ts LIMIT 5000"
+        f, t = _norm(frm, "DateTime"), _norm(to, "DateTime")
     elif grain == "daily":
-        sql = "SELECT day, open, high, low, close, volume FROM bitcoin.price_ohlc_daily WHERE symbol = 'BTCUSDT' AND day BETWEEN {from:Date} AND {to:Date} ORDER BY day"
-        params = {"from": _norm(frm, "Date"), "to": _norm(to, "Date")}
+        kind = "Date"
+        sql = "SELECT day, open, high, low, close, volume FROM bitcoin.price_ohlc_daily WHERE symbol = 'BTCUSDT' AND day BETWEEN {from:Date} AND {to:Date} ORDER BY day LIMIT 5000"
+        f, t = _norm(frm, "Date"), _norm(to, "Date")
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown grain")
-    rows = ch.get_ch_client().query(sql, params).result_rows
+    if f > t:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="from must be <= to")
+    _check_range(f, t, kind)
+    params = {"from": f, "to": t}
+    try:
+        rows = ch.get_ch_client().query(sql, params).result_rows
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"clickhouse unavailable: {type(exc).__name__}") from exc
     bars = []
     for ts, o, h, l, c, v in rows:
         bars.append({"time": _to_ms(ts), "open": o, "high": h, "low": l, "close": c, "volume": v})

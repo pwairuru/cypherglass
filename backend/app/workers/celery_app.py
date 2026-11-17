@@ -14,8 +14,8 @@ def _redis_alias(url: str) -> str:
     return url
 
 
-broker_url = _redis_alias(settings.redis_url)
-backend_url = _redis_alias(settings.redis_url)
+broker_url = _redis_alias(settings.valkey_url)
+backend_url = _redis_alias(settings.valkey_url)
 
 celery_app = Celery("cypherglass", broker=broker_url, backend=backend_url)
 celery_app.conf.update(

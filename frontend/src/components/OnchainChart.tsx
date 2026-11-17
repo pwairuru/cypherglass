@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { QFChart, LineTool, RayTool, HorizontalLineTool, FibonacciTool, MeasureTool } from "@qfo/qfchart";
 import type { ChartMode, OhlcBar } from "./PriceChart";
+import { cypherGlassChartOptions, metricLineColor, priceLineColor } from "../lib/chartTheme";
 import { registerChartTools } from "../lib/chartTools";
 import { registerAllQfDrawings } from "../lib/qfdraw/registry";
 
@@ -30,17 +31,10 @@ export default function OnchainChart({ chartKey, title, points, priceBars, mode 
     // metric itself is single-value: flat o=h=l=c "candles" would carry no
     // information). Without price bars, fall back to line mode.
     const candleMode = mode === "candles" && priceBars !== undefined && priceBars.length > 0;
-    // No hide-candles flag exists in QFChart typings (checked 0.8.7
-    // index.d.ts: only upColor/downColor/fontColor styling). The synthetic
-    // flat bars (o=h=l=c=v, volume 0) exist only to build the time axis, so
-    // render them transparent rather than as visible candles.
     const chart = new QFChart(divRef.current, {
       title: "",
       watermark: false,
-      backgroundColor: "transparent",
-      layout: { left: "2%", right: "7%" },
-      dataZoom: { visible: false },
-      ...(!candleMode ? { upColor: "transparent", downColor: "transparent" } : {}),
+      ...cypherGlassChartOptions(!candleMode),
     });
     // Registration contract mirrors PriceChart (direct calls; tests mock
     // the full QFChart instance the same way).
@@ -91,7 +85,7 @@ export default function OnchainChart({ chartKey, title, points, priceBars, mode 
       {
         line: {
           data: points.map((p) => ({ time: toTime(p.t), value: p.v })),
-          options: { style: "line", color: "#2962FF" },
+          options: { style: "line", color: metricLineColor(), linewidth: 2 },
         },
       },
       { isOverlay: true },
@@ -102,7 +96,7 @@ export default function OnchainChart({ chartKey, title, points, priceBars, mode 
         {
           price: {
             data: priceBars.map((b) => ({ time: b.time, value: b.close })),
-            options: { style: "line", color: "#FF6D00" },
+            options: { style: "line", color: priceLineColor(), linewidth: 1.5 },
           },
         },
         { isOverlay: true },
@@ -135,5 +129,5 @@ export default function OnchainChart({ chartKey, title, points, priceBars, mode 
     );
   }, [points, priceBars, mode]);
 
-  return <div ref={divRef} data-testid="onchain-chart" style={{ height: "100%", width: "100%" }} />;
+  return <div ref={divRef} data-testid="onchain-chart" role="img" aria-label={`Onchain chart, ${points.length} points`} style={{ height: "100%", width: "100%" }} />;
 }

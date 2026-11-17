@@ -153,4 +153,69 @@ describe("api auth helpers", () => {
 
     await expect(apiFetch("/api/v1/auth/oauth/github/start")).rejects.toThrow(/HTML/i);
   });
+
+  it("401 without token (login) says authentication failed, not session expired", async () => {
+    const { apiFetch } = await import("./api");
+    const fetchMock = vi.fn().mockResolvedValue({
+      status: 401,
+      ok: false,
+      headers: { get: () => "application/json" },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(apiFetch("/api/v1/auth/login", undefined, { method: "POST" })).rejects.toThrow(
+      /Authentication failed/i,
+    );
+    // Must not mislead login page with expired-session copy.
+    try {
+      await apiFetch("/api/v1/auth/login", undefined, { method: "POST" });
+      expect.unreachable();
+    } catch (e) {
+      expect((e as Error).message).not.toMatch(/session expired/i);
+    }
+  });
+
+  it("401 with token (authenticated call) says session expired", async () => {
+    const { apiFetch } = await import("./api");
+    const fetchMock = vi.fn().mockResolvedValue({
+      status: 401,
+      ok: false,
+      headers: { get: () => "application/json" },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(apiFetch("/api/v1/auth/me", "tok")).rejects.toThrow(/session expired/i);
+  });
+
+  it("422 register surfaces validation field + reason", async () => {
+    const { apiFetch } = await import("./api");
+    const fetchMock = vi.fn().mockResolvedValue({
+      status: 422,
+      ok: false,
+      headers: { get: () => "application/json" },
+      json: async () => ({
+        detail: [{ loc: ["body", "password"], msg: "String should have at least 8 characters", type: "string_too_short" }],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(apiFetch("/api/v1/auth/register", undefined, { method: "POST" })).rejects.toThrow(
+      /Invalid password: .*at least 8/,
+    );
+  });
+
+  it("409 register surfaces backend detail string", async () => {
+    const { apiFetch } = await import("./api");
+    const fetchMock = vi.fn().mockResolvedValue({
+      status: 409,
+      ok: false,
+      headers: { get: () => "application/json" },
+      json: async () => ({ detail: "username taken" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(apiFetch("/api/v1/auth/register", undefined, { method: "POST" })).rejects.toThrow(
+      /username taken/i,
+    );
+  });
 });

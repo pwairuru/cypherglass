@@ -38,9 +38,13 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() =>
-    localStorage.getItem(STORAGE_KEY),
-  );
+  const [token, setToken] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  });
   const [user, setUser] = useState<MeOut | null>(null);
   const [loadingUser, setLoadingUser] = useState(false);
 
@@ -54,7 +58,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const me = await fetchMe(t);
       setUser(me);
-    } catch {
+    } catch (e) {
+      // 401/invalid token -> clear so isAuthenticated goes false (no stale auth).
+      if (e instanceof Error && /401|Invalid token|Not authenticated/i.test(e.message)) {
+        localStorage.removeItem(STORAGE_KEY);
+        setToken(null);
+      }
       setUser(null);
     } finally {
       setLoadingUser(false);
@@ -67,7 +76,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [token, refreshUser]);
 
   function storeToken(accessToken: string): void {
-    localStorage.setItem(STORAGE_KEY, accessToken);
+    try {
+      localStorage.setItem(STORAGE_KEY, accessToken);
+    } catch {
+      /* private mode: token stays in memory only */
+    }
     setToken(accessToken);
   }
 
@@ -77,7 +90,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const me = await fetchMe(accessToken);
       setUser(me);
     } catch {
+      localStorage.removeItem(STORAGE_KEY);
+      setToken(null);
       setUser(null);
+      throw new Error("Invalid token");
     }
   }
 
@@ -106,10 +122,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout(): void {
-    localStorage.removeItem(STORAGE_KEY);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
     setToken(null);
     setUser(null);
   }
+
+  // safeGet kept for future storage reads (private-mode safe).
 
   return (
     <AuthContext.Provider
@@ -118,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         providers: user?.providers ?? [],
         loadingUser,
-        isAuthenticated: token !== null,
+        isAuthenticated: token !== null && user !== null,
         isAdmin: user?.is_admin === true,
         login,
         register,

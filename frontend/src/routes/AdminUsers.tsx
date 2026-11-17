@@ -34,14 +34,15 @@ export default function AdminUsers() {
   return (
     <div className="admin-users">
       <h1>Users</h1>
-      {error && <p className="error">{error}</p>}
+      {error && <p className="error" role="alert">{error}</p>}
       <table>
+        <caption>Registered users</caption>
         <thead>
           <tr>
-            <th>Username</th>
-            <th>Email</th>
-            <th>Active</th>
-            <th>Admin</th>
+            <th scope="col">Username</th>
+            <th scope="col">Email</th>
+            <th scope="col">Active</th>
+            <th scope="col">Admin</th>
           </tr>
         </thead>
         <tbody>
@@ -52,6 +53,7 @@ export default function AdminUsers() {
               <td>
                 <button
                   type="button"
+                  aria-pressed={u.is_active}
                   onClick={() => void toggle(u.id, "is_active", !u.is_active)}
                 >
                   {u.is_active ? "Deactivate" : "Activate"}
@@ -60,6 +62,7 @@ export default function AdminUsers() {
               <td>
                 <button
                   type="button"
+                  aria-pressed={u.is_admin}
                   onClick={() => void toggle(u.id, "is_admin", !u.is_admin)}
                 >
                   {u.is_admin ? "Demote" : "Promote"}

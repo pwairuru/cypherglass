@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { QFChart, LineTool, RayTool, HorizontalLineTool, FibonacciTool, MeasureTool } from "@qfo/qfchart";
 import { sma } from "../lib/indicators";
+import { cypherGlassChartOptions, metricLineColor, priceLineColor, smaLineColor } from "../lib/chartTheme";
 import { registerChartTools } from "../lib/chartTools";
 import { registerAllQfDrawings } from "../lib/qfdraw/registry";
 export interface OhlcBar {
@@ -20,15 +21,7 @@ export default function PriceChart({ bars, chartKey, mode = "candles", onReady }
       // canvas starts at the chart. Zoom slider sits at the bottom.
       title: "",
       watermark: false,
-      backgroundColor: "transparent",
-      // Tight sides (library defaults to 10% each).
-      layout: { left: "2%", right: "7%" },
-      // No slider: wheel/pinch (inside) zoom stays active, so the x-axis
-      // labels have the bottom to themselves.
-      dataZoom: { visible: false },
-      // Line mode hides the candles (no hide-candles flag in QFChart
-      // typings); the close-price line indicator below carries the series.
-      ...(lineMode ? { upColor: "transparent", downColor: "transparent" } : {}),
+      ...cypherGlassChartOptions(lineMode),
     });
     const lineTool = new LineTool();
     const rayTool = new RayTool();
@@ -56,10 +49,10 @@ export default function PriceChart({ bars, chartKey, mode = "candles", onReady }
     const closes = bars.map((b) => b.close);
     const times = bars.map((b) => b.time);
     if (lineMode) {
-      chart.addIndicator("price", { price: { data: times.map((t, i) => ({ time: t, value: closes[i] })), options: { style: "line", color: "#FF6D00" } } }, { isOverlay: true });
+      chart.addIndicator("price", { price: { data: times.map((t, i) => ({ time: t, value: closes[i] })), options: { style: "line", color: priceLineColor(), linewidth: 2 } } }, { isOverlay: true });
     }
     const s20 = sma(closes, 20);
-    chart.addIndicator("SMA_20", { sma: { data: times.map((t, i) => ({ time: t, value: s20[i] ?? NaN })), options: { style: "line", color: "#2962FF" } } }, { isOverlay: true });
+    chart.addIndicator("SMA_20", { sma: { data: times.map((t, i) => ({ time: t, value: s20[i] ?? NaN })), options: { style: "line", color: smaLineColor(), linewidth: 1.5 } } }, { isOverlay: true });
     chartRef.current = chart;
     onReady?.(chart);
     return () => { chart.destroy?.(); chartRef.current = null; };
@@ -68,5 +61,5 @@ export default function PriceChart({ bars, chartKey, mode = "candles", onReady }
     // alone cannot do.
   }, [chartKey, bars, mode, onReady]);
   useEffect(() => { chartRef.current?.updateData?.(bars); }, [bars]);
-  return <div ref={divRef} data-testid="price-chart" style={{ height: "100%", width: "100%" }} />;
+  return <div ref={divRef} data-testid="price-chart" role="img" aria-label={`Price chart, ${bars.length} bars`} style={{ height: "100%", width: "100%" }} />;
 }

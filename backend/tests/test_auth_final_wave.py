@@ -274,10 +274,12 @@ async def test_patch_me_integrity_error_409():
 def test_models_now_naive_and_onupdate():
     from app.auth import models
 
-    assert models._now().tzinfo is None
+    # sqlmodel>=0.0.47 maps datetime -> UTCDateTime (WITH TIME ZONE) and
+    # rejects naive values: _now() must be tz-aware.
+    assert models._now().tzinfo is not None
     col = User.__table__.c.updated_at
     assert col.onupdate is not None
-    assert User(username="u").updated_at.tzinfo is None
+    assert User(username="u").updated_at.tzinfo is not None
 
 
 # ---------- 4. atomic consume ----------
@@ -335,6 +337,11 @@ def test_is_transient_user():
 
 
 def _seed_token():
+    import os
+
+    os.environ["ALLOW_SEED_FALLBACK"] = "1"
+    os.environ["SEED_ADMIN_USER"] = "admin"
+    os.environ["SEED_ADMIN_PASSWORD"] = "admin"
     c = TestClient(app)
     r = c.post("/api/v1/auth/login", json={"username": "admin", "password": "admin"})
     assert r.status_code == 200, r.text

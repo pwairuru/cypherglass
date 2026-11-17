@@ -86,7 +86,7 @@ def test_jwt_none_alg_rejected(client):
 
 
 def test_nostr_tamper_rejected(client):
-    from tests.test_nostr import _signed
+    from test_nostr import _signed
 
     from coincurve import PrivateKey as PK
 
@@ -103,7 +103,7 @@ def test_nostr_tamper_rejected(client):
 
 
 def test_nostr_expired_timestamp_rejected(client):
-    from tests.test_nostr import _signed
+    from test_nostr import _signed
 
     ev = _signed()
     ev["created_at"] = int(time.time()) - 3600

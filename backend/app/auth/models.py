@@ -6,9 +6,9 @@ from sqlmodel import Field, SQLModel
 
 
 def _now() -> datetime:
-    # Naive UTC: columns are TIMESTAMP WITHOUT TIME ZONE and asyncpg
-    # rejects tz-aware datetimes on insert.
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    # TZ-aware UTC: sqlmodel>=0.0.47 maps datetime -> UTCDateTime (WITH TIME ZONE)
+    # and rejects naive values. Live API runs 0.0.47; local .venv must match.
+    return datetime.now(timezone.utc)
 
 
 class User(SQLModel, table=True):

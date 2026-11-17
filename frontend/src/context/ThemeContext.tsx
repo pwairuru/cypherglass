@@ -23,13 +23,21 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<ThemeName>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return THEMES.includes(saved as ThemeName) ? (saved as ThemeName) : "dark";
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return THEMES.includes(saved as ThemeName) ? (saved as ThemeName) : "dark";
+    } catch {
+      return "dark";
+    }
   });
 
   const [density, setDensity] = useState<Density>(() => {
-    const saved = localStorage.getItem(DENSITY_KEY);
-    return saved === "compact" ? "compact" : "comfortable";
+    try {
+      const saved = localStorage.getItem(DENSITY_KEY);
+      return saved === "compact" ? "compact" : "comfortable";
+    } catch {
+      return "comfortable";
+    }
   });
 
   useEffect(() => {
@@ -37,14 +45,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.classList.remove("dark", "theme-ohngea", "theme-ohngea-dark");
     const cls = CLASS_BY_THEME[theme];
     if (cls) root.classList.add(cls);
-    localStorage.setItem(STORAGE_KEY, theme);
+    try {
+      localStorage.setItem(STORAGE_KEY, theme);
+    } catch {
+      /* private mode */
+    }
   }, [theme]);
 
   useEffect(() => {
     const root = document.documentElement;
     if (density === "compact") root.setAttribute("data-density", "compact");
     else root.removeAttribute("data-density");
-    localStorage.setItem(DENSITY_KEY, density);
+    try {
+      localStorage.setItem(DENSITY_KEY, density);
+    } catch {
+      /* private mode */
+    }
   }, [density]);
 
   return <ThemeContext.Provider value={{ theme, setTheme, density, setDensity }}>{children}</ThemeContext.Provider>;
