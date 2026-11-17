@@ -39,6 +39,11 @@ fn test_state(settings: &Settings) -> AppState {
         ch: ChClient::from_settings(settings),
         jwt_secret: SecretString::new("test-secret-0123456789abcdef0123456789ab".into()),
         jwt_expire_min: settings.jwt_expire_min,
+        google_client_id: settings.google_client_id.clone(),
+        google_client_secret: settings.google_client_secret.clone(),
+        github_client_id: settings.github_client_id.clone(),
+        github_client_secret: settings.github_client_secret.clone(),
+        oauth_redirect_base: settings.oauth_redirect_base.clone(),
     }
 }
 

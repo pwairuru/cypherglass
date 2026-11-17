@@ -57,6 +57,11 @@ fn test_state(settings: &Settings) -> AppState {
         ch: ChClient::from_settings(settings),
         jwt_secret: settings.jwt_secret.clone(),
         jwt_expire_min: settings.jwt_expire_min,
+        google_client_id: settings.google_client_id.clone(),
+        google_client_secret: settings.google_client_secret.clone(),
+        github_client_id: settings.github_client_id.clone(),
+        github_client_secret: settings.github_client_secret.clone(),
+        oauth_redirect_base: settings.oauth_redirect_base.clone(),
     }
 }
 
@@ -64,6 +69,7 @@ async fn setup() -> (tokio::sync::MutexGuard<'static, ()>, Settings, AppState) {
     let guard = DB_LOCK.lock().await;
     let settings = test_settings();
     let state = test_state(&settings);
+    backend_rs::store::init(settings.valkey_url.clone());
     prepare_db(&state.pg).await;
     (guard, settings, state)
 }

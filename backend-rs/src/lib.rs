@@ -2,6 +2,7 @@ pub mod auth;
 pub mod ch;
 pub mod config;
 pub mod db;
+pub mod store;
 
 use axum::extract::{Request, State};
 use axum::http::header::{self, HeaderValue};
@@ -24,6 +25,11 @@ pub struct AppState {
     pub ch: ChClient,
     pub jwt_secret: SecretString,
     pub jwt_expire_min: u64,
+    pub google_client_id: String,
+    pub google_client_secret: String,
+    pub github_client_id: String,
+    pub github_client_secret: String,
+    pub oauth_redirect_base: String,
 }
 
 pub fn build_router_with(state: AppState, settings: &Settings) -> Router {

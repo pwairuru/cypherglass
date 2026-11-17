@@ -1,3 +1,5 @@
+pub mod nostr;
+pub mod oauth;
 pub mod password;
 pub mod routes;
 pub mod token;

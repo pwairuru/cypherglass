@@ -1,4 +1,4 @@
-use backend_rs::{build_router_with, db::pg_pool, AppState, ChClient, Settings};
+use backend_rs::{build_router_with, db::pg_pool, store, AppState, ChClient, Settings};
 
 #[tokio::main]
 async fn main() {
@@ -6,6 +6,8 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let settings = Settings::from_env();
+
+    store::init(settings.valkey_url.clone());
 
     let pg = pg_pool(&settings.database_url);
 
@@ -15,6 +17,11 @@ async fn main() {
         ch: ChClient::from_env(),
         jwt_secret: settings.jwt_secret.clone(),
         jwt_expire_min: settings.jwt_expire_min,
+        google_client_id: settings.google_client_id.clone(),
+        google_client_secret: settings.google_client_secret.clone(),
+        github_client_id: settings.github_client_id.clone(),
+        github_client_secret: settings.github_client_secret.clone(),
+        oauth_redirect_base: settings.oauth_redirect_base.clone(),
     };
 
     let app = build_router_with(state, &settings);
