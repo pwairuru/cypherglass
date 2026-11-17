@@ -1,7 +1,7 @@
 use crate::ch::{value_to_f64_opt, ChClient, SeriesPoint};
 use crate::error::ApiError;
 use crate::metrics::registry::by_id;
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime};
 use serde::Serialize;
 
 /// Normalise a frontend ISO date string to the ClickHouse parameter type.
@@ -16,9 +16,9 @@ pub fn norm_date(raw: &str, kind: &str) -> Result<String, ApiError> {
     }
 
     if s.contains('T') {
-        let dt = parse_iso(s)?;
+        let dt = parse_iso_local(s)?;
         if kind == "Date" {
-            return Ok(dt.date_naive().to_string());
+            return Ok(dt.date().to_string());
         }
         return Ok(dt.format("%Y-%m-%d %H:%M:%S").to_string());
     }
@@ -38,14 +38,29 @@ pub fn norm_date(raw: &str, kind: &str) -> Result<String, ApiError> {
     Ok(format!("{} 00:00:00", d))
 }
 
-fn parse_iso(s: &str) -> Result<chrono::DateTime<chrono::Utc>, ApiError> {
-    let normalized = if let Some(stripped) = s.strip_suffix('Z') {
+fn normalize_iso(s: &str) -> String {
+    if let Some(stripped) = s.strip_suffix('Z') {
         format!("{}+00:00", stripped)
     } else {
         s.to_string()
-    };
-    normalized
-        .parse::<chrono::DateTime<chrono::Utc>>()
+    }
+}
+
+/// Parse an ISO string and return the LOCAL wall-clock datetime, matching
+/// Python's `datetime.fromisoformat(...).strftime(...)` behaviour.
+fn parse_iso_local(s: &str) -> Result<NaiveDateTime, ApiError> {
+    normalize_iso(s)
+        .parse::<DateTime<FixedOffset>>()
+        .map(|dt| dt.naive_local())
+        .map_err(|_| ApiError::unprocessable(format!("Bad date: {s:?}")))
+}
+
+/// Parse an ISO string and return the UTC datetime, used for epoch-ms
+/// conversion (Python `datetime.fromisoformat(...).timestamp()`).
+fn parse_iso(s: &str) -> Result<DateTime<chrono::Utc>, ApiError> {
+    normalize_iso(s)
+        .parse::<DateTime<FixedOffset>>()
+        .map(|dt| dt.to_utc())
         .map_err(|_| ApiError::unprocessable(format!("Bad date: {s:?}")))
 }
 
@@ -294,6 +309,23 @@ mod tests {
         assert_eq!(
             norm_date("2023-01-15T08:30:45Z", "DateTime").unwrap(),
             "2023-01-15 08:30:45"
+        );
+    }
+
+    #[test]
+    fn norm_offset_keeps_wall_clock_for_datetime() {
+        assert_eq!(
+            norm_date("2023-01-15T08:30:00+02:00", "DateTime").unwrap(),
+            "2023-01-15 08:30:00"
+        );
+    }
+
+    #[test]
+    fn norm_offset_keeps_wall_clock_date() {
+        // Python: datetime.fromisoformat("2023-01-15T01:00:00+02:00").date() == 2023-01-15
+        assert_eq!(
+            norm_date("2023-01-15T01:00:00+02:00", "Date").unwrap(),
+            "2023-01-15"
         );
     }
 

@@ -71,6 +71,22 @@ fn norm_trims_iso_to_date() {
 }
 
 #[test]
+fn norm_offset_preserves_wall_clock_datetime() {
+    assert_eq!(
+        norm_date("2023-01-15T08:30:00+02:00", "DateTime").unwrap(),
+        "2023-01-15 08:30:00"
+    );
+}
+
+#[test]
+fn norm_offset_preserves_wall_clock_date() {
+    assert_eq!(
+        norm_date("2023-01-15T01:00:00+02:00", "Date").unwrap(),
+        "2023-01-15"
+    );
+}
+
+#[test]
 fn from_gt_to_422() {
     let err = check_range("2023-01-15", "2023-01-10", "Date").unwrap_err();
     assert_eq!(err.status, 422);
