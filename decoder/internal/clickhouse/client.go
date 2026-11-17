@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -15,7 +16,17 @@ type Client struct {
 	db   string
 }
 
+// dbIdentRe constrains the database identifier interpolated into INSERT
+// statements. Values are driver-bound parameters, but the table qualifier
+// is a string-built identifier, so reject anything outside [A-Za-z0-9_].
+var dbIdentRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,63}$`)
+
+func validDBName(name string) bool { return dbIdentRe.MatchString(name) }
+
 func NewClient(ctx context.Context, host, port, user, password, database string) (*Client, error) {
+	if !validDBName(database) {
+		return nil, fmt.Errorf("invalid database name %q", database)
+	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%s", host, port)},
 		Auth: clickhouse.Auth{

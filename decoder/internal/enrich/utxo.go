@@ -3,8 +3,11 @@ package enrich
 
 import (
 	"fmt"
+	"log"
 	"sync"
 )
+
+const maxUTXOEntries = 5000000
 
 type UTXOMap struct {
 	mu sync.RWMutex
@@ -18,6 +21,13 @@ func mapKey(txid string, index uint32) string { return fmt.Sprintf("%s:%d", txid
 func (u *UTXOMap) Put(txid string, index uint32, value uint64) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
+	if len(u.m) >= maxUTXOEntries {
+		// Bound memory: UTXO set can exceed 100M entries on mainnet.
+		// Evict path logs; values resolve as 0 (fee undercount) rather than OOM.
+		// Proper fix: persist to ClickHouse/disk and backfill on restart.
+		log.Printf("UTXO map full (%d), skipping put (restart needs backfill)", len(u.m))
+		return
+	}
 	u.m[mapKey(txid, index)] = value
 }
 

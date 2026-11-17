@@ -6,12 +6,19 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 )
 
 var mainnetMagic = []byte{0xf9, 0xbe, 0xb4, 0xd9}
+
+// maxBlockSize caps a single blk record allocation. Consensus blocks never
+// exceed 4M serialized bytes; anything larger is corruption, not a block.
+// Without this cap a single crafted/forged length prefix (up to 0xFFFFFFFF)
+// would make ScanBlocksOpts allocate gigabytes and OOM the decoder.
+const maxBlockSize = 8 << 20
 
 // XORDeobfuscator deobfuscates Bitcoin Core blk*.dat files.
 // Bitcoin Core obfuscates block files by XORing every byte with an 8-byte
@@ -128,6 +135,18 @@ func ScanBlocksOpts(r io.ReadSeeker, fileNum int, startOffset int64, deobfuscato
 		blockSize := binary.LittleEndian.Uint32(sizeBuf)
 		offset += 4
 
+		if blockSize > maxBlockSize {
+			// Corrupt/forged length: never allocate on it. Step one byte
+			// forward and resync the magic scan instead of aborting the
+			// whole file (keeps syncing past disk corruption).
+			log.Printf("WARN: implausible block size %d at offset %d, resyncing", blockSize, offset)
+			offset += 1
+			if _, err := r.Seek(offset, io.SeekStart); err != nil {
+				return fmt.Errorf("seek resync: %w", err)
+			}
+			continue
+		}
+
 		blockData := make([]byte, blockSize)
 		if _, err := io.ReadFull(r, blockData); err != nil {
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
@@ -192,14 +211,25 @@ func parseTransaction(tx *wire.MsgTx) *ParsedTx {
 
 	var totalOut int64
 	for i, out := range tx.TxOut {
+		v := out.Value
+		if v < 0 {
+			// Invalid consensus value (wire parser does not validate
+			// amounts). Clamp: a negative would wrap fee aggregates in
+			// ClickHouse and poison onchain charts.
+			log.Printf("WARN: negative output value %d, clamped to 0", v)
+			v = 0
+		}
 		po := ParsedOutput{
 			Index:     uint32(i),
-			ValueSat:  out.Value,
+			ValueSat:  v,
 			ScriptHex: fmt.Sprintf("%x", out.PkScript),
 		}
 		po.Address, po.ScriptType = ExtractAddress(out.PkScript)
 		pt.Outputs = append(pt.Outputs, po)
-		totalOut += out.Value
+		totalOut += v
+		if totalOut < 0 {
+			totalOut = math.MaxInt64 // saturate on corrupt-file overflow
+		}
 	}
 
 	pt.TotalOutSat = totalOut
