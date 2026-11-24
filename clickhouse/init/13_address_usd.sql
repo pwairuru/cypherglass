@@ -1,6 +1,7 @@
 -- clickhouse/init/13_address_usd.sql
 -- USD-denominated address cohorts + share of addresses in profit.
--- Populated by backend/app/workers/external.py poll_address_usd (daily):
+-- Populated by external address-USD ingest (legacy Python worker removed
+-- 2026-11-24; Rust scheduler TODO):
 -- per-address average cost = sum(received USD) / sum(received BTC) from
 -- outputs_v2 (latest-version dedup) joined to bitcoin.price_ohlc_daily,
 -- balances revalued at the day's close. Addresses with average cost below

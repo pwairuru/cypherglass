@@ -1,21 +1,25 @@
 # Metrics coverage: Bitcoin Magazine Pro / LookIntoBitcoin + IntoTheCryptoverse
 
-Source of truth: `backend/app/metrics/registry.py` (267 metrics) ported 1:1 to
-`backend-rs/src/metrics/registry.rs`. Rule: metrics read ONLY `bitcoin.mv_*`,
-`marts.*`, `bitcoin.price_ohlc_*` (enforced by `test_no_base_table_reads`).
+Source of truth: `backend-rs/src/metrics/registry.rs` (267 metrics). Rule:
+metrics read ONLY `bitcoin.mv_*`, `marts.*`, `bitcoin.price_ohlc_*` (enforced by
+`test_no_base_table_reads`).
 
-## Ingest (Rust ports in use)
+> Legacy removal (2026-11-24): the Python `backend/` and the Go decoder
+> (`decoder/legacy-go/`) were deleted after a full snapshot landed on `main`.
+> Historical notes below that mention Python workers or the Go decoder are
+> retained for context only.
+
+## Ingest (Rust only)
 
 - Blockchain ingest: Rust `decoder` (`decoder/src/`, `bitcoin` crate). Dev
   all-in-one builds `juicefs/Dockerfile.allinone` (bitcoind + JuiceFS + Rust
-  decoder); prod split builds `decoder/Dockerfile` (Rust musl + Go legacy
-  reference binary kept for build-parity only). `decoder/legacy-go/` is
-  reference-only, never run by compose.
+  decoder); prod split builds `decoder/Dockerfile` (Rust musl).
 - Backend API: Rust `backend-rs` (Axum). `docker-compose.yml` `api` and
   `docker-compose.prod.yml` `api` both build `backend-rs/Dockerfile`.
-  Python `backend/` remains only for the price/marts worker
-  (`poll_price_hourly`, marts refresh). Auth + metrics routes are ported:
-  `GET /api/v1/metrics`, `/coverage`, `/{id}/series`, `/price_ohlc_{grain}/ohlc`.
+  Routes: `GET /api/v1/metrics`, `/coverage`, `/{id}/series`,
+  `/price_ohlc_{grain}/ohlc`.
+- Scheduled ingest (price/marts/external) was removed with the Python Celery
+  worker. Those tables keep serving existing rows; a Rust scheduler is TODO.
 
 ## LookIntoBitcoin (bitcoinmagazinepro.com/charts -> lookintobitcoin.com) mapping
 
@@ -83,11 +87,9 @@ after a remount; `docker compose up` after the switch recreated the stack on
 the other root (full real 43k-block dataset vs. fixture world — verify with
 `docker inspect <svc> --format '{{range .Mounts}}...'` before assuming which
 world is live). Dev `DATABASE_URL` must point at host port 5433 (5432 belongs
-to another project's postgres). Python tests need
-`DATABASE_URL=postgresql+asyncpg://cypher:cypher@localhost:5433/cypher`;
-Rust tests already default to 5433. A stale `_sqlx_migrations` checksum on an
-old volume is repaired by `scripts/repair_migration_checksum.py` (schema
-verified equivalent first).
+to another project's postgres). Rust tests already default to 5433. A stale
+`_sqlx_migrations` checksum on an old volume is repaired by re-applying the
+idempotent `backend-rs/migrations/001_auth_user_social.sql`.
 
 Terminal Price research trail (why not implemented as exact):
 

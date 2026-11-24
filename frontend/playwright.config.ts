@@ -1,10 +1,43 @@
 import { defineConfig } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const API_PORT = Number(process.env.E2E_API_PORT ?? 8100);
 const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 5273);
 const DATABASE_URL =
   process.env.DATABASE_URL ??
-  "postgresql+asyncpg://cypher:cypher@localhost:5433/cypher";
+  "postgresql://cypher:cypher@localhost:5433/cypher";
+
+/** Read a key from the repo .env without pulling in a dotenv dependency. */
+function envFileValue(key: string): string | undefined {
+  for (const file of [
+    resolve(process.cwd(), ".env"),
+    resolve(process.cwd(), "..", ".env"),
+  ]) {
+    try {
+      const line = readFileSync(file, "utf8")
+        .split("\n")
+        .find((l) => l.trim().startsWith(`${key}=`));
+      if (line) {
+        return line
+          .slice(line.indexOf("=") + 1)
+          .trim()
+          .replace(/^["']|["']$/g, "");
+      }
+    } catch {
+      // try next location
+    }
+  }
+  return undefined;
+}
+
+const valkeyPassword =
+  process.env.VALKEY_PASSWORD ?? envFileValue("VALKEY_PASSWORD") ?? "";
+const valkeyAuth = valkeyPassword
+  ? `:${encodeURIComponent(valkeyPassword)}@`
+  : "";
+const VALKEY_URL =
+  process.env.VALKEY_URL ?? `redis://${valkeyAuth}localhost:6382/0`;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -31,12 +64,24 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `../backend/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port ${API_PORT}`,
-      cwd: "../backend",
-      env: { ...process.env, DATABASE_URL },
+      command: "cargo run -p backend-rs",
+      cwd: "..",
+      env: {
+        ...process.env,
+        PORT: String(API_PORT),
+        DATABASE_URL,
+        VALKEY_URL,
+        CLICKHOUSE_HOST: process.env.CLICKHOUSE_HOST ?? "localhost",
+        CLICKHOUSE_PORT: process.env.CLICKHOUSE_PORT ?? "8124",
+        JWT_SECRET:
+          process.env.JWT_SECRET ??
+          "dev-only-not-for-prod-0123456789abcdef0123456789abcdef01234567",
+        ENV: "dev",
+        CORS_ORIGINS: `http://localhost:${WEB_PORT}`,
+      },
       url: `http://localhost:${API_PORT}/health`,
       reuseExistingServer: true,
-      timeout: 60_000,
+      timeout: 180_000,
     },
     {
       command: `npm run dev -- --port ${WEB_PORT} --strictPort`,

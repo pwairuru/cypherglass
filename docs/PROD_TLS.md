@@ -35,6 +35,6 @@ Secrets (prod, before first `up`):
    fails fast if `CLICKHOUSE_PASSWORD` is unset.
 4. Valkey: prod compose passes `VALKEY_PASSWORD` via `command --requirepass`
    and healthcheck auth; set `VALKEY_URL=redis://:PASS@valkey:6379/0` (or
-   `valkey://`) wherever the backend/worker runs.
+   `valkey://`) wherever the API runs.
 5. Never commit `.env` (gitignored). JWT must be 32+ random bytes
    (`python3 -c "import secrets; print(secrets.token_hex(32))"`).

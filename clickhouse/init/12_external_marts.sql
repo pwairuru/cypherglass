@@ -3,9 +3,10 @@
 -- derivatives (Binance futures, no key), ETF flows, macro (FRED, needs key),
 -- sentiment (Alternative.me, no key), cross-asset (Kraken/CoinGecko, no key),
 -- lightning (1ML, needs token), address cohorts (needs addresses_v2 sweeper).
--- Populated by backend/app/workers/external.py (Celery beat). Tables exist
--- empty until ingest runs; metrics read them with argMax and the API marks
--- empty results stale=true, so no fake data is ever served.
+-- Populated by external ingest (legacy Python Celery worker removed 2026-11-24;
+-- Rust scheduler TODO). Tables exist empty until ingest runs; metrics read them
+-- with argMax and the API marks empty results stale=true, so no fake data is
+-- ever served.
 CREATE DATABASE IF NOT EXISTS marts;
 
 CREATE TABLE IF NOT EXISTS marts.funding_daily

@@ -2,7 +2,7 @@
 """Onchain E2E verification harness (Task 8).
 
 Usage:
-    CH_E2E=1 CLICKHOUSE_PORT=8124 backend/.venv/bin/python scripts/e2e_onchain.py --apply-ddl --seed --check
+    CH_E2E=1 CLICKHOUSE_PORT=8124 python3 scripts/e2e_onchain.py --apply-ddl --seed --check
 
 Steps:
     --apply-ddl  apply clickhouse/init/03_schema_v2.sql, 04_projections.sql,

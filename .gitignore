@@ -1,6 +1,5 @@
 volumes/
 .env
-decoder/decoder
 *.log
 # environment-specific overrides
 .env.*
@@ -11,9 +10,6 @@ docker-compose.yml.bak
 additions.txt
 # build artifacts / local caches (never commit, disk-heavy)
 __pycache__/
-backend/.venv/
-backend/cypherglass_backend.egg-info/
-backend/.pytest_cache/
 .pytest_cache/
 frontend/node_modules/
 frontend/dist/

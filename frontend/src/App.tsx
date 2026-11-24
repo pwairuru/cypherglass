@@ -9,15 +9,18 @@ import Dashboard from "./routes/Dashboard";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { isAuthenticated, loadingUser, user } = useAuth();
-  if (loadingUser || (user === null && isAuthenticated)) return <p>Loading…</p>;
+  // Only block on first load (no user yet). Background refreshes must keep
+  // children mounted, or in-flight form state (e.g. Profile save message)
+  // is lost when the route remounts.
+  if (loadingUser && user === null) return <p>Loading…</p>;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return children;
 }
 
 function RequireAdmin({ children }: { children: JSX.Element }) {
   const { isAuthenticated, isAdmin, loadingUser, user } = useAuth();
+  if (loadingUser && user === null) return <p>Loading…</p>;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (loadingUser || (user === null && isAuthenticated)) return <p>Loading…</p>;
   if (!isAdmin) return <Navigate to="/" replace />;
   return children;
 }

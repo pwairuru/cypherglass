@@ -80,7 +80,7 @@ pub fn seed_user() -> Option<User> {
 }
 
 /// Verify credentials against the configured seed admin credentials.
-/// This mirrors the gating in `backend/app/auth/service.py`.
+/// Mirrors the legacy Python service's gating.
 pub fn seed_user_for(identifier: &str, password: &str) -> Option<User> {
     let user = seed_user()?;
     let expected_user = env::var("SEED_ADMIN_USER").unwrap_or_default();

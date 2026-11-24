@@ -1,5 +1,5 @@
-//! Auto-generated from backend/app/metrics/registry.py
-//! Do not edit by hand; run scripts/gen_metrics_registry.py
+//! Canonical metric catalog (source of truth).
+//! Regenerate/verify with `cargo test -p backend-rs metrics::registry`.
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Metric {
@@ -2431,7 +2431,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registry_count_matches_python() {
+    fn registry_count_is_267() {
         assert_eq!(METRICS.len(), 267);
     }
 }

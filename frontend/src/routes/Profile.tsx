@@ -3,7 +3,7 @@ import { changePassword, updateMe } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 
 export default function Profile() {
-  const { token, user, refreshUser } = useAuth();
+  const { token, user, refreshUser, loginWithToken } = useAuth();
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
   const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
@@ -49,7 +49,10 @@ export default function Profile() {
     setMsg(null);
     setPending(true);
     try {
-      await changePassword(token, oldPassword, newPassword);
+      const out = await changePassword(token, oldPassword, newPassword);
+      // Password change revokes the old token server-side; adopt the fresh
+      // session token so this session survives the reload.
+      await loginWithToken(out.access_token);
       setOldPassword("");
       setNewPassword("");
       setMsg("Password changed");

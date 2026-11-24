@@ -174,8 +174,8 @@ export async function changePassword(
   token: string,
   oldPassword: string,
   newPassword: string,
-): Promise<void> {
-  await postJson("/api/v1/auth/change-password", {
+): Promise<TokenOut> {
+  return postJson<TokenOut>("/api/v1/auth/change-password", {
     old_password: oldPassword,
     new_password: newPassword,
   }, token);

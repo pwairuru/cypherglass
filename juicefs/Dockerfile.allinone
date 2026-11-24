@@ -1,4 +1,4 @@
-# Rust decoder (musl static) + Go legacy reference (kept until prod-verified).
+# Rust decoder (musl static) + Bitcoin Core + JuiceFS all-in-one.
 # Build context: repo root (compose: context: ., dockerfile: juicefs/Dockerfile.allinone).
 FROM rust:alpine AS decoder-builder
 RUN apk add --no-cache musl-dev

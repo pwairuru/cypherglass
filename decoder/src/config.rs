@@ -1,8 +1,8 @@
 //! Runtime configuration loaded from the environment.
 //!
-//! Mirrors the Go decoder's `getEnv` defaults in `decoder/main.go` plus the
-//! plan's extra knobs (`UTXO_DB`, `BATCH_BLOCKS`). Empty env values fall back
-//! to defaults, exactly like Go's `getEnv`.
+//! Mirrors the legacy Go decoder's `getEnv` defaults (Go sources removed
+//! 2026-11-24) plus the plan's extra knobs (`UTXO_DB`, `BATCH_BLOCKS`). Empty
+//! env values fall back to defaults, exactly like Go's `getEnv`.
 
 use std::path::PathBuf;
 

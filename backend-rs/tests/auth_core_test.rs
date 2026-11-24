@@ -254,6 +254,16 @@ async fn change_password_revokes_old_token_401() {
         ))
         .await
         .unwrap();
+    let (status, body) = body_json(response).await;
+    assert_eq!(status, StatusCode::OK);
+
+    // Rotation: the response mints a fresh token bound to the new password.
+    let fresh = body["access_token"].as_str().expect("fresh token");
+    let response = router
+        .clone()
+        .oneshot(req(Method::GET, "/api/v1/auth/me", json!({}), Some(fresh)))
+        .await
+        .unwrap();
     let (status, _) = body_json(response).await;
     assert_eq!(status, StatusCode::OK);
 

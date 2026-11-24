@@ -46,7 +46,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   });
   const [user, setUser] = useState<MeOut | null>(null);
-  const [loadingUser, setLoadingUser] = useState(false);
+  // A stored token means we must resolve /auth/me before route guards decide;
+  // otherwise a hard reload of a protected route bounces to /login.
+  const [loadingUser, setLoadingUser] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEY) !== null;
+    } catch {
+      return false;
+    }
+  });
 
   const refreshUser = useCallback(async (): Promise<void> => {
     const t = localStorage.getItem(STORAGE_KEY);

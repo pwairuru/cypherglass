@@ -13,8 +13,8 @@ existing rows WITHOUT corrupting MV state:
   4. verify invariants (counts, reward sums) + difficulty sane (> 0)
 
 Usage:
-  backend/.venv/bin/python scripts/backfill_difficulty.py          # dry run
-  backend/.venv/bin/python scripts/backfill_difficulty.py --execute
+  python3 scripts/backfill_difficulty.py          # dry run
+  python3 scripts/backfill_difficulty.py --execute
 
 Env: CLICKHOUSE_HOST/PORT/USER/PASSWORD (defaults localhost:8124/bitcoin/*).
 """

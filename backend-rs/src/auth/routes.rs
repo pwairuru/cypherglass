@@ -640,7 +640,19 @@ async fn change_password(
         .await
         .map_err(|_| AuthError::UpdateConflict)?;
 
-    Ok(Json(json!({ "ok": true })))
+    // Rotate the session token: the old token's password version died with
+    // the old hash, so mint a fresh one and keep this session alive. All
+    // other sessions stay revoked.
+    let secret = state.jwt_secret.expose_secret();
+    let token = create_token(
+        secret,
+        &user.username,
+        Some(&user.id.to_string()),
+        Some(&password_ver(&new_hash)),
+        state.jwt_expire_min,
+    );
+
+    Ok(Json(json!({ "ok": true, "access_token": token, "token_type": "bearer" })))
 }
 
 #[derive(Debug, Deserialize)]

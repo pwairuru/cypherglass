@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { normalizePubkey, npubToHex } from "./nostr";
 
-// Test vector: fixed secret -> known pubkey, cross-checked against the
-// backend coincurve verifier in backend/tests/test_nostr.py style checks.
+// Test vector: fixed secret -> known pubkey, cross-checked against BIP-340
+// vectors and the Rust auth verifier.
 const SK_HEX =
   "1111111111111111111111111111111111111111111111111111111111111111";
 // x-only pubkey for 0x11..11 (computed once via noble, pinned here)

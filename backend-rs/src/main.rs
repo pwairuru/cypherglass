@@ -31,7 +31,11 @@ async fn main() {
 
     let app = build_router_with(state, &settings);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8000")
+    let port: u16 = std::env::var("PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(8000);
+    let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
         .await
         .expect("failed to bind");
 

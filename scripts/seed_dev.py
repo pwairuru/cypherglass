@@ -4,7 +4,7 @@
 Covers existing chain era (2009-01-03..2010-03-05 from mv_blocks_daily) so all
 200+ charts render. No bitcoin node download required.
 Usage:
-  backend/.venv/bin/python scripts/seed_dev.py [--days N] [--no-price]
+  python3 scripts/seed_dev.py [--days N] [--no-price]
 """
 import argparse
 import math

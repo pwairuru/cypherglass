@@ -1,6 +1,7 @@
 //! Bitcoin Core `blk*.dat` parser: magic scan, XOR deobfuscation, block/tx parse.
 //!
-//! Mirrors the Go decoder's `internal/parser` semantics:
+//! Mirrors the legacy Go decoder's `internal/parser` semantics (Go sources
+//! removed 2026-11-24):
 //! - mainnet magic `f9 be b4 d9` scan with 1-byte resync on mismatch,
 //! - `u32` LE size with an 8 MiB cap (never allocate on a forged length),
 //! - offset-aware XOR deobfuscation (`xor.dat` key, 8-byte cycle),

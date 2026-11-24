@@ -2,14 +2,14 @@
 
 Bitcoin blockchain analytics platform: full node → block decoder → ClickHouse analytics store.
 
-Pipeline: **Bitcoin Knots** (block data) → **JuiceFS** (S3-backed FUSE) → **decoder** (Go, parses `blk*.dat`) → **ClickHouse** (blocks, transactions, inputs, outputs, addresses). **Valkey** holds JuiceFS metadata. **RustFS** provides local S3-compatible storage for dev.
+Pipeline: **Bitcoin Knots** (block data) → **JuiceFS** (S3-backed FUSE) → **decoder** (Rust, parses `blk*.dat`) → **ClickHouse** (blocks, transactions, inputs, outputs, addresses). **Valkey** holds JuiceFS metadata. **RustFS** provides local S3-compatible storage for dev. The API is **Rust** (Axum); the UI is **React** (Vite).
 
 ## Architecture
 
 ```
                 ┌──────────┐  blk*.dat   ┌─────────┐  batches   ┌────────────┐
                 │ bitcoin  ├────────────►│ decoder ├───────────►│ clickhouse │
-                │ knots    │             │  (Go)   │            │  (S3 disk) │
+                │ knots    │             │ (Rust)  │            │  (S3 disk) │
                 └────▲─────┘             └────▲────┘            └────▲───────┘
                      │ FUSE                   │ watches                │ S3
                 ┌────┴─────┐             ┌────┴────┐            ┌──────┴──────┐
@@ -25,8 +25,12 @@ Services (local `docker-compose.yml`):
 | `rustfs` | `rustfs/rustfs` | Local S3 (`juicefs-blockchain`, `clickhouse-storage`) | 9010→9000, 9011→9001 |
 | `create-buckets` | `minio/mc` | One-shot bucket creation | – |
 | `valkey` | `valkey/valkey:8` | JuiceFS metadata store | 6381→6379 |
-| `bitcoin-knots` | `freegoup-allinone` | Node + JuiceFS mount + decoder, all-in-one | 8332, 8333 |
+| `bitcoin-knots` | build `juicefs/Dockerfile.allinone` | Node + JuiceFS mount + Rust decoder, all-in-one | 8332, 8333 |
 | `clickhouse` | `clickhouse/clickhouse-server:26.7` | Analytics DB, S3-backed storage policy | 8124→8123, 9002→9000 |
+| `pg` | `postgres:16` | Users, social auth | 5433→5432 |
+| `valkey-app` | `valkey/valkey:8` | Auth challenge/OAuth state | 6382→6379 |
+| `api` | build `backend-rs/Dockerfile` | Rust API (Axum) | 8002→8000 |
+| `frontend` | build `frontend/Dockerfile` | React UI (Vite build + nginx) | 5173→80 |
 
 Production (`docker-compose.prod.yml`) splits `juicefs`, `bitcoin-knots`, and `decoder` into separate containers, uses real S3 (`S3_ENDPOINT`), requires `CLICKHOUSE_PASSWORD` and `AWS_*` from the environment, and stores chain data in a named `bitcoin_data` volume.
 
@@ -38,11 +42,10 @@ clickhouse/config.xml         S3 storage policy (s3_main)
 clickhouse/users.xml          users, from_env password w/ dev fallback
 clickhouse/init/01_schema.sql 5 tables: blocks, transactions, outputs, inputs, addresses
 clickhouse/init/02_views.sql  materialized views / aggregations
-decoder/                      Go source: parser (btcd wire), clickhouse client, syncer
-decoder/main.go               entrypoint, env config, retry ClickHouse, resume from state
-decoder/internal/parser/      block/tx/input/output types, address extraction
-decoder/internal/clickhouse/  batched inserts per block
-decoder/internal/syncer/      historical catch-up + fsnotify watch + poll fallback (FUSE)
+decoder/                      Rust source: parser (bitcoin crate), ClickHouse client, syncer
+decoder/src/                  block/tx/input/output parsing, address extraction, UTXO state
+backend-rs/                   Rust API (Axum): auth, metrics, ClickHouse reads
+frontend/                     React UI (Vite + TypeScript)
 valkey/valkey.conf            RDB + AOF persistence
 juicefs/                      Dockerfiles + entrypoints (all-in-one vs split)
 docs/                         design plans/specs
@@ -60,7 +63,7 @@ docs/                         design plans/specs
 cp .env.example .env
 # edit .env: set strong VALKEY_PASSWORD / BITCOIN_RPC_PASSWORD / CLICKHOUSE_PASSWORD for anything beyond localhost
 docker compose up -d --build
-docker compose logs -f bitcoin-knots decoder clickhouse
+docker compose logs -f bitcoin-knots clickhouse
 ```
 
 Check progress:
@@ -116,7 +119,7 @@ Build locally:
 cargo build --release -p decoder
 ```
 
-Legacy Go decoder kept at `decoder/legacy-go/` as reference only; compose builds and runs the Rust binary (`juicefs/Dockerfile.allinone` for dev all-in-one, `decoder/Dockerfile` for prod split).
+Compose builds and runs the Rust binary (`juicefs/Dockerfile.allinone` for dev all-in-one, `decoder/Dockerfile` for prod split).
 
 ## ClickHouse schema
 
@@ -133,10 +136,10 @@ All tables are `ReplacingMergeTree` on S3 (`storage_policy = 's3_main'`), ZSTD:
 
 ## Analytics platform (267 charts)
 
-- Backend catalog `backend/app/metrics/registry.py` (ported 1:1 to `backend-rs/src/metrics/registry.rs` via `scripts/gen_metrics_registry.py`): 267 metrics, all reading ONLY `bitcoin.mv_*`, `marts.*`, `bitcoin.price_ohlc_*` (enforced by `test_no_base_table_reads`). Families: network (+lightning), fees, mining (+hashprice, hashribbon cross), addresses (+new + balance cohorts), flow (+CDD/VDDM +ETF), supply/hodl (+STH/LTH), valuation (MVRV/Z, Z-2Y, momentum, STH/LTH MVRV + realized, RHODL/reserve-risk proxies, NUPL, realized), profitability (SOPR, Puell), script, price/tech (SMA/EMA/Mayer/drawdown/RSI/ROI-bottom/bubble-risk/momentum/Sharpe/YoY), cycle bands (200W, 2Y + golden x1.6, Pi + oscillator, CVDD, power-law/log-regression, BMSB 20W/21W), risk composite 0-100, issuance/S2F, derivatives (funding/OI), macro (DXY/M2/Fed/CPI/ETH-BTC/dominance), sentiment (Fear & Greed).
-- API is Rust (`backend-rs`, Axum): `/api/v1/metrics`, `/coverage`, `/{id}/series`, `/price_ohlc_{grain}/ohlc` with bearer auth. Python `backend/` kept for the price/marts worker only.
-- Frontend `Dashboard`: Single (existing hero + onchain with drawings) + Overview (risk header + 9-chart grid) + Compare (pin up to 4). `MetricList` adds category filter with counts. 245 vitest pass.
-- Dev seed without full chain: `backend/.venv/bin/python scripts/seed_dev.py` populates 422d price + 10 marts from existing `mv_blocks_daily` (2009-2010 era). No `bitcoin-knots` download required for dev.
+- Backend catalog `backend-rs/src/metrics/registry.rs`: 267 metrics, all reading ONLY `bitcoin.mv_*`, `marts.*`, `bitcoin.price_ohlc_*` (enforced by `test_no_base_table_reads`). Families: network (+lightning), fees, mining (+hashprice, hashribbon cross), addresses (+new + balance cohorts), flow (+CDD/VDDM +ETF), supply/hodl (+STH/LTH), valuation (MVRV/Z, Z-2Y, momentum, STH/LTH MVRV + realized, RHODL/reserve-risk proxies, NUPL, realized), profitability (SOPR, Puell), script, price/tech (SMA/EMA/Mayer/drawdown/RSI/ROI-bottom/bubble-risk/momentum/Sharpe/YoY), cycle bands (200W, 2Y + golden x1.6, Pi + oscillator, CVDD, power-law/log-regression, BMSB 20W/21W), risk composite 0-100, issuance/S2F, derivatives (funding/OI), macro (DXY/M2/Fed/CPI/ETH-BTC/dominance), sentiment (Fear & Greed).
+- API is Rust (`backend-rs`, Axum): `/api/v1/metrics`, `/coverage`, `/{id}/series`, `/price_ohlc_{grain}/ohlc` with bearer auth.
+- Frontend `Dashboard`: Single (existing hero + onchain with drawings) + Overview (risk header + 9-chart grid) + Compare (pin up to 4). `MetricList` adds category filter with counts.
+- Dev seed without full chain: `python3 scripts/seed_dev.py` populates 422d price + 10 marts from existing `mv_blocks_daily` (2009-2010 era). No `bitcoin-knots` download required for dev.
 - S3 speed: AggregatingMergeTree `-State` MVs, monthly partitions, ZSTD(7/9), `FINAL`/`-Merge` reads, weekly rollups via `toStartOfWeek`, SMA via window functions, marts via `argMax(..., updated_at)`.
 
 ## Security notes
@@ -145,4 +148,4 @@ All tables are `ReplacingMergeTree` on S3 (`storage_policy = 's3_main'`), ZSTD:
 - ClickHouse `bitcoin` user reads `CLICKHOUSE_PASSWORD` from env (no fallback); `default` user locked to `127.0.0.1`. Valkey metadata uses `noeviction` (never evict JuiceFS keys).
 - FUSE containers use `cap_add: SYS_ADMIN` + `/dev/fuse`, not `privileged`. RPC binds `127.0.0.1` by default.
 - Seed admin fallback requires explicit `ALLOW_SEED_FALLBACK=1` + `SEED_ADMIN_USER/PASSWORD`; no implicit `admin/admin`.
-- `.gitignore` covers `.env`, `volumes/`, build artifacts (`decoder/decoder`, `frontend/dist`, `node_modules`, `.venv`, `egg-info`), and `*.bak`. Commit `.env.example` with placeholders only.
+- `.gitignore` covers `.env`, `volumes/`, build artifacts (`/target`, `frontend/dist`, `node_modules`, `__pycache__`), and `*.bak`. Commit `.env.example` with placeholders only.
