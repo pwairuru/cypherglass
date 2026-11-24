@@ -39,6 +39,19 @@ pub fn bucket_for(balance_sat: i64) -> &'static str {
     }
 }
 
+/// Mining difficulty from compact nBits (standard max_target / target).
+/// Genesis bits 0x1d00ffff give exactly 1.0. Zero/degenerate targets yield 0.0
+/// (matches the historical backfill sentinel) instead of infinity.
+pub fn difficulty_from_bits(bits: u32) -> f64 {
+    use bitcoin::pow::{CompactTarget, Target};
+    let d = Target::from_compact(CompactTarget::from_consensus(bits)).difficulty_float();
+    if d.is_finite() && d >= 0.0 {
+        d
+    } else {
+        0.0
+    }
+}
+
 /// 1 when over half the outputs reuse an address (duplicate addresses within
 /// the same tx; input addresses are unresolvable from the value-only UTXO
 /// map, same documented approximation as Go `changeHeavy`).
@@ -76,6 +89,17 @@ mod tests {
         assert_eq!(fee_rate(1000, 250), 4.0);
         assert_eq!(bucket_for(500), "dust");
         assert_eq!(bucket_for(150_000_000_000), "whale");
+    }
+
+    #[test]
+    fn difficulty_from_compact_bits() {
+        // Genesis target == difficulty 1 by definition.
+        assert_eq!(difficulty_from_bits(0x1d00ffff), 1.0);
+        // Lower target -> higher difficulty (mainnet block 300000 era).
+        let d = difficulty_from_bits(0x1b0404cb);
+        assert!((d - 16307.420938523983).abs() < 1e-6, "got {d}");
+        // Degenerate zero target saturates to the 0.0 sentinel, not inf.
+        assert_eq!(difficulty_from_bits(0), 0.0);
     }
 
     #[test]

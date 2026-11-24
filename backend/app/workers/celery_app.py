@@ -29,6 +29,46 @@ celery_app.conf.update(
             "task": "app.workers.price.poll_price_hourly",
             "schedule": 3600.0,
         },
+        "external-fear-greed": {
+            "task": "app.workers.external.poll_fear_greed",
+            "schedule": 86400.0,
+        },
+        "external-funding": {
+            "task": "app.workers.external.poll_funding",
+            "schedule": 3600.0,
+        },
+        "external-cross-asset": {
+            "task": "app.workers.external.poll_cross_asset",
+            "schedule": 86400.0,
+        },
+        "external-keyed": {
+            "task": "app.workers.external.poll_keyed_sources",
+            "schedule": 86400.0,
+        },
+        "external-cohorts": {
+            "task": "app.workers.external.poll_address_cohorts",
+            "schedule": 86400.0,
+        },
+        "external-sweeper": {
+            "task": "app.workers.external.poll_address_sweeper",
+            "schedule": 86400.0,
+        },
+        "external-usd-cohorts": {
+            "task": "app.workers.external.poll_address_usd",
+            "schedule": 86400.0,
+        },
+        "external-macro": {
+            "task": "app.workers.external.poll_macro",
+            "schedule": 86400.0,
+        },
+        "external-etf": {
+            "task": "app.workers.external.poll_etf_flows",
+            "schedule": 86400.0,
+        },
+        "external-lightning": {
+            "task": "app.workers.external.poll_lightning",
+            "schedule": 86400.0,
+        },
     },
 )
 

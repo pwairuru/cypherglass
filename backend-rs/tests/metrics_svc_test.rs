@@ -1,7 +1,8 @@
 use backend_rs::ch::{ChClient, SeriesPoint};
 use backend_rs::metrics::registry::{by_id, METRICS};
 use backend_rs::metrics::service::{
-    check_range, get_coverage, get_ohlc, get_series, norm_date, parse_coverage_rows, series_stale,
+    check_range, get_coverage, get_ohlc, get_series, list_metrics, norm_date, parse_coverage_rows,
+    series_stale,
 };
 
 fn test_ch_client() -> ChClient {
@@ -9,8 +10,8 @@ fn test_ch_client() -> ChClient {
 }
 
 #[test]
-fn registry_has_210_ids_and_no_base_reads() {
-    assert_eq!(METRICS.len(), 210);
+fn registry_has_267_ids_and_no_base_reads() {
+    assert_eq!(METRICS.len(), 267);
 
     let forbidden = [
         "FROM bitcoin.blocks_v2",
@@ -172,4 +173,49 @@ async fn unknown_metric_404() {
         .await
         .unwrap_err();
     assert_eq!(err.status, 404);
+}
+
+#[test]
+fn list_metrics_covers_registry_with_descriptions() {
+    let list = list_metrics();
+    assert_eq!(list.len(), METRICS.len());
+    for s in &list {
+        assert!(!s.description.is_empty(), "missing description: {}", s.id);
+        let want_interval = if s.id.ends_with("_daily") {
+            "daily"
+        } else if s.id.ends_with("_hourly") {
+            "hourly"
+        } else {
+            "none"
+        };
+        assert_eq!(s.interval, want_interval, "bad interval: {}", s.id);
+    }
+    // New LIB/ITC gap metrics are listed.
+    for id in [
+        "hashprice_daily",
+        "cdd_daily",
+        "vddm_daily",
+        "sth_realized_price_daily",
+        "lth_mvrv_daily",
+        "powerlaw_fair_daily",
+        "bmsb_20w_daily",
+        "roi_bottom_daily",
+        "price_sharpe_proxy_daily",
+        "funding_rate_daily",
+        "etf_cumulative_btc_daily",
+        "fear_greed_daily",
+        "ethbtc_daily",
+        "btc_dominance_daily",
+        "total_mcap_daily",
+        "top_cap_daily",
+        "avg_cap_daily",
+        "delta_cap_daily",
+        "new_addresses_daily",
+        "addr_gt1k_usd_daily",
+        "addr_gt100k_usd_daily",
+        "pct_addresses_in_profit_daily",
+        "price_yoy_daily",
+    ] {
+        assert!(list.iter().any(|s| s.id == id), "missing {id}");
+    }
 }

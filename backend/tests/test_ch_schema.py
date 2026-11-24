@@ -29,9 +29,16 @@ def test_projections():
 def test_mvs_hierarchy():
     sql = (Path(__file__).resolve().parents[2] / "clickhouse/init/05_mvs.sql").read_text()
     marts = (Path(__file__).resolve().parents[2] / "clickhouse/init/06_marts.sql").read_text()
-    assert "DROP VIEW IF EXISTS bitcoin.block_stats_daily" in sql
-    assert "DROP VIEW IF EXISTS bitcoin.tx_volume_hourly" in sql
-    assert "DROP VIEW IF EXISTS bitcoin.address_activity_daily" in sql
+    # MV files are re-apply safe: no DROP VIEW statements (drops wipe S3-backed
+    # MV state on populated systems); CREATE IF NOT EXISTS guards fresh installs.
+    def _stmts(name):
+        lines = (Path(__file__).resolve().parents[2] / "clickhouse" / "init" / name).read_text().splitlines()
+        return [ln.strip() for ln in lines if ln.strip() and not ln.strip().startswith("--")]
+
+    assert not any(ln.startswith("DROP VIEW") for ln in _stmts("05_mvs.sql"))
+    assert sum(1 for ln in _stmts("05_mvs.sql") if ln.startswith("CREATE MATERIALIZED VIEW IF NOT EXISTS")) >= 9
+    for extra in ["08_extended_mvs.sql", "11_cdd.sql"]:
+        assert not any(ln.startswith("DROP VIEW") for ln in _stmts(extra)), extra
     assert "mv_blocks_hourly" in sql
     assert "mv_tx_fee_hourly" in sql
     assert "mv_script_hourly" in sql

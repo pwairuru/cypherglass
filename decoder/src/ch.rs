@@ -37,7 +37,7 @@ use anyhow::{Context, Result};
 use clickhouse::Row;
 use serde::Serialize;
 
-use crate::enrich::{change_heavy, fee_rate, subsidy_at};
+use crate::enrich::{change_heavy, difficulty_from_bits, fee_rate, subsidy_at};
 use crate::parser::ParsedBlock;
 use crate::utxo::UtxoStore;
 
@@ -345,7 +345,7 @@ pub fn build_batch(
         merkle_root: block.merkle_root.clone(),
         prev_hash: block.prev_hash.clone(),
         tx_count: block.txs.len() as u16,
-        difficulty: 0.0, // backfilled from RPC headers (Go parity)
+        difficulty: difficulty_from_bits(block.bits),
         chainwork: String::new(),
     });
     batch.blocks_v2.push(BlockRowV2 {
@@ -364,7 +364,7 @@ pub fn build_batch(
         merkle_root: block.merkle_root.clone(),
         prev_hash: block.prev_hash.clone(),
         tx_count: block.txs.len() as u16,
-        difficulty: 0.0,
+        difficulty: difficulty_from_bits(block.bits),
         chainwork: String::new(),
         reward_sat: reward,
         fee_total_sat: fee_total,
@@ -963,7 +963,7 @@ mod tests {
         );
         assert_eq!(b.interval_sec, 600);
         assert_eq!(b.updated_at, NOW);
-        assert_eq!(b.difficulty, 0.0);
+        assert_eq!(b.difficulty, 1.0, "genesis bits 0x1d00ffff");
         assert_eq!(b.chainwork, "");
 
         // Known prev time -> exact signed delta.

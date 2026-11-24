@@ -131,6 +131,80 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  # --- Rust API (Axum) + Postgres + Valkey app ---
+  pg:
+    image: postgres:16
+    container_name: cypherglass-pg
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cypher}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env for production}
+      POSTGRES_DB: ${POSTGRES_DB:-cypher}
+    volumes:
+      - ${DATA_ROOT:-./volumes}/pg:/var/lib/postgresql/data
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cypher}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  valkey-app:
+    image: valkey/valkey:8
+    container_name: cypherglass-valkey-app
+    volumes:
+      - ${DATA_ROOT:-./volumes}/valkey-app:/data
+    command: >
+      sh -c 'if [ -n "$VALKEY_PASSWORD" ]; then exec valkey-server --requirepass "$VALKEY_PASSWORD" --appendonly yes --dir /data; else exec valkey-server --appendonly yes --dir /data; fi'
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?set VALKEY_PASSWORD in .env for production}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "if [ -n \"$VALKEY_PASSWORD\" ]; then valkey-cli -a \"$VALKEY_PASSWORD\" ping; else valkey-cli ping; fi"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: backend-rs/Dockerfile
+    container_name: cypherglass-api
+    depends_on:
+      pg:
+        condition: service_healthy
+      valkey-app:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cypher}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env for production}@pg:5432/${POSTGRES_DB:-cypher}
+      VALKEY_URL: redis://valkey-app:6379/0
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-bitcoin}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set CLICKHOUSE_PASSWORD in .env for production}
+      CLICKHOUSE_DATABASE: bitcoin
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env for production}
+      ENV: prod
+      CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS in .env for production}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      OAUTH_REDIRECT_BASE: ${OAUTH_REDIRECT_BASE:-https://api.example.com}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   # --- TLS termination (opt-in: docker compose --profile tls up -d) ---
   # Caddy obtains/renews Let's Encrypt certs automatically. Set DOMAIN and
   # API_DOMAIN in .env to your hostnames. The app/API stay on loopback;

@@ -12,6 +12,10 @@ async fn main() {
 
     let pg = pg_pool(&settings.database_url);
 
+    if let Err(e) = backend_rs::db::run_migrations(&pg).await {
+        tracing::warn!(error = %e, "migrations failed (continuing)");
+    }
+
     let state = AppState {
         pg,
         valkey_url: settings.valkey_url.clone(),

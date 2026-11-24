@@ -57,6 +57,7 @@ fn build_router_with_origins(state: AppState, origin_strings: Vec<String>) -> Ro
         .route("/health", get(health_handler))
         .route("/ready", get(ready_handler))
         .merge(auth::router())
+        .merge(metrics::routes::router())
         .with_state(state)
         .layer(cors)
         .layer(axum::middleware::from_fn(audit_middleware))

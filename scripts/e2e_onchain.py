@@ -28,7 +28,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INIT_DIR = ROOT / "clickhouse" / "init"
-DDL_FILES = ["03_schema_v2.sql", "04_projections.sql", "05_mvs.sql", "06_marts.sql", "08_extended_mvs.sql", "09_derived_marts.sql", "10_extra_indexes.sql"]
+DDL_FILES = ["03_schema_v2.sql", "04_projections.sql", "05_mvs.sql", "06_marts.sql", "08_extended_mvs.sql", "09_derived_marts.sql", "10_extra_indexes.sql", "11_cdd.sql", "12_external_marts.sql", "13_address_usd.sql", "14_alt_total.sql"]
 
 CH_HOST = os.getenv("CLICKHOUSE_HOST", "localhost")
 CH_PORT = int(os.getenv("CLICKHOUSE_PORT", "8124"))

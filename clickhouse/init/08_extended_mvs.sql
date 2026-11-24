@@ -1,10 +1,15 @@
 -- clickhouse/init/08_extended_mvs.sql
+-- WARNING: DROP VIEWs below make re-applying this file DESTRUCTIVE on
+-- populated systems (fresh MVs start empty). See 05_mvs.sql header.
 -- Extended pre-aggregations for 200+ metric catalog. All read ONLY base v2
 -- tables (never MVs — no cascade), emit -State columns queried with -Merge.
 -- S3-friendly: AggregatingMergeTree, monthly partitions, ZSTD(7/9).
 
 -- Daily script-type breakdown (hourly exists as mv_script_hourly).
-DROP VIEW IF EXISTS bitcoin.mv_script_daily;
+-- NOTE: no DROP VIEW statements in this file (removed 2026-11-23).
+-- MV re-definition is intentionally NOT automatic: DROP+CREATE on a
+-- populated system wipes aggregates irreversibly (proven live). To change
+-- an MV definition, drop it manually during maintenance, then apply.
 CREATE MATERIALIZED VIEW IF NOT EXISTS bitcoin.mv_script_daily
 (day Date CODEC(ZSTD(9)),
  script_type LowCardinality(String),
@@ -18,7 +23,6 @@ AS SELECT toDate(timestamp) AS day, script_type,
 FROM bitcoin.outputs_v2 GROUP BY day, script_type;
 
 -- Fee-rate buckets: whale/urgent vs economy split (ITC + BM Pro fee panels).
-DROP VIEW IF EXISTS bitcoin.mv_fee_buckets_daily;
 CREATE MATERIALIZED VIEW IF NOT EXISTS bitcoin.mv_fee_buckets_daily
 (day Date CODEC(ZSTD(9)),
  bucket LowCardinality(String),
@@ -35,7 +39,6 @@ AS SELECT toDate(timestamp) AS day,
   sumState(fee_sat) AS fee_sum
 FROM bitcoin.transactions_v2 WHERE is_coinbase = 0 GROUP BY day, bucket;
 
-DROP VIEW IF EXISTS bitcoin.mv_fee_buckets_hourly;
 CREATE MATERIALIZED VIEW IF NOT EXISTS bitcoin.mv_fee_buckets_hourly
 (hour DateTime CODEC(ZSTD(7)),
  bucket LowCardinality(String),
@@ -53,7 +56,6 @@ AS SELECT toStartOfHour(timestamp) AS hour,
 FROM bitcoin.transactions_v2 WHERE is_coinbase = 0 GROUP BY hour, bucket;
 
 -- Tx size / weight / input-output shape (supports BM Pro throughput panels).
-DROP VIEW IF EXISTS bitcoin.mv_tx_size_daily;
 CREATE MATERIALIZED VIEW IF NOT EXISTS bitcoin.mv_tx_size_daily
 (day Date CODEC(ZSTD(9)),
  tx_count AggregateFunction(count) CODEC(ZSTD(9)),
@@ -77,7 +79,6 @@ AS SELECT toDate(timestamp) AS day,
   avgState(weight < size * 4) AS segwit_share
 FROM bitcoin.transactions_v2 WHERE is_coinbase = 0 GROUP BY day;
 
-DROP VIEW IF EXISTS bitcoin.mv_tx_size_hourly;
 CREATE MATERIALIZED VIEW IF NOT EXISTS bitcoin.mv_tx_size_hourly
 (hour DateTime CODEC(ZSTD(7)),
  tx_count AggregateFunction(count) CODEC(ZSTD(7)),
@@ -94,7 +95,6 @@ AS SELECT toStartOfHour(timestamp) AS hour,
 FROM bitcoin.transactions_v2 WHERE is_coinbase = 0 GROUP BY hour;
 
 -- Output value buckets (dust / retail / whale / institutional).
-DROP VIEW IF EXISTS bitcoin.mv_value_buckets_daily;
 CREATE MATERIALIZED VIEW IF NOT EXISTS bitcoin.mv_value_buckets_daily
 (day Date CODEC(ZSTD(9)),
  bucket LowCardinality(String),
@@ -114,7 +114,6 @@ FROM bitcoin.outputs_v2 GROUP BY day, bucket;
 -- Hourly address cohorts are uniqState (non-additive across days); daily
 -- new-address proxy uses min-seen via outputs (decoder backfills
 -- addresses_v2 async, so MV stays independent of sweeper lag).
-DROP VIEW IF EXISTS bitcoin.mv_outputs_daily;
 CREATE MATERIALIZED VIEW IF NOT EXISTS bitcoin.mv_outputs_daily
 (day Date CODEC(ZSTD(9)),
  out_count AggregateFunction(count) CODEC(ZSTD(9)),

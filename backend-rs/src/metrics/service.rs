@@ -1,6 +1,7 @@
 use crate::ch::{value_to_f64_opt, ChClient, SeriesPoint};
 use crate::error::ApiError;
-use crate::metrics::registry::by_id;
+use crate::metrics::descriptions::descriptions;
+use crate::metrics::registry::{by_id, METRICS};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime};
 use serde::Serialize;
 
@@ -96,6 +97,46 @@ pub fn check_range(f: &str, t: &str, kind: &str) -> Result<(), ApiError> {
         )));
     }
     Ok(())
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MetricSummary {
+    pub id: &'static str,
+    pub title: &'static str,
+    pub category: &'static str,
+    pub unit: &'static str,
+    pub interval: &'static str,
+    pub disabled: bool,
+    pub description: String,
+}
+
+fn interval_for(id: &str) -> &'static str {
+    if id.ends_with("_daily") {
+        "daily"
+    } else if id.ends_with("_hourly") {
+        "hourly"
+    } else {
+        "none"
+    }
+}
+
+pub fn list_metrics() -> Vec<MetricSummary> {
+    let desc = descriptions();
+    METRICS
+        .iter()
+        .map(|m| MetricSummary {
+            id: m.id,
+            title: m.title,
+            category: m.category,
+            unit: m.unit,
+            interval: interval_for(m.id),
+            disabled: m.disabled,
+            description: desc
+                .get(m.id)
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| m.title.to_string()),
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, Serialize)]

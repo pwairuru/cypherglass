@@ -1,23 +1,19 @@
 -- clickhouse/init/05_mvs.sql
+-- WARNING: the DROP VIEW statements below make re-applying this file
+-- DESTRUCTIVE on populated systems (fresh MVs start empty; base tables are
+-- untouched but historical aggregates do NOT rebuild). Re-apply on a live
+-- system only if you can re-seed/replay base inserts afterwards.
 -- Hourly MVs aggregate base v2 tables into -State columns (queried with
 -- -Merge combinators). Daily MVs aggregate the SAME base v2 tables directly
 -- (NOT cascaded from hourly MVs — ClickHouse never fires MV triggers on MV
 -- inserts, so cascaded daily MVs stayed empty; measured hourly rows arrive,
 -- daily stays 0). Daily columns are therefore -State too, merged at read.
 -- mv_script_hourly stays hourly-only (no daily rollup).
-DROP VIEW IF EXISTS bitcoin.block_stats_daily;
-DROP VIEW IF EXISTS bitcoin.tx_volume_hourly;
-DROP VIEW IF EXISTS bitcoin.address_activity_daily;
-DROP VIEW IF EXISTS bitcoin.mv_blocks_hourly;
-DROP VIEW IF EXISTS bitcoin.mv_tx_fee_hourly;
-DROP VIEW IF EXISTS bitcoin.mv_script_hourly;
-DROP VIEW IF EXISTS bitcoin.mv_addr_hourly;
-DROP VIEW IF EXISTS bitcoin.mv_flow_hourly;
-DROP VIEW IF EXISTS bitcoin.mv_blocks_daily;
-DROP VIEW IF EXISTS bitcoin.mv_tx_fee_daily;
-DROP VIEW IF EXISTS bitcoin.mv_addr_daily;
-DROP VIEW IF EXISTS bitcoin.mv_flow_daily;
 
+-- NOTE: no DROP VIEW statements in this file (removed 2026-11-23).
+-- MV re-definition is intentionally NOT automatic: DROP+CREATE on a
+-- populated system wipes aggregates irreversibly (proven live). To change
+-- an MV definition, drop it manually during maintenance, then apply.
 CREATE MATERIALIZED VIEW IF NOT EXISTS bitcoin.mv_blocks_hourly
 (hour DateTime CODEC(ZSTD(7)),
  block_count AggregateFunction(count) CODEC(ZSTD(7)),

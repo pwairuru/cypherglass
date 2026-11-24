@@ -52,9 +52,11 @@ services:
       timeout: 3s
       retries: 5
 
-  # --- Bitcoin Core + JuiceFS + Decoder (all-in-one) ---
+  # --- Bitcoin Core + JuiceFS + Decoder (all-in-one, Rust decoder) ---
   bitcoin-knots:
-    image: freegoup-allinone:latest
+    build:
+      context: .
+      dockerfile: juicefs/Dockerfile.allinone
     container_name: bitcoin-knots
     cap_add:
       - SYS_ADMIN
@@ -155,7 +157,9 @@ services:
       retries: 5
 
   api:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend-rs/Dockerfile
     container_name: cypherglass-api
     depends_on:
       pg:
@@ -165,7 +169,7 @@ services:
       clickhouse:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-cypher}:${POSTGRES_PASSWORD:-cypher}@pg:5432/${POSTGRES_DB:-cypher}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cypher}:${POSTGRES_PASSWORD:-cypher}@pg:5432/${POSTGRES_DB:-cypher}
       VALKEY_URL: ${VALKEY_URL:-redis://valkey-app:6379/0}
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: 8123
@@ -177,10 +181,9 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:8002}
     ports:
       - "127.0.0.1:8002:8000"
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
       interval: 30s
       timeout: 5s
       retries: 3

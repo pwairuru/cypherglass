@@ -100,9 +100,9 @@ All tuning via environment (see `.env.example`). Never commit `.env`.
 
 Prod requires `CLICKHOUSE_PASSWORD` and real `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (`docker-compose.prod.yml` fails fast with `?set ... in .env` if missing).
 
-## Decoder
+## Decoder (Rust)
 
-Parses raw `blk*.dat` files (handles Bitcoin Core obfuscation via `xor.dat`), extracts blocks/transactions/inputs/outputs/addresses with `btcsuite/btcd`, and inserts per-block batches into ClickHouse.
+Parses raw `blk*.dat` files (handles Bitcoin Core obfuscation via `xor.dat`), extracts blocks/transactions/inputs/outputs/addresses with the `bitcoin` Rust crate, and inserts per-block batches into ClickHouse over HTTP (`clickhouse` crate, port 8123).
 
 - Historical catch-up on start from `STATE_FILE` (`last_height`, `last_file`, `last_offset`), then watches `BLOCKS_DIR` with `fsnotify` plus a poll fallback (events are unreliable on FUSE/JuiceFS mounts).
 - Retries ClickHouse forever at 5 s intervals on boot (long outages must not crash-loop).
@@ -113,8 +113,10 @@ Parses raw `blk*.dat` files (handles Bitcoin Core obfuscation via `xor.dat`), ex
 Build locally:
 
 ```bash
-cd decoder && go build -o /tmp/decoder .
+cargo build --release -p decoder
 ```
+
+Legacy Go decoder kept at `decoder/legacy-go/` as reference only; compose builds and runs the Rust binary (`juicefs/Dockerfile.allinone` for dev all-in-one, `decoder/Dockerfile` for prod split).
 
 ## ClickHouse schema
 
@@ -129,10 +131,11 @@ All tables are `ReplacingMergeTree` on S3 (`storage_policy = 's3_main'`), ZSTD:
 - Queries must use `FINAL` / `-Merge` combinators; `ReplacingMergeTree` returns duplicates otherwise. NVT supply window bounded to `<= to`.
 - Query via native port `9005` or HTTP `8124` on the host (dev compose maps `9005:9000`, `8124:8123`).
 
-## Analytics platform (210 charts)
+## Analytics platform (267 charts)
 
-- Backend catalog `backend/app/metrics/registry.py`: 210 metrics, all reading ONLY `bitcoin.mv_*`, `marts.*`, `bitcoin.price_ohlc_*` (enforced by `test_no_base_table_reads`). Families: network, fees, mining, addresses, flow, supply/hodl, valuation (MVRV/Z, NUPL, realized), profitability (SOPR, Puell), script (P2PKH/P2SH/P2WPKH/P2WSH/P2TR + pubkey), price/tech (SMA/EMA/Mayer/drawdown/RSI/vol), cycle bands (200W, 2Y, Pi, CVDD), risk composite 0-100, issuance/S2F.
-- Frontend `Dashboard`: Single (existing hero + onchain with drawings) + Overview (risk header + 9-chart grid) + Compare (pin up to 4). `MetricList` adds category filter with counts. 233 vitest pass.
+- Backend catalog `backend/app/metrics/registry.py` (ported 1:1 to `backend-rs/src/metrics/registry.rs` via `scripts/gen_metrics_registry.py`): 267 metrics, all reading ONLY `bitcoin.mv_*`, `marts.*`, `bitcoin.price_ohlc_*` (enforced by `test_no_base_table_reads`). Families: network (+lightning), fees, mining (+hashprice, hashribbon cross), addresses (+new + balance cohorts), flow (+CDD/VDDM +ETF), supply/hodl (+STH/LTH), valuation (MVRV/Z, Z-2Y, momentum, STH/LTH MVRV + realized, RHODL/reserve-risk proxies, NUPL, realized), profitability (SOPR, Puell), script, price/tech (SMA/EMA/Mayer/drawdown/RSI/ROI-bottom/bubble-risk/momentum/Sharpe/YoY), cycle bands (200W, 2Y + golden x1.6, Pi + oscillator, CVDD, power-law/log-regression, BMSB 20W/21W), risk composite 0-100, issuance/S2F, derivatives (funding/OI), macro (DXY/M2/Fed/CPI/ETH-BTC/dominance), sentiment (Fear & Greed).
+- API is Rust (`backend-rs`, Axum): `/api/v1/metrics`, `/coverage`, `/{id}/series`, `/price_ohlc_{grain}/ohlc` with bearer auth. Python `backend/` kept for the price/marts worker only.
+- Frontend `Dashboard`: Single (existing hero + onchain with drawings) + Overview (risk header + 9-chart grid) + Compare (pin up to 4). `MetricList` adds category filter with counts. 245 vitest pass.
 - Dev seed without full chain: `backend/.venv/bin/python scripts/seed_dev.py` populates 422d price + 10 marts from existing `mv_blocks_daily` (2009-2010 era). No `bitcoin-knots` download required for dev.
 - S3 speed: AggregatingMergeTree `-State` MVs, monthly partitions, ZSTD(7/9), `FINAL`/`-Merge` reads, weekly rollups via `toStartOfWeek`, SMA via window functions, marts via `argMax(..., updated_at)`.
 

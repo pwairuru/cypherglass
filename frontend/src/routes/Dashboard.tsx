@@ -12,6 +12,7 @@ import ThemeSwitcher from "../components/ThemeSwitcher";
 import { useTheme } from "../context/ThemeContext";
 import { grainOf, groupMetrics } from "../lib/metricGroups";
 import { PRICE_HERO_COPY, RISK_COPY, describeChart, explainMetric } from "../lib/metricCopy";
+import { simulateDca, simulateLumpSum } from "../lib/dca";
 import {
   exportDrawings,
   importDrawings,
@@ -19,11 +20,13 @@ import {
   saveDrawings,
 } from "../lib/drawings";
 import MiniCard, { OVERVIEW_METRICS, useRiskSummary } from "../components/MiniCard";
+import DcaLab from "../components/DcaLab";
 
 const VIEW_TABS = [
   { id: "single", label: "Single" },
   { id: "overview", label: "Overview" },
   { id: "compare", label: "Compare" },
+  { id: "dca", label: "DCA Lab" },
 ] as const;
 
 type ViewId = (typeof VIEW_TABS)[number]["id"];
@@ -334,6 +337,8 @@ export default function Dashboard() {
   const [overlay, setOverlay] = useState<"none" | "price">("price");
   const [view, setView] = useState<ViewId>("single");
   const [pinned, setPinned] = useState<string[]>(() => loadPinned());
+  const [dcaAmount, setDcaAmount] = useState<string>("100");
+  const [dcaEveryDays, setDcaEveryDays] = useState<number>(7);
 
   const togglePin = (key: string) => {
     setPinned((prev) => {
@@ -421,7 +426,7 @@ export default function Dashboard() {
   // Price hero follows the card grain; the OHLC endpoint serves daily/hourly.
   // Skip fetch when overlay is off and this isn't a price metric (saves OHLC).
   const priceGrain = grain === "hourly" ? "hourly" : "daily";
-  const needOhlc = token !== null && (overlay === "price" || activeMetric?.category === "price");
+  const needOhlc = token !== null && (overlay === "price" || activeMetric?.category === "price" || view === "dca");
   const ohlcQuery = useQuery({
     queryKey: ["ohlc", token, priceGrain, from, to],
     queryFn: () =>
@@ -594,6 +599,18 @@ export default function Dashboard() {
                 })}
               </div>
             </>
+          )}
+          {view === "dca" && (
+            <DcaLab
+              bars={priceBars}
+              from={from}
+              to={to}
+              loading={ohlcQuery.isPending}
+              amount={dcaAmount}
+              onAmount={setDcaAmount}
+              everyDays={dcaEveryDays}
+              onEveryDays={setDcaEveryDays}
+            />
           )}
           {view === "single" && (
           <>

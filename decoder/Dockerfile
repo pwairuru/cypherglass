@@ -4,12 +4,18 @@
 # Go client spoke the native protocol on 9000.
 
 # Go legacy reference: proves decoder/legacy-go still builds at cutover time.
+# GOPROXY/GOSUMDB are build args so restricted networks can override the
+# module proxy without editing the file (defaults = upstream behavior).
+ARG GOPROXY=https://proxy.golang.org,direct
+ARG GOSUMDB=sum.golang.org
 FROM golang:1.26-alpine AS go-builder
+ARG GOPROXY
+ARG GOSUMDB
 WORKDIR /src
 COPY legacy-go/go.mod legacy-go/go.sum ./
-RUN go mod download
+RUN GOPROXY=${GOPROXY} GOSUMDB=${GOSUMDB} GOFLAGS=-mod=mod go mod download
 COPY legacy-go/ ./
-RUN CGO_ENABLED=0 go build -o /decoder-go-legacy .
+RUN CGO_ENABLED=0 GOPROXY=${GOPROXY} GOSUMDB=${GOSUMDB} GOFLAGS=-mod=mod go build -o /decoder-go-legacy .
 
 # Rust decoder: musl static binary (rust:alpine ships the musl target).
 FROM rust:alpine AS rust-builder
