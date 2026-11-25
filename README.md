@@ -142,6 +142,23 @@ All tables are `ReplacingMergeTree` on S3 (`storage_policy = 's3_main'`), ZSTD:
 - Dev seed without full chain: `python3 scripts/seed_dev.py` populates 422d price + 10 marts from existing `mv_blocks_daily` (2009-2010 era). No `bitcoin-knots` download required for dev.
 - S3 speed: AggregatingMergeTree `-State` MVs, monthly partitions, ZSTD(7/9), `FINAL`/`-Merge` reads, weekly rollups via `toStartOfWeek`, SMA via window functions, marts via `argMax(..., updated_at)`.
 
+### Chart platform design (2026-11-24)
+
+The chart parity programme is documented as a catalog-driven spec, not ad-hoc components:
+
+- `docs/superpowers/specs/2026-11-24-chart-platform-parity-design.md` — 109 chart pages, archetypes, controls, axes, alerts, layouts, API and 98% parity definition.
+- `docs/charts/chart-catalog.yaml` — machine-readable source of truth; 267/267 metrics covered.
+- `docs/charts/chart-by-chart.md` — generated per-chart implementation contract.
+- `docs/charts/implementation-tracker.md` — generated chart-by-chart status tracker.
+- `docs/charts/implementation-status.md` — what shipped, verified commands, deviations and remaining data-dependent charts.
+- `docs/charts/parity-ledger.md` — 90/91 parity units designed (social excluded).
+- `docs/superpowers/plans/2026-11-24-chart-platform-parity.md` — implementation plan.
+- `python3 scripts/verify_chart_catalog.py` — CI gate.
+- `python3 scripts/generate_chart_catalog.py` — YAML → typed frontend catalog + backend JSON.
+- `cargo run -p scheduler` — chart-alert evaluation loop (separate binary).
+
+Implemented routes: `/charts` (109-card catalog), `/charts/:chartId` (catalog-driven chart host), `/compare`, `/alerts`, `/layouts`. Backend routes: `/api/v1/charts`, `/api/v1/charts/{id}/series`, `/api/v1/charts/{id}/series.csv`, `/api/v1/charts/layouts`, `/api/v1/charts/{id}/annotations`, `/api/v1/alerts`. See `docs/charts/implementation-status.md` for verified status and remaining data-dependent charts.
+
 ## Security notes
 
 - Dev defaults (`rustfsadmin`, `bitcoinrpc`, `bitcoin_clickhouse`) are localhost-only conveniences. Prod must override via `.env`; `docker-compose.prod.yml` enforces this for ClickHouse and S3.

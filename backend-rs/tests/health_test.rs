@@ -177,7 +177,7 @@ async fn cors_allows_patch() {
         .to_str()
         .unwrap();
 
-    assert_eq!(allow_methods, "GET,POST,PATCH");
+    assert_eq!(allow_methods, "GET,POST,PATCH,PUT,DELETE");
     assert_eq!(allow_headers, "authorization,content-type");
 }
 

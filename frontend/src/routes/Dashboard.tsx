@@ -488,6 +488,9 @@ export default function Dashboard() {
       <header>
         <h1>CypherGlass Analytics</h1>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <a className="btn" href="/charts">
+            Chart catalog
+          </a>
           <div className="chart-segmented" role="group" aria-label="View">
             {VIEW_TABS.map((t) => (
               <button

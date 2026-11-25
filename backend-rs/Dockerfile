@@ -5,10 +5,12 @@ COPY Cargo.toml Cargo.lock ./
 COPY backend-rs/Cargo.toml ./backend-rs/Cargo.toml
 COPY decoder/Cargo.toml ./decoder/Cargo.toml
 COPY decoder/Cargo.lock ./decoder/Cargo.lock
-RUN mkdir -p backend-rs/src decoder/src && \
+COPY scheduler/Cargo.toml ./scheduler/Cargo.toml
+RUN mkdir -p backend-rs/src decoder/src scheduler/src && \
     cargo fetch || true
 COPY backend-rs ./backend-rs
 COPY decoder ./decoder
+COPY scheduler ./scheduler
 RUN cargo build --release --locked -p backend-rs && \
     cp target/release/backend-rs /backend-rs
 

@@ -8,7 +8,9 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 5173",
     "test": "vitest",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "charts:generate": "cd .. && python3 scripts/generate_chart_catalog.py",
+    "charts:check": "cd .. && python3 scripts/generate_chart_catalog.py --check"
   },
   "dependencies": {
     "@qfo/qfchart": "^0.8.7",

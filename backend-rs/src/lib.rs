@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod ch;
+pub mod charts;
 pub mod config;
 pub mod db;
 pub mod error;
@@ -50,6 +51,8 @@ fn build_router_with_origins(state: AppState, origin_strings: Vec<String>) -> Ro
             axum::http::Method::GET,
             axum::http::Method::POST,
             axum::http::Method::PATCH,
+            axum::http::Method::PUT,
+            axum::http::Method::DELETE,
         ])
         .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE]);
 
@@ -58,6 +61,7 @@ fn build_router_with_origins(state: AppState, origin_strings: Vec<String>) -> Ro
         .route("/ready", get(ready_handler))
         .merge(auth::router())
         .merge(metrics::routes::router())
+        .merge(charts::routes::router())
         .with_state(state)
         .layer(cors)
         .layer(axum::middleware::from_fn(audit_middleware))

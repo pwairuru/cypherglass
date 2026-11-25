@@ -6,6 +6,11 @@ import Register from "./routes/Register";
 import Profile from "./routes/Profile";
 import AdminUsers from "./routes/AdminUsers";
 import Dashboard from "./routes/Dashboard";
+import Charts from "./routes/Charts";
+import ChartPage from "./routes/ChartPage";
+import Alerts from "./routes/Alerts";
+import Layouts from "./routes/Layouts";
+import Compare from "./routes/Compare";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { isAuthenticated, loadingUser, user } = useAuth();
@@ -56,6 +61,46 @@ export default function App() {
         element={
           <RequireAuth>
             <Dashboard />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/charts"
+        element={
+          <RequireAuth>
+            <Charts />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/charts/:chartId"
+        element={
+          <RequireAuth>
+            <ChartPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/alerts"
+        element={
+          <RequireAuth>
+            <Alerts />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/layouts"
+        element={
+          <RequireAuth>
+            <Layouts />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/compare"
+        element={
+          <RequireAuth>
+            <Compare />
           </RequireAuth>
         }
       />

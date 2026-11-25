@@ -4,6 +4,10 @@ Source of truth: `backend-rs/src/metrics/registry.rs` (267 metrics). Rule:
 metrics read ONLY `bitcoin.mv_*`, `marts.*`, `bitcoin.price_ohlc_*` (enforced by
 `test_no_base_table_reads`).
 
+Chart page design is catalogued separately: `docs/charts/chart-catalog.yaml`
+(109 chart pages, 267/267 metrics covered) and
+`docs/charts/chart-by-chart.md` (per-chart contract).
+
 > Legacy removal (2026-11-24): the Python `backend/` and the Go decoder
 > (`decoder/legacy-go/`) were deleted after a full snapshot landed on `main`.
 > Historical notes below that mention Python workers or the Go decoder are

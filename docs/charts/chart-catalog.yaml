@@ -1,0 +1,8214 @@
+version: 1
+generated: '2026-11-24'
+source_of_truth: docs/superpowers/specs/2026-11-24-chart-platform-parity-design.md
+target: 98% chart and feature parity with ITC, Bitcoin Magazine Pro / LookIntoBitcoin, and Checkonchain; social data excluded.
+counts:
+  charts: 109
+  existing_charts: 68
+  new_charts: 41
+  metrics: 267
+archetypes:
+  candles:
+    chart_types:
+    - candles
+    - line
+    panes:
+    - price
+    - volume
+    controls:
+    - range
+    - custom_range
+    - grain
+    - log_axis
+    - ma_overlay
+    - volume_pane
+    - legend
+    - crosshair
+    - zoom
+    - reset_zoom
+    - fullscreen
+    - screenshot
+    - csv
+    - saved_layout
+    expected:
+    - Read price direction, trend, volatility and volume in one view.
+    acceptance:
+    - Candles and line mode show identical close values at every timestamp.
+    - Log scale drops or flags non-positive prices instead of plotting at zero.
+    - Volume pane shares the time axis and hides cleanly.
+    - MA overlays use the selected periods and recalculate on range change.
+  line_oscillator:
+    chart_types:
+    - line
+    - step
+    - area
+    - histogram
+    panes:
+    - metric
+    controls:
+    - range
+    - custom_range
+    - grain
+    - log_axis
+    - price_overlay
+    - thresholds
+    - histogram_variant
+    - smoothing
+    - legend
+    - crosshair
+    - zoom
+    - reset_zoom
+    - fullscreen
+    - screenshot
+    - csv
+    - saved_layout
+    expected:
+    - Show whether the metric is high, low, rising or falling versus its own history.
+    acceptance:
+    - ZERO and null values are not silently coerced; gaps render as gaps.
+    - Threshold lines are labelled with exact values.
+    - Histogram variant bins the selected window and labels bin width.
+  line_dual_axis:
+    chart_types:
+    - line
+    - area
+    panes:
+    - metric
+    controls:
+    - range
+    - custom_range
+    - grain
+    - log_axis
+    - price_overlay
+    - axis_toggle
+    - dual_axis_labels
+    - smoothing
+    - legend
+    - crosshair
+    - zoom
+    - reset_zoom
+    - fullscreen
+    - screenshot
+    - csv
+    - saved_layout
+    expected:
+    - Compare a metric with BTC price without losing either scale.
+    acceptance:
+    - Both Y axes are visible and colour-matched to their series.
+    - Toggling price hides the right axis and reflows the left axis.
+    - Axis assignment is preserved across range and variant changes.
+  bands_overlay:
+    chart_types:
+    - line
+    - area
+    - band
+    panes:
+    - metric
+    controls:
+    - range
+    - custom_range
+    - grain
+    - log_axis
+    - price_overlay
+    - band_toggle
+    - quantile_window
+    - thresholds
+    - smoothing
+    - legend
+    - crosshair
+    - zoom
+    - reset_zoom
+    - fullscreen
+    - screenshot
+    - csv
+    - saved_layout
+    expected:
+    - Show price or a metric relative to model bands and historical quantiles.
+    acceptance:
+    - Band fill is bounded by the correct upper/lower series at every point.
+    - Band toggle changes only visibility, never the underlying scale.
+    - Missing band points break the fill rather than closing to zero.
+  multi_series:
+    chart_types:
+    - line
+    - step
+    - area
+    panes:
+    - metric
+    controls:
+    - range
+    - custom_range
+    - grain
+    - log_axis
+    - price_overlay
+    - series_toggle
+    - axis_assign
+    - normalize
+    - smoothing
+    - legend
+    - crosshair
+    - zoom
+    - reset_zoom
+    - fullscreen
+    - screenshot
+    - csv
+    - saved_layout
+    expected:
+    - Compare related series in one frame with explicit units and axes.
+    acceptance:
+    - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+    - Each series can be hidden without changing the others.
+    - Series with incompatible units default to separate axes or are rejected.
+  stacked_area:
+    chart_types:
+    - stacked_area
+    - line
+    panes:
+    - metric
+    controls:
+    - range
+    - custom_range
+    - grain
+    - percent_mode
+    - series_toggle
+    - reorder
+    - legend
+    - crosshair
+    - zoom
+    - reset_zoom
+    - fullscreen
+    - screenshot
+    - csv
+    - saved_layout
+    expected:
+    - Show composition and how shares shift over time.
+    acceptance:
+    - Share mode sums to 100% within rounding tolerance.
+    - Stack order is stable and user-reorderable.
+    - Hidden series are excluded from the percent denominator.
+  bar_series:
+    chart_types:
+    - columns
+    - stacked_columns
+    - line
+    panes:
+    - metric
+    controls:
+    - range
+    - custom_range
+    - grain
+    - log_axis
+    - bar_mode
+    - thresholds
+    - legend
+    - crosshair
+    - zoom
+    - reset_zoom
+    - fullscreen
+    - screenshot
+    - csv
+    - saved_layout
+    expected:
+    - Show discrete period values and outliers clearly.
+    acceptance:
+    - Grouped and stacked modes are labelled.
+    - Negative values render below zero.
+    - Bar width adapts to grain and stays legible at 1D and All ranges.
+  distribution_histogram:
+    chart_types:
+    - histogram
+    panes:
+    - distribution
+    controls:
+    - window
+    - bins
+    - log_y
+    - percentile_markers
+    - range
+    - screenshot
+    - csv
+    expected:
+    - Place the current value inside its historical distribution.
+    acceptance:
+    - Bin count and window are displayed.
+    - Current-value marker matches the latest API point.
+    - Changing window or bins recomputes without refetching unrelated metrics.
+  heatmap:
+    chart_types:
+    - heatmap
+    panes:
+    - heatmap
+    controls:
+    - range
+    - bin_size
+    - color_scale
+    - log_color
+    - hover_detail
+    - zoom
+    - reset_zoom
+    - fullscreen
+    - screenshot
+    - csv
+    - saved_layout
+    expected:
+    - Reveal how a two-dimensional distribution changes over time.
+    acceptance:
+    - Colour scale legend shows units and min/max.
+    - Empty bins render as background, not zero-colour.
+    - Hover reports date, bin range and value.
+  scatter:
+    chart_types:
+    - scatter
+    - regression
+    panes:
+    - scatter
+    controls:
+    - range
+    - x_metric
+    - y_metric
+    - log_x
+    - log_y
+    - regression
+    - quadrants
+    - hover_detail
+    - screenshot
+    - csv
+    expected:
+    - Show relationship, clusters and outliers between two metrics.
+    acceptance:
+    - Axis labels name both metrics and units.
+    - Regression line and R² are shown only when computed.
+    - Hover identifies the date behind each point.
+  table:
+    chart_types:
+    - table
+    panes:
+    - table
+    controls:
+    - range
+    - period
+    - sort
+    - export_csv
+    - screenshot
+    expected:
+    - Answer period-by-period comparison questions without chart distortion.
+    acceptance:
+    - Sorting is numeric where appropriate.
+    - Colour scales remain readable in light and dark themes.
+    - CSV export matches the visible table.
+  gauge_composite:
+    chart_types:
+    - gauge
+    - line
+    panes:
+    - gauge
+    - history
+    controls:
+    - range
+    - grain
+    - thresholds
+    - components
+    - history_toggle
+    - fullscreen
+    - screenshot
+    expected:
+    - Give one number for the current regime plus the evidence behind it.
+    acceptance:
+    - Gauge bands and labels match the metric definition.
+    - Component contributions are visible and sum correctly.
+    - History toggle shows the same value over time.
+  dashboard_grid:
+    chart_types:
+    - grid
+    panes:
+    - multi
+    controls:
+    - range
+    - grain
+    - card_select
+    - layout
+    - sync_range
+    - fullscreen
+    - screenshot
+    expected:
+    - Answer a multi-metric question in one screen.
+    acceptance:
+    - All cards share the selected range and grain.
+    - Card order persists per user.
+    - Empty or stale cards show an explicit badge, never a blank panel.
+  multi_pane:
+    chart_types:
+    - line
+    - columns
+    panes:
+    - price
+    - indicator
+    controls:
+    - range
+    - grain
+    - log_axis
+    - indicator_params
+    - legend
+    - crosshair
+    - zoom
+    - reset_zoom
+    - fullscreen
+    - screenshot
+    - csv
+    expected:
+    - Show price and a derived indicator in linked panes.
+    acceptance:
+    - Panes share the time axis and crosshair.
+    - Indicator parameters are explicit and persisted.
+    - Pane heights are resizable and remembered.
+  price_distribution:
+    chart_types:
+    - columns
+    panes:
+    - distribution
+    controls:
+    - range
+    - bin_size
+    - log_x
+    - log_y
+    - percent_mode
+    - series_toggle
+    - hover_detail
+    - zoom
+    - reset_zoom
+    - fullscreen
+    - screenshot
+    - csv
+    - saved_layout
+    expected:
+    - Show supply concentration across price bins.
+    acceptance:
+    - Bins sum to circulating supply within rounding.
+    - Empty price bins render as background, not zero-height bars.
+    - Price bins are labelled and use the selected scale.
+charts:
+- id: price.btc
+  title: Bitcoin Price
+  category: price
+  status: existing
+  implementation: in_progress
+  phase: phase_2_price
+  priority: P0
+  question: What is BTC price doing with trend and volatility context?
+  parity:
+  - itc.price
+  - lib.price
+  - coc.price
+  archetype: candles
+  chart_types:
+  - candles
+  - line
+  panes:
+  - price
+  - volume
+  axes:
+  - id: left
+    unit: USD
+    scale: linear
+  - id: volume
+    unit: BTC
+    scale: linear
+  metrics:
+  - price_btc_usd
+  - price_close_daily
+  - price_close_hourly
+  - price_open_daily
+  - price_high_daily
+  - price_low_daily
+  - price_volume_daily
+  - price_change_pct_daily
+  - price_range_daily
+  - price_sma20_daily
+  - price_sma50_daily
+  - price_sma200_daily
+  - price_ema21_daily
+  legacy_metrics: []
+  disabled_metrics:
+  - price_btc_usd
+  new_metrics: []
+  default_metric: price_close_daily
+  series:
+  - type: ohlc
+    open: price_open_daily
+    high: price_high_daily
+    low: price_low_daily
+    close: price_close_daily
+    volume: price_volume_daily
+    axis: left
+    label: BTC/USD
+  - metric: price_sma20_daily
+    axis: left
+    style: line
+    label: SMA 20
+  - metric: price_sma50_daily
+    axis: left
+    style: line
+    label: SMA 50
+  - metric: price_sma200_daily
+    axis: left
+    style: line
+    label: SMA 200
+  - metric: price_ema21_daily
+    axis: left
+    style: line
+    label: EMA 21
+  variants:
+  - id: candles
+    label: Candles
+    series:
+    - price_close_daily
+  - id: line
+    label: Line
+    series:
+    - price_close_daily
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - ma_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - volume_pane
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Read price direction, trend, volatility and volume in one view.
+  - What is BTC price doing with trend and volatility context?
+  acceptance:
+  - Candles and line mode show identical close values at every timestamp.
+  - Log scale drops or flags non-positive prices instead of plotting at zero.
+  - Volume pane shares the time axis and hides cleanly.
+  - MA overlays use the selected periods and recalculate on range change.
+  - Switching every variant on price.btc preserves range, grain and annotations.
+  - Candle OHLC values equal `/api/v1/ohlc/daily` for the same timestamp.
+  - Volume matches `price_volume_daily`; hiding volume leaves no empty pane.
+  - Halving markers land on 2012-11-28, 2016-07-09, 2020-05-11 and 2024-04-20 UTC.
+  data_freshness: daily
+- id: price.cycle_overlays
+  title: Cycle Overlays
+  category: price
+  status: existing
+  implementation: not_started
+  phase: phase_2_price
+  priority: P0
+  question: Where are we versus bubble risk and bull support?
+  parity:
+  - itc.roi_bottom
+  - itc.bubble_risk
+  - itc.bull_support
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: pct
+    scale: linear
+  metrics:
+  - bubble_risk_daily
+  - roi_bottom_daily
+  - bull_support_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: bubble_risk_daily
+  series:
+  - metric: bubble_risk_daily
+    axis: left
+    style: line
+    label: Bubble risk
+  - metric: roi_bottom_daily
+    axis: left
+    style: line
+    label: ROI after bottom
+  - metric: bull_support_daily
+    axis: left
+    style: line
+    label: Bull support
+  variants:
+  - id: bubble
+    label: Bubble risk
+    series:
+    - bubble_risk_daily
+  - id: roi
+    label: ROI after bottom
+    series:
+    - roi_bottom_daily
+  - id: support
+    label: Bull support
+    series:
+    - bull_support_daily
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - Where are we versus bubble risk and bull support?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on price.cycle_overlays preserves range, grain and annotations.
+  data_freshness: daily
+- id: price.drawdown
+  title: Drawdown from ATH
+  category: price
+  status: existing
+  implementation: not_started
+  phase: phase_2_price
+  priority: P0
+  question: How deep is the drawdown and how far below ATH?
+  parity:
+  - lib.drawdown
+  - coc.drawdown
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - ath_daily
+  - ath_distance_daily
+  - drawdown_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: drawdown_daily
+  series:
+  - metric: drawdown_daily
+    axis: left
+    style: area
+    label: Drawdown %
+  - metric: ath_distance_daily
+    axis: left
+    style: line
+    label: Below ATH %
+  - metric: price_close_daily
+    axis: right
+    style: line
+    label: BTC price
+  variants:
+  - id: drawdown
+    label: Drawdown
+    series:
+    - drawdown_daily
+  - id: ath_distance
+    label: Below ATH
+    series:
+    - ath_distance_daily
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - How deep is the drawdown and how far below ATH?
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on price.drawdown preserves range, grain and annotations.
+  - Drawdown is 0 at a new ATH and negative otherwise.
+  - ATH line equals the running maximum close over the selected history.
+  data_freshness: daily
+- id: price.mayer
+  title: Mayer Multiple
+  category: price
+  status: existing
+  implementation: not_started
+  phase: phase_2_price
+  priority: P0
+  question: Is price stretched versus its 200D average?
+  parity:
+  - coc.mayer
+  - lib.mayer
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - mayer_multiple_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: mayer_multiple_daily
+  series:
+  - metric: mayer_multiple_daily
+    axis: left
+    style: line
+    label: Mayer
+  - metric: price_close_daily
+    axis: right
+    style: line
+    label: BTC price
+  variants: []
+  controls:
+  - axis_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - dual_axis_labels
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Compare a metric with BTC price without losing either scale.
+  - Is price stretched versus its 200D average?
+  acceptance:
+  - Both Y axes are visible and colour-matched to their series.
+  - Toggling price hides the right axis and reflows the left axis.
+  - Axis assignment is preserved across range and variant changes.
+  - Switching every variant on price.mayer preserves range, grain and annotations.
+  data_freshness: daily
+- id: price.momentum
+  title: Price Momentum
+  category: price
+  status: existing
+  implementation: not_started
+  phase: phase_2_price
+  priority: P0
+  question: How strong is 30D and YoY performance?
+  parity:
+  - coc.rolling_performance
+  - itc.momentum
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: pct
+    scale: linear
+  metrics:
+  - price_mom30_daily
+  - price_yoy_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: price_mom30_daily
+  series:
+  - metric: price_mom30_daily
+    axis: left
+    style: line
+    label: 30D momentum
+  - metric: price_yoy_daily
+    axis: left
+    style: line
+    label: YoY
+  variants:
+  - id: m30
+    label: 30D
+    series:
+    - price_mom30_daily
+  - id: yoy
+    label: YoY
+    series:
+    - price_yoy_daily
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - How strong is 30D and YoY performance?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on price.momentum preserves range, grain and annotations.
+  data_freshness: daily
+- id: price.rsi
+  title: RSI-14
+  category: price
+  status: existing
+  implementation: not_started
+  phase: phase_2_price
+  priority: P0
+  question: Is momentum overbought or oversold?
+  parity:
+  - coc.rsi
+  - lib.rsi
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: index
+    scale: linear
+  metrics:
+  - rsi14_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: rsi14_daily
+  series:
+  - metric: rsi14_daily
+    axis: left
+    style: line
+    label: RSI 14
+  variants: []
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - Is momentum overbought or oversold?
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on price.rsi preserves range, grain and annotations.
+  data_freshness: daily
+- id: price.sharpe
+  title: Sharpe Proxy 30D
+  category: price
+  status: existing
+  implementation: not_started
+  phase: phase_2_price
+  priority: P0
+  question: Is risk-adjusted return improving?
+  parity:
+  - coc.sharpe
+  - lib.sharpe
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  metrics:
+  - price_sharpe_proxy_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: price_sharpe_proxy_daily
+  series:
+  - metric: price_sharpe_proxy_daily
+    axis: left
+    style: line
+    label: Sharpe 30D
+  variants: []
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - Is risk-adjusted return improving?
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on price.sharpe preserves range, grain and annotations.
+  data_freshness: daily
+- id: price.volatility
+  title: Realized Volatility 30D
+  category: price
+  status: existing
+  implementation: not_started
+  phase: phase_2_price
+  priority: P0
+  question: How volatile is BTC versus its own history?
+  parity:
+  - coc.volatility
+  - lib.volatility
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  metrics:
+  - volatility30_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: volatility30_daily
+  series:
+  - metric: volatility30_daily
+    axis: left
+    style: line
+    label: Vol 30D
+  variants: []
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - How volatile is BTC versus its own history?
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on price.volatility preserves range, grain and annotations.
+  data_freshness: daily
+- id: valuation.aviv
+  title: AVIV Ratio
+  category: valuation
+  status: existing
+  implementation: not_started
+  phase: phase_3_valuation
+  priority: P0
+  question: What does Cointime cost basis say about valuation?
+  parity:
+  - coc.aviv
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - aviv_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: aviv_daily
+  series:
+  - metric: aviv_daily
+    axis: left
+    style: line
+    label: AVIV
+  - metric: price_close_daily
+    axis: right
+    style: line
+    label: BTC price
+  variants: []
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - What does Cointime cost basis say about valuation?
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on valuation.aviv preserves range, grain and annotations.
+  data_freshness: daily
+- id: valuation.cap_models
+  title: 'Cap Models: Average, Top, Delta, Balanced, CVDD'
+  category: valuation
+  status: existing
+  implementation: not_started
+  phase: phase_3_valuation
+  priority: P0
+  question: Where are the classic onchain price floors?
+  parity:
+  - lib.cvdd
+  - lib.top_cap
+  - coc.cost_basis
+  archetype: bands_overlay
+  chart_types:
+  - line
+  - area
+  - band
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: USD
+    scale: linear
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - realized_price_daily
+  - avg_cap_daily
+  - top_cap_daily
+  - delta_cap_daily
+  - balanced_proxy_daily
+  - cvdd_proxy_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: realized_price_daily
+  series:
+  - metric: realized_price_daily
+    axis: left
+    style: line
+    label: Realized price
+  - metric: price_close_daily
+    axis: right
+    style: line
+    label: BTC price
+  variants:
+  - id: realized_price
+    label: Realized Price
+    series:
+    - realized_price_daily
+  - id: balanced
+    label: Balanced
+    series:
+    - balanced_proxy_daily
+  - id: cvdd
+    label: CVDD
+    series:
+    - cvdd_proxy_daily
+  - id: top
+    label: Top Cap
+    series:
+    - top_cap_daily
+  - id: delta
+    label: Delta Cap
+    series:
+    - delta_cap_daily
+  - id: avg
+    label: Average Cap
+    series:
+    - avg_cap_daily
+  controls:
+  - band_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - quantile_window
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show price or a metric relative to model bands and historical quantiles.
+  - Where are the classic onchain price floors?
+  acceptance:
+  - Band fill is bounded by the correct upper/lower series at every point.
+  - Band toggle changes only visibility, never the underlying scale.
+  - Missing band points break the fill rather than closing to zero.
+  - Switching every variant on valuation.cap_models preserves range, grain and annotations.
+  data_freshness: daily
+- id: valuation.lth
+  title: LTH MVRV & Cost Basis
+  category: valuation
+  status: existing
+  implementation: not_started
+  phase: phase_3_valuation
+  priority: P0
+  question: Are long-term holders in profit or loss?
+  parity:
+  - coc.lth_mvrv
+  - lib.lth_mvrv
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - lth_mvrv_daily
+  - lth_realized_price_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: lth_mvrv_daily
+  series:
+  - metric: lth_mvrv_daily
+    axis: left
+    style: line
+    label: LTH MVRV
+  - metric: lth_realized_price_daily
+    axis: right
+    style: line
+    label: LTH cost basis
+  variants:
+  - id: mvrv
+    label: LTH MVRV
+    series:
+    - lth_mvrv_daily
+  - id: cost
+    label: LTH Cost Basis
+    series:
+    - lth_realized_price_daily
+  controls:
+  - axis_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - dual_axis_labels
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Compare a metric with BTC price without losing either scale.
+  - Are long-term holders in profit or loss?
+  acceptance:
+  - Both Y axes are visible and colour-matched to their series.
+  - Toggling price hides the right axis and reflows the left axis.
+  - Axis assignment is preserved across range and variant changes.
+  - Switching every variant on valuation.lth preserves range, grain and annotations.
+  - LTH cost basis reconciles with realized cap minus STH value.
+  - LTH supply plus STH supply equals circulating supply within rounding.
+  data_freshness: daily
+- id: valuation.mvrv
+  title: MVRV / Z-Score / Momentum
+  category: valuation
+  status: existing
+  implementation: in_progress
+  phase: phase_3_valuation
+  priority: P0
+  question: Is BTC cheap or expensive versus realized cost basis?
+  parity:
+  - itc.mvrv_z
+  - lib.mvrv_zscore
+  - coc.mvrv
+  archetype: bands_overlay
+  chart_types:
+  - line
+  - area
+  - band
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - mvrv_daily
+  - mvrv_weekly
+  - mvrv_sma30_daily
+  - mvrv_z_daily
+  - mvrv_z_2yr_daily
+  - mvrv_momentum_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: mvrv_daily
+  series:
+  - metric: mvrv_daily
+    axis: left
+    style: line
+    label: MVRV
+  - metric: mvrv_sma30_daily
+    axis: left
+    style: line
+    label: MVRV SMA30
+  - metric: price_close_daily
+    axis: right
+    style: line
+    label: BTC price
+  variants:
+  - id: mvrv
+    label: MVRV
+    series:
+    - mvrv_daily
+    - mvrv_sma30_daily
+  - id: z
+    label: Z-Score
+    series:
+    - mvrv_z_daily
+  - id: z2y
+    label: Z-Score 2Y
+    series:
+    - mvrv_z_2yr_daily
+  - id: momentum
+    label: Momentum
+    series:
+    - mvrv_momentum_daily
+  controls:
+  - band_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - quantile_window
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show price or a metric relative to model bands and historical quantiles.
+  - Is BTC cheap or expensive versus realized cost basis?
+  acceptance:
+  - Band fill is bounded by the correct upper/lower series at every point.
+  - Band toggle changes only visibility, never the underlying scale.
+  - Missing band points break the fill rather than closing to zero.
+  - Switching every variant on valuation.mvrv preserves range, grain and annotations.
+  - MVRV equals market cap / realized cap within 0.1%.
+  - Z-score window defaults to 4Y and is labelled.
+  - Band quantiles change only when the quantile window changes.
+  data_freshness: daily
+- id: valuation.nupl
+  title: NUPL
+  category: valuation
+  status: existing
+  implementation: not_started
+  phase: phase_3_valuation
+  priority: P0
+  question: Is the market in net unrealized profit or loss?
+  parity:
+  - lib.nupl
+  - coc.nupl
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  metrics:
+  - nupl_daily
+  - nupl_weekly
+  - nupl_sma7_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: nupl_daily
+  series:
+  - metric: nupl_daily
+    axis: left
+    style: line
+    label: NUPL
+  - metric: nupl_sma7_daily
+    axis: left
+    style: line
+    label: NUPL SMA7
+  variants: []
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - Is the market in net unrealized profit or loss?
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on valuation.nupl preserves range, grain and annotations.
+  data_freshness: daily
+- id: valuation.realized_cap
+  title: Realized Cap vs Market Cap
+  category: valuation
+  status: existing
+  implementation: not_started
+  phase: phase_3_valuation
+  priority: P0
+  question: How much capital is stored onchain versus market value?
+  parity:
+  - coc.realised_cap
+  - lib.realized_cap
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: USD
+    scale: linear
+  metrics:
+  - realized_cap_daily
+  - realized_cap_weekly
+  - realized_cap_sma30_daily
+  - market_cap_daily
+  - market_cap_sma30_daily
+  - thermocap_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: realized_cap_daily
+  series:
+  - metric: market_cap_daily
+    axis: left
+    style: line
+    label: Market cap
+  - metric: realized_cap_daily
+    axis: left
+    style: line
+    label: Realized cap
+  - metric: thermocap_daily
+    axis: left
+    style: line
+    label: Thermocap
+  variants:
+  - id: caps
+    label: Market vs Realized
+    series:
+    - market_cap_daily
+    - realized_cap_daily
+  - id: thermo
+    label: Thermocap
+    series:
+    - thermocap_daily
+    - realized_cap_daily
+  - id: change
+    label: 30D Change
+    series:
+    - realized_cap_sma30_daily
+  controls:
+  - axis_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - dual_axis_labels
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Compare a metric with BTC price without losing either scale.
+  - How much capital is stored onchain versus market value?
+  acceptance:
+  - Both Y axes are visible and colour-matched to their series.
+  - Toggling price hides the right axis and reflows the left axis.
+  - Axis assignment is preserved across range and variant changes.
+  - Switching every variant on valuation.realized_cap preserves range, grain and annotations.
+  - Market cap, realized cap and thermocap use the same daily price source.
+  - 30D change reconciles with the difference between the current and 30-day-lagged value.
+  data_freshness: daily
+- id: valuation.realized_price
+  title: Realized Price
+  category: valuation
+  status: existing
+  implementation: not_started
+  phase: phase_3_valuation
+  priority: P0
+  question: Where is the market cost basis?
+  parity:
+  - lib.realized_price
+  - coc.realised_price
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: USD
+    scale: linear
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - realized_price_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: realized_price_daily
+  series:
+  - metric: realized_price_daily
+    axis: left
+    style: line
+    label: Realized price
+  - metric: price_close_daily
+    axis: right
+    style: line
+    label: BTC price
+  variants: []
+  controls:
+  - axis_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - dual_axis_labels
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Compare a metric with BTC price without losing either scale.
+  - Where is the market cost basis?
+  acceptance:
+  - Both Y axes are visible and colour-matched to their series.
+  - Toggling price hides the right axis and reflows the left axis.
+  - Axis assignment is preserved across range and variant changes.
+  - Switching every variant on valuation.realized_price preserves range, grain and annotations.
+  data_freshness: daily
+- id: valuation.risk_ratios
+  title: Reserve Risk & RHODL
+  category: valuation
+  status: existing
+  implementation: not_started
+  phase: phase_3_valuation
+  priority: P0
+  question: Is HODL conviction high or is fast money dominating?
+  parity:
+  - coc.reserve_risk
+  - lib.rhodl
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: risk
+    scale: linear
+  metrics:
+  - reserve_risk_proxy_daily
+  - rhodl_proxy_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: reserve_risk_proxy_daily
+  series:
+  - metric: reserve_risk_proxy_daily
+    axis: left
+    style: line
+    label: Reserve risk
+  - metric: rhodl_proxy_daily
+    axis: left
+    style: line
+    label: RHODL
+  variants:
+  - id: reserve
+    label: Reserve Risk
+    series:
+    - reserve_risk_proxy_daily
+  - id: rhodl
+    label: RHODL
+    series:
+    - rhodl_proxy_daily
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - Is HODL conviction high or is fast money dominating?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on valuation.risk_ratios preserves range, grain and annotations.
+  data_freshness: daily
+- id: valuation.sth
+  title: STH MVRV & Cost Basis
+  category: valuation
+  status: existing
+  implementation: not_started
+  phase: phase_3_valuation
+  priority: P0
+  question: Are short-term holders in profit or loss?
+  parity:
+  - coc.sth_mvrv
+  - lib.sth_mvrv
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - sth_mvrv_daily
+  - sth_realized_price_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: sth_mvrv_daily
+  series:
+  - metric: sth_mvrv_daily
+    axis: left
+    style: line
+    label: STH MVRV
+  - metric: sth_realized_price_daily
+    axis: right
+    style: line
+    label: STH cost basis
+  variants:
+  - id: mvrv
+    label: STH MVRV
+    series:
+    - sth_mvrv_daily
+  - id: cost
+    label: STH Cost Basis
+    series:
+    - sth_realized_price_daily
+  controls:
+  - axis_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - dual_axis_labels
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Compare a metric with BTC price without losing either scale.
+  - Are short-term holders in profit or loss?
+  acceptance:
+  - Both Y axes are visible and colour-matched to their series.
+  - Toggling price hides the right axis and reflows the left axis.
+  - Axis assignment is preserved across range and variant changes.
+  - Switching every variant on valuation.sth preserves range, grain and annotations.
+  - STH cost basis uses the documented 155-day age boundary.
+  - STH supply plus LTH supply equals circulating supply within rounding.
+  data_freshness: daily
+- id: profitability.puell
+  title: Puell Multiple
+  category: profitability
+  status: existing
+  implementation: not_started
+  phase: phase_4_profitability_risk
+  priority: P1
+  question: Are miners earning above or below their annual average?
+  parity:
+  - lib.puell
+  - coc.puell
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  metrics:
+  - puell_daily
+  - puell_weekly
+  - puell_sma30_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: puell_daily
+  series:
+  - metric: puell_daily
+    axis: left
+    style: line
+    label: Puell
+  - metric: puell_sma30_daily
+    axis: left
+    style: line
+    label: Puell SMA30
+  variants:
+  - id: puell
+    label: Puell
+    series:
+    - puell_daily
+  - id: sma30
+    label: Puell SMA30
+    series:
+    - puell_sma30_daily
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - Are miners earning above or below their annual average?
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on profitability.puell preserves range, grain and annotations.
+  data_freshness: daily
+- id: profitability.sopr
+  title: SOPR
+  category: profitability
+  status: existing
+  implementation: not_started
+  phase: phase_4_profitability_risk
+  priority: P1
+  question: Are coins moving at profit or loss?
+  parity:
+  - lib.sopr
+  - coc.sopr
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  metrics:
+  - sopr_daily
+  - sopr_weekly
+  - sopr_sma7_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: sopr_daily
+  series:
+  - metric: sopr_daily
+    axis: left
+    style: line
+    label: SOPR
+  - metric: sopr_sma7_daily
+    axis: left
+    style: line
+    label: SOPR SMA7
+  variants:
+  - id: sopr
+    label: SOPR
+    series:
+    - sopr_daily
+  - id: sma7
+    label: SOPR SMA7
+    series:
+    - sopr_sma7_daily
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - Are coins moving at profit or loss?
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on profitability.sopr preserves range, grain and annotations.
+  - SOPR = 1 threshold is visible and labelled.
+  - SOPR SMA7 uses the prior 7 daily values.
+  data_freshness: daily
+- id: risk.composite
+  title: Risk Composite
+  category: risk
+  status: existing
+  implementation: in_progress
+  phase: phase_4_profitability_risk
+  priority: P0
+  question: What is the overall risk regime and which components drive it?
+  parity:
+  - itc.risk
+  - lib.risk
+  archetype: gauge_composite
+  chart_types:
+  - gauge
+  - line
+  panes:
+  - gauge
+  - history
+  axes:
+  - id: gauge
+    unit: score
+    scale: linear
+  - id: left
+    unit: score
+    scale: linear
+  metrics:
+  - risk_daily
+  - risk_weekly
+  - risk_sma7_daily
+  - risk_mvrv_daily
+  - risk_nupl_daily
+  - risk_sopr_daily
+  - risk_puell_daily
+  - risk_mayer_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: risk_daily
+  series:
+  - metric: risk_daily
+    axis: gauge
+    style: line
+    label: Risk composite
+  - metric: risk_sma7_daily
+    axis: gauge
+    style: line
+    label: Risk SMA7
+  variants:
+  - id: composite
+    label: Composite
+    series:
+    - risk_daily
+    - risk_sma7_daily
+  - id: components
+    label: Components
+    series:
+    - risk_mvrv_daily
+    - risk_nupl_daily
+    - risk_sopr_daily
+    - risk_puell_daily
+    - risk_mayer_daily
+  controls:
+  - components
+  - fullscreen
+  - grain
+  - history_toggle
+  - range
+  - screenshot
+  - thresholds
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Give one number for the current regime plus the evidence behind it.
+  - What is the overall risk regime and which components drive it?
+  acceptance:
+  - Gauge bands and labels match the metric definition.
+  - Component contributions are visible and sum correctly.
+  - History toggle shows the same value over time.
+  - Switching every variant on risk.composite preserves range, grain and annotations.
+  - Component weights sum to 1.0 and the composite stays in 0-100.
+  - 'Regime thresholds match the description: <35 risk-off, 35-60 neutral, >60 risk-on.'
+  data_freshness: daily
+- id: cycle.200w
+  title: 200W MA + Heatmap
+  category: cycle
+  status: existing
+  implementation: not_started
+  phase: phase_5_cycle
+  priority: P0
+  question: Is price above or below the 200W MA, and how heated is it?
+  parity:
+  - lib.200w_heatmap
+  - coc.200w_quantiles
+  archetype: heatmap
+  chart_types:
+  - heatmap
+  panes:
+  - heatmap
+  axes:
+  - id: x
+    unit: date
+    scale: linear
+  - id: y
+    unit: USD
+    scale: log
+  - id: color
+    unit: ratio
+    scale: linear
+  metrics:
+  - ma200w_daily
+  - heat_200w_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: ma200w_daily
+  series:
+  - metric: price_close_daily
+    axis: y
+    style: line
+    label: BTC price
+  - metric: ma200w_daily
+    axis: y
+    style: line
+    label: 200W MA
+  - metric: heat_200w_daily
+    axis: color
+    style: heat
+    label: 200W heat
+  variants:
+  - id: line
+    label: 200W MA
+    series:
+    - ma200w_daily
+  - id: heat
+    label: Heatmap
+    series:
+    - heat_200w_daily
+  controls:
+  - bin_size
+  - color_scale
+  - csv
+  - fullscreen
+  - hover_detail
+  - log_color
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Reveal how a two-dimensional distribution changes over time.
+  - Is price above or below the 200W MA, and how heated is it?
+  acceptance:
+  - Colour scale legend shows units and min/max.
+  - Empty bins render as background, not zero-colour.
+  - Hover reports date, bin range and value.
+  - Switching every variant on cycle.200w preserves range, grain and annotations.
+  - Heat colour equals price / 200W MA, not price alone.
+  - Log price axis and linear heat scale are labelled separately.
+  data_freshness: daily
+- id: cycle.2y
+  title: 2Y MA, 5x Bands, Golden 1.6
+  category: cycle
+  status: existing
+  implementation: not_started
+  phase: phase_5_cycle
+  priority: P0
+  question: Where is price versus the 2Y cycle mean and multiples?
+  parity:
+  - coc.magic_lines
+  - lib.2y_ma
+  archetype: bands_overlay
+  chart_types:
+  - line
+  - area
+  - band
+  panes:
+  - metric
+  axes:
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - ma2y_daily
+  - ma2y_x5_daily
+  - golden_161_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: ma2y_daily
+  series:
+  - metric: price_close_daily
+    axis: right
+    style: line
+    label: BTC price
+  - metric: ma2y_daily
+    axis: right
+    style: line
+    label: 2Y MA
+  - metric: ma2y_x5_daily
+    axis: right
+    style: line
+    label: 2Y x5
+  variants:
+  - id: ma2y
+    label: 2Y MA
+    series:
+    - ma2y_daily
+  - id: x5
+    label: 2Y x5
+    series:
+    - ma2y_x5_daily
+  - id: golden
+    label: Golden 1.6
+    series:
+    - golden_161_daily
+  controls:
+  - band_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - quantile_window
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show price or a metric relative to model bands and historical quantiles.
+  - Where is price versus the 2Y cycle mean and multiples?
+  acceptance:
+  - Band fill is bounded by the correct upper/lower series at every point.
+  - Band toggle changes only visibility, never the underlying scale.
+  - Missing band points break the fill rather than closing to zero.
+  - Switching every variant on cycle.2y preserves range, grain and annotations.
+  data_freshness: daily
+- id: cycle.bmsb
+  title: Bull Market Support Band
+  category: cycle
+  status: existing
+  implementation: not_started
+  phase: phase_5_cycle
+  priority: P0
+  question: Is price holding the 20W SMA / 21W EMA support band?
+  parity:
+  - itc.bull_support
+  - lib.bmsb
+  archetype: bands_overlay
+  chart_types:
+  - line
+  - area
+  - band
+  panes:
+  - metric
+  axes:
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - bmsb_20w_daily
+  - bmsb_21w_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: bmsb_20w_daily
+  series:
+  - metric: price_close_daily
+    axis: right
+    style: line
+    label: BTC price
+  - metric: bmsb_20w_daily
+    axis: right
+    style: line
+    label: 20W SMA
+  - metric: bmsb_21w_daily
+    axis: right
+    style: line
+    label: 21W EMA proxy
+  variants:
+  - id: band
+    label: 20W / 21W
+    series:
+    - bmsb_20w_daily
+    - bmsb_21w_daily
+  controls:
+  - band_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - quantile_window
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show price or a metric relative to model bands and historical quantiles.
+  - Is price holding the 20W SMA / 21W EMA support band?
+  acceptance:
+  - Band fill is bounded by the correct upper/lower series at every point.
+  - Band toggle changes only visibility, never the underlying scale.
+  - Missing band points break the fill rather than closing to zero.
+  - Switching every variant on cycle.bmsb preserves range, grain and annotations.
+  - 20W SMA and 21W EMA proxy are labelled as proxy.
+  - Price cross above/below the band is marked.
+  data_freshness: daily
+- id: cycle.pi
+  title: Pi Cycle Top
+  category: cycle
+  status: existing
+  implementation: not_started
+  phase: phase_5_cycle
+  priority: P0
+  question: Are the Pi Cycle averages crossing?
+  parity:
+  - lib.pi_cycle
+  - coc.pi_cycle
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - pi_111_daily
+  - pi_350x2_daily
+  - pi_oscillator_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: pi_111_daily
+  series:
+  - metric: pi_111_daily
+    axis: right
+    style: line
+    label: 111DMA
+  - metric: pi_350x2_daily
+    axis: right
+    style: line
+    label: 350DMA x2
+  - metric: price_close_daily
+    axis: right
+    style: line
+    label: BTC price
+  variants:
+  - id: averages
+    label: 111DMA vs 350DMAx2
+    series:
+    - pi_111_daily
+    - pi_350x2_daily
+  - id: osc
+    label: Oscillator
+    series:
+    - pi_oscillator_daily
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - Are the Pi Cycle averages crossing?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on cycle.pi preserves range, grain and annotations.
+  - Crossover marker appears when 111DMA crosses 350DMAx2.
+  - Oscillator equals 111DMA / (350DMA x2) or the documented formula.
+  data_freshness: daily
+- id: cycle.powerlaw
+  title: Power Law & Log Regression
+  category: cycle
+  status: existing
+  implementation: not_started
+  phase: phase_5_cycle
+  priority: P0
+  question: Where is price versus its long-run power-law channel?
+  parity:
+  - itc.log_regression
+  - lib.power_law
+  - coc.power_law
+  archetype: bands_overlay
+  chart_types:
+  - line
+  - area
+  - band
+  panes:
+  - metric
+  axes:
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - powerlaw_fair_daily
+  - logreg_upper_daily
+  - logreg_lower_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: powerlaw_fair_daily
+  series:
+  - metric: price_close_daily
+    axis: right
+    style: line
+    label: BTC price
+  - metric: powerlaw_fair_daily
+    axis: right
+    style: line
+    label: Fair value
+  - metric: logreg_upper_daily
+    axis: right
+    style: line
+    label: Upper band
+  - metric: logreg_lower_daily
+    axis: right
+    style: line
+    label: Lower band
+  variants:
+  - id: fair
+    label: Fair Value
+    series:
+    - powerlaw_fair_daily
+  - id: channel
+    label: Log Channel
+    series:
+    - logreg_upper_daily
+    - logreg_lower_daily
+  controls:
+  - band_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - quantile_window
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show price or a metric relative to model bands and historical quantiles.
+  - Where is price versus its long-run power-law channel?
+  acceptance:
+  - Band fill is bounded by the correct upper/lower series at every point.
+  - Band toggle changes only visibility, never the underlying scale.
+  - Missing band points break the fill rather than closing to zero.
+  - Switching every variant on cycle.powerlaw preserves range, grain and annotations.
+  - Fair value and channel bounds use the documented formula.
+  - Channel fill breaks when any bound is null.
+  data_freshness: daily
+- id: issuance.s2f
+  title: Stock-to-Flow
+  category: supply
+  status: existing
+  implementation: not_started
+  phase: phase_6_supply
+  priority: P1
+  question: Where is price versus the S2F model?
+  parity:
+  - lib.s2f
+  - coc.inflation_s2f
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - s2f_daily
+  - s2f_fair_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: s2f_daily
+  series:
+  - metric: s2f_daily
+    axis: left
+    style: line
+    label: S2F
+  - metric: s2f_fair_daily
+    axis: right
+    style: line
+    label: S2F fair value
+  - metric: price_close_daily
+    axis: right
+    style: line
+    label: BTC price
+  variants: []
+  controls:
+  - axis_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - dual_axis_labels
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Compare a metric with BTC price without losing either scale.
+  - Where is price versus the S2F model?
+  acceptance:
+  - Both Y axes are visible and colour-matched to their series.
+  - Toggling price hides the right axis and reflows the left axis.
+  - Axis assignment is preserved across range and variant changes.
+  - Switching every variant on issuance.s2f preserves range, grain and annotations.
+  - S2F equals supply / annual issuance.
+  - Halving step-down is visible at each halving.
+  data_freshness: daily
+- id: issuance.schedule
+  title: Issuance & Halving Schedule
+  category: supply
+  status: existing
+  implementation: not_started
+  phase: phase_6_supply
+  priority: P1
+  question: When is the next halving and how does subsidy step down?
+  parity:
+  - lib.issuance
+  - coc.inflation_s2f
+  archetype: bar_series
+  chart_types:
+  - columns
+  - stacked_columns
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: BTC
+    scale: linear
+  - id: right
+    unit: days
+    scale: log
+  metrics:
+  - subsidy_daily
+  - height_daily
+  - halving_countdown_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: subsidy_daily
+  series:
+  - metric: subsidy_daily
+    axis: left
+    style: bar
+    label: Subsidy BTC
+  - metric: halving_countdown_daily
+    axis: right
+    style: line
+    label: Days to halving
+  variants:
+  - id: subsidy
+    label: Subsidy
+    series:
+    - subsidy_daily
+  - id: height
+    label: Height
+    series:
+    - height_daily
+  - id: countdown
+    label: Halving Countdown
+    series:
+    - halving_countdown_daily
+  controls:
+  - bar_mode
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show discrete period values and outliers clearly.
+  - When is the next halving and how does subsidy step down?
+  acceptance:
+  - Grouped and stacked modes are labelled.
+  - Negative values render below zero.
+  - Bar width adapts to grain and stays legible at 1D and All ranges.
+  - Switching every variant on issuance.schedule preserves range, grain and annotations.
+  data_freshness: daily
+- id: supply.circulating
+  title: Circulating Supply & Inflation
+  category: supply
+  status: existing
+  implementation: not_started
+  phase: phase_6_supply
+  priority: P1
+  question: How much supply exists and how fast is it growing?
+  parity:
+  - lib.circulating_supply
+  - coc.circulating_issuance
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: BTC
+    scale: linear
+  - id: right
+    unit: ratio
+    scale: log
+  metrics:
+  - supply_daily
+  - supply_issued_daily
+  - inflation_annual_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: supply_daily
+  series:
+  - metric: supply_daily
+    axis: left
+    style: line
+    label: Supply
+  - metric: supply_issued_daily
+    axis: left
+    style: bar
+    label: Issued
+  - metric: inflation_annual_daily
+    axis: right
+    style: line
+    label: Annual inflation %
+  variants: []
+  controls:
+  - axis_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - dual_axis_labels
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Compare a metric with BTC price without losing either scale.
+  - How much supply exists and how fast is it growing?
+  acceptance:
+  - Both Y axes are visible and colour-matched to their series.
+  - Toggling price hides the right axis and reflows the left axis.
+  - Axis assignment is preserved across range and variant changes.
+  - Switching every variant on supply.circulating preserves range, grain and annotations.
+  data_freshness: daily
+- id: supply.cohorts
+  title: STH / LTH Supply
+  category: supply
+  status: existing
+  implementation: not_started
+  phase: phase_6_supply
+  priority: P1
+  question: 'Who holds the supply: short-term or long-term?'
+  parity:
+  - coc.sth_lth_supply
+  - lib.sth_lth_supply
+  archetype: stacked_area
+  chart_types:
+  - stacked_area
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: BTC
+    scale: linear
+  metrics:
+  - sth_supply_daily
+  - lth_supply_daily
+  - sth_lth_ratio_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: sth_supply_daily
+  series:
+  - metric: sth_supply_daily
+    axis: left
+    style: area
+    label: STH supply
+  - metric: lth_supply_daily
+    axis: left
+    style: area
+    label: LTH supply
+  variants:
+  - id: supply
+    label: Supply
+    series:
+    - sth_supply_daily
+    - lth_supply_daily
+  - id: ratio
+    label: Ratio
+    series:
+    - sth_lth_ratio_daily
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - percent_mode
+  - range
+  - reorder
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show composition and how shares shift over time.
+  - 'Who holds the supply: short-term or long-term?'
+  acceptance:
+  - Share mode sums to 100% within rounding tolerance.
+  - Stack order is stable and user-reorderable.
+  - Hidden series are excluded from the percent denominator.
+  - Switching every variant on supply.cohorts preserves range, grain and annotations.
+  - STH supply plus LTH supply equals supply.
+  - Ratio equals STH / LTH.
+  data_freshness: daily
+- id: supply.hodl_waves
+  title: HODL Waves
+  category: supply
+  status: existing
+  implementation: in_progress
+  phase: phase_6_supply
+  priority: P1
+  question: How is supply distributed by coin age?
+  parity:
+  - lib.hodl_waves
+  - coc.hodl_waves
+  archetype: stacked_area
+  chart_types:
+  - stacked_area
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: BTC
+    scale: linear
+  metrics:
+  - hodl_band_1d_daily
+  - hodl_band_1w_daily
+  - hodl_band_1m_daily
+  - hodl_band_3m_daily
+  - hodl_band_6m_daily
+  - hodl_band_1y_daily
+  - hodl_band_2y_daily
+  - hodl_band_5y_plus_daily
+  - hodl_band_1d_weekly
+  - hodl_band_1w_weekly
+  - hodl_band_1m_weekly
+  - hodl_band_3m_weekly
+  - hodl_band_6m_weekly
+  - hodl_band_1y_weekly
+  - hodl_band_2y_weekly
+  - hodl_band_5y_plus_weekly
+  - hodl_long_share_daily
+  - hodl_short_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: hodl_band_1d_daily
+  series:
+  - metric: hodl_band_1d_daily
+    axis: left
+    style: area
+    label: <1d
+  - metric: hodl_band_1w_daily
+    axis: left
+    style: area
+    label: 1d-1w
+  - metric: hodl_band_1m_daily
+    axis: left
+    style: area
+    label: 1w-1m
+  - metric: hodl_band_3m_daily
+    axis: left
+    style: area
+    label: 1m-3m
+  - metric: hodl_band_6m_daily
+    axis: left
+    style: area
+    label: 3m-6m
+  - metric: hodl_band_1y_daily
+    axis: left
+    style: area
+    label: 6m-1y
+  - metric: hodl_band_2y_daily
+    axis: left
+    style: area
+    label: 1y-2y
+  - metric: hodl_band_5y_plus_daily
+    axis: left
+    style: area
+    label: 5y+
+  variants:
+  - id: absolute
+    label: BTC
+    series:
+    - hodl_band_1d_daily
+  - id: percent
+    label: '% of supply'
+    series:
+    - hodl_band_1d_daily
+  - id: realized
+    label: Realized Cap
+    series:
+    - hodl_band_1d_daily
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - percent_mode
+  - range
+  - reorder
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show composition and how shares shift over time.
+  - How is supply distributed by coin age?
+  acceptance:
+  - Share mode sums to 100% within rounding tolerance.
+  - Stack order is stable and user-reorderable.
+  - Hidden series are excluded from the percent denominator.
+  - Switching every variant on supply.hodl_waves preserves range, grain and annotations.
+  - Age bands sum to circulating supply within rounding.
+  - Percent mode sums to 100% of visible bands.
+  - Weekly and daily variants preserve the same default range.
+  data_freshness: daily
+- id: supply.long_term
+  title: Long-Term Supply
+  category: supply
+  status: existing
+  implementation: not_started
+  phase: phase_6_supply
+  priority: P1
+  question: Is supply maturing into long-term hands?
+  parity:
+  - coc.older_supply
+  - lib.hodl_1y
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: BTC
+    scale: linear
+  metrics:
+  - hodl_1y_plus_daily
+  - hodl_1y_plus_weekly
+  - hodl_5y_plus_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: hodl_1y_plus_daily
+  series:
+  - metric: hodl_1y_plus_daily
+    axis: left
+    style: line
+    label: 1y+ supply
+  - metric: hodl_5y_plus_daily
+    axis: left
+    style: line
+    label: 5y+ supply
+  variants: []
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - Is supply maturing into long-term hands?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on supply.long_term preserves range, grain and annotations.
+  data_freshness: daily
+- id: addresses.activity
+  title: Active & New Addresses
+  category: addresses
+  status: existing
+  implementation: not_started
+  phase: phase_7_addresses
+  priority: P1
+  question: Is network usage growing?
+  parity:
+  - lib.active_addresses
+  - coc.active_addresses
+  - lib.new_addresses
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: addresses
+    scale: linear
+  metrics:
+  - active_addresses_daily
+  - active_addresses_hourly
+  - active_addresses_weekly
+  - active_addresses_sma7_daily
+  - new_addresses_daily
+  - value_per_active_daily
+  - address_activity_daily
+  legacy_metrics:
+  - address_activity_daily
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: active_addresses_daily
+  series:
+  - metric: active_addresses_daily
+    axis: left
+    style: line
+    label: Active addresses
+  - metric: new_addresses_daily
+    axis: left
+    style: line
+    label: New addresses
+  variants:
+  - id: active
+    label: Active
+    series:
+    - active_addresses_daily
+  - id: new
+    label: New
+    series:
+    - new_addresses_daily
+  - id: value
+    label: Value per Active
+    series:
+    - value_per_active_daily
+  controls:
+  - axis_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - dual_axis_labels
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare a metric with BTC price without losing either scale.
+  - Is network usage growing?
+  acceptance:
+  - Both Y axes are visible and colour-matched to their series.
+  - Toggling price hides the right axis and reflows the left axis.
+  - Axis assignment is preserved across range and variant changes.
+  - Switching every variant on addresses.activity preserves range, grain and annotations.
+  - Active addresses are not double-counted within a day.
+  - Value per active address uses the daily close.
+  data_freshness: daily
+- id: addresses.btc_cohorts
+  title: Address Cohorts by BTC Balance
+  category: addresses
+  status: existing
+  implementation: not_started
+  phase: phase_7_addresses
+  priority: P1
+  question: How many wallets hold at least 1/10/100/1k BTC?
+  parity:
+  - lib.addresses_gt_btc
+  - coc.address_cohorts
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: addresses
+    scale: linear
+  metrics:
+  - addr_gt1_btc_daily
+  - addr_gt10_btc_daily
+  - addr_gt100_btc_daily
+  - addr_gt1000_btc_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: addr_gt1_btc_daily
+  series:
+  - metric: addr_gt1_btc_daily
+    axis: left
+    style: line
+    label: '>=1 BTC'
+  - metric: addr_gt10_btc_daily
+    axis: left
+    style: line
+    label: '>=10 BTC'
+  - metric: addr_gt100_btc_daily
+    axis: left
+    style: line
+    label: '>=100 BTC'
+  - metric: addr_gt1000_btc_daily
+    axis: left
+    style: line
+    label: '>=1k BTC'
+  variants:
+  - id: count
+    label: Count
+    series:
+    - addr_gt1_btc_daily
+    - addr_gt10_btc_daily
+    - addr_gt100_btc_daily
+    - addr_gt1000_btc_daily
+  - id: share
+    label: Share
+    series:
+    - addr_gt1_btc_daily
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - How many wallets hold at least 1/10/100/1k BTC?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on addresses.btc_cohorts preserves range, grain and annotations.
+  - 'Counts are monotonic: >=1 BTC >= >=10 BTC >= >=100 BTC >= >=1k BTC.'
+  - Share mode uses the non-zero address count as denominator.
+  data_freshness: daily
+- id: addresses.outputs
+  title: Outputs & Output Value
+  category: addresses
+  status: existing
+  implementation: not_started
+  phase: phase_7_addresses
+  priority: P1
+  question: How many outputs are created and what are they worth?
+  parity:
+  - coc.outputs
+  - lib.outputs
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: outputs
+    scale: linear
+  - id: right
+    unit: BTC
+    scale: log
+  metrics:
+  - outputs_count_daily
+  - outputs_count_hourly_proxy
+  - outputs_value_daily
+  - outputs_value_median_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: outputs_count_daily
+  series:
+  - metric: outputs_count_daily
+    axis: left
+    style: line
+    label: Outputs count
+  - metric: outputs_value_daily
+    axis: right
+    style: line
+    label: Output value BTC
+  variants:
+  - id: count
+    label: Outputs
+    series:
+    - outputs_count_daily
+  - id: value
+    label: Value
+    series:
+    - outputs_value_daily
+    - outputs_value_median_daily
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - How many outputs are created and what are they worth?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on addresses.outputs preserves range, grain and annotations.
+  data_freshness: daily
+- id: addresses.profit
+  title: Addresses in Profit
+  category: addresses
+  status: existing
+  implementation: not_started
+  phase: phase_7_addresses
+  priority: P1
+  question: What share of addresses is in profit?
+  parity:
+  - lib.pct_addresses_profit
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  metrics:
+  - pct_addresses_in_profit_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: pct_addresses_in_profit_daily
+  series:
+  - metric: pct_addresses_in_profit_daily
+    axis: left
+    style: line
+    label: '% addresses in profit'
+  variants: []
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - What share of addresses is in profit?
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on addresses.profit preserves range, grain and annotations.
+  data_freshness: daily
+- id: addresses.usd_cohorts
+  title: Address Cohorts by USD Balance
+  category: addresses
+  status: existing
+  implementation: not_started
+  phase: phase_7_addresses
+  priority: P1
+  question: How many wallets hold at least $1k/$10k/$100k/$1M?
+  parity:
+  - lib.addresses_gt_usd
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: addresses
+    scale: linear
+  metrics:
+  - addr_gt1k_usd_daily
+  - addr_gt10k_usd_daily
+  - addr_gt100k_usd_daily
+  - addr_gt1m_usd_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: addr_gt1k_usd_daily
+  series:
+  - metric: addr_gt1k_usd_daily
+    axis: left
+    style: line
+    label: '>= $1k'
+  - metric: addr_gt10k_usd_daily
+    axis: left
+    style: line
+    label: '>= $10k'
+  - metric: addr_gt100k_usd_daily
+    axis: left
+    style: line
+    label: '>= $100k'
+  - metric: addr_gt1m_usd_daily
+    axis: left
+    style: line
+    label: '>= $1M'
+  variants:
+  - id: count
+    label: Count
+    series:
+    - addr_gt1k_usd_daily
+    - addr_gt10k_usd_daily
+    - addr_gt100k_usd_daily
+    - addr_gt1m_usd_daily
+  - id: share
+    label: Share
+    series:
+    - addr_gt1k_usd_daily
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - How many wallets hold at least $1k/$10k/$100k/$1M?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on addresses.usd_cohorts preserves range, grain and annotations.
+  - Counts are monotonic across thresholds.
+  - USD thresholds use the daily close and are labelled.
+  data_freshness: daily
+- id: fees.buckets
+  title: Fee Rate Buckets
+  category: fees
+  status: existing
+  implementation: not_started
+  phase: phase_8_fees
+  priority: P1
+  question: How is fee pressure distributed across fee rates?
+  parity:
+  - coc.fee_buckets
+  archetype: stacked_area
+  chart_types:
+  - stacked_area
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: tx
+    scale: linear
+  metrics:
+  - fee_bucket_0-1_daily
+  - fee_bucket_1-5_daily
+  - fee_bucket_5-20_daily
+  - fee_bucket_20-100_daily
+  - fee_bucket_100plus_daily
+  - fee_bucket_low_share_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: fee_bucket_0-1_daily
+  series:
+  - metric: fee_bucket_0-1_daily
+    axis: left
+    style: area
+    label: 0-1 sat/vB
+  - metric: fee_bucket_1-5_daily
+    axis: left
+    style: area
+    label: 1-5
+  - metric: fee_bucket_5-20_daily
+    axis: left
+    style: area
+    label: 5-20
+  - metric: fee_bucket_20-100_daily
+    axis: left
+    style: area
+    label: 20-100
+  - metric: fee_bucket_100plus_daily
+    axis: left
+    style: area
+    label: 100+
+  variants:
+  - id: count
+    label: Count
+    series:
+    - fee_bucket_0-1_daily
+  - id: share
+    label: Share
+    series:
+    - fee_bucket_low_share_daily
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - percent_mode
+  - range
+  - reorder
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show composition and how shares shift over time.
+  - How is fee pressure distributed across fee rates?
+  acceptance:
+  - Share mode sums to 100% within rounding tolerance.
+  - Stack order is stable and user-reorderable.
+  - Hidden series are excluded from the percent denominator.
+  - Switching every variant on fees.buckets preserves range, grain and annotations.
+  - Buckets sum to the transaction count within documented tolerance.
+  - Share mode sums to 100%.
+  data_freshness: daily
+- id: fees.per_tx
+  title: Fee per Transaction / Fee Rate
+  category: fees
+  status: existing
+  implementation: not_started
+  phase: phase_8_fees
+  priority: P1
+  question: What does a normal transaction pay?
+  parity:
+  - lib.fee_per_tx
+  - coc.fee_rate
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: BTC
+    scale: linear
+  metrics:
+  - fee_per_tx_daily
+  - fee_per_tx_sma7_daily
+  - fee_median_sat_daily
+  - feerate_median_daily
+  - feerate_median_weekly
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: fee_per_tx_daily
+  series:
+  - metric: fee_per_tx_daily
+    axis: left
+    style: line
+    label: Fee per tx BTC
+  - metric: fee_median_sat_daily
+    axis: left
+    style: line
+    label: Median fee sats
+  variants: []
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - What does a normal transaction pay?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on fees.per_tx preserves range, grain and annotations.
+  data_freshness: daily
+- id: fees.revenue
+  title: Fee Revenue
+  category: fees
+  status: existing
+  implementation: not_started
+  phase: phase_8_fees
+  priority: P1
+  question: How much are users paying for block space?
+  parity:
+  - lib.miner_revenue_fees
+  - coc.fee_revenue
+  archetype: bar_series
+  chart_types:
+  - columns
+  - stacked_columns
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: BTC
+    scale: linear
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - fees_daily
+  - fees_hourly
+  - fees_weekly
+  - fees_sma7_daily
+  - fees_sma30_daily
+  - fees_cumulative_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: fees_daily
+  series:
+  - metric: fees_daily
+    axis: left
+    style: bar
+    label: Fees BTC
+  - metric: fees_sma7_daily
+    axis: left
+    style: line
+    label: SMA7
+  - metric: price_close_daily
+    axis: right
+    style: line
+    label: BTC price
+  variants:
+  - id: btc
+    label: BTC
+    series:
+    - fees_daily
+  - id: usd
+    label: USD
+    series:
+    - fees_daily
+  - id: cumulative
+    label: Cumulative
+    series:
+    - fees_cumulative_daily
+  controls:
+  - bar_mode
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show discrete period values and outliers clearly.
+  - How much are users paying for block space?
+  acceptance:
+  - Grouped and stacked modes are labelled.
+  - Negative values render below zero.
+  - Bar width adapts to grain and stays legible at 1D and All ranges.
+  - Switching every variant on fees.revenue preserves range, grain and annotations.
+  - Fees are in BTC unless the USD variant is selected.
+  - Fee share equals fees / (fees + subsidy).
+  data_freshness: daily
+- id: fees.segwit
+  title: SegWit Share
+  category: fees
+  status: existing
+  implementation: not_started
+  phase: phase_8_fees
+  priority: P1
+  question: How much of activity uses SegWit?
+  parity:
+  - coc.segwit
+  - lib.segwit
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  metrics:
+  - segwit_share_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: segwit_share_daily
+  series:
+  - metric: segwit_share_daily
+    axis: left
+    style: line
+    label: SegWit share
+  variants: []
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - How much of activity uses SegWit?
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on fees.segwit preserves range, grain and annotations.
+  data_freshness: daily
+- id: fees.tx_count
+  title: Transaction Count
+  category: fees
+  status: existing
+  implementation: not_started
+  phase: phase_8_fees
+  priority: P1
+  question: Is transaction throughput rising?
+  parity:
+  - lib.tx_count
+  - coc.tx_count
+  archetype: bar_series
+  chart_types:
+  - columns
+  - stacked_columns
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: tx
+    scale: linear
+  metrics:
+  - tx_count_daily
+  - tx_count_hourly
+  - tx_count_weekly
+  - tx_count_sma7_daily
+  - tx_count_sma30_daily
+  - tx_count_cumulative_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: tx_count_daily
+  series:
+  - metric: tx_count_daily
+    axis: left
+    style: bar
+    label: Tx count
+  - metric: tx_count_sma7_daily
+    axis: left
+    style: line
+    label: SMA7
+  variants:
+  - id: count
+    label: Count
+    series:
+    - tx_count_daily
+  - id: cumulative
+    label: Cumulative
+    series:
+    - tx_count_cumulative_daily
+  controls:
+  - bar_mode
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show discrete period values and outliers clearly.
+  - Is transaction throughput rising?
+  acceptance:
+  - Grouped and stacked modes are labelled.
+  - Negative values render below zero.
+  - Bar width adapts to grain and stays legible at 1D and All ranges.
+  - Switching every variant on fees.tx_count preserves range, grain and annotations.
+  data_freshness: daily
+- id: fees.tx_size
+  title: Transaction Size & Weight
+  category: fees
+  status: existing
+  implementation: not_started
+  phase: phase_8_fees
+  priority: P1
+  question: How large are transactions and how much block weight do they use?
+  parity:
+  - coc.tx_size
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: bytes
+    scale: linear
+  - id: right
+    unit: WU
+    scale: log
+  metrics:
+  - tx_size_hourly
+  - tx_size_median_daily
+  - tx_size_median_weekly
+  - tx_weight_median_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: tx_size_median_daily
+  series:
+  - metric: tx_size_median_daily
+    axis: left
+    style: line
+    label: Median size
+  - metric: tx_weight_median_daily
+    axis: right
+    style: line
+    label: Median weight
+  variants: []
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - How large are transactions and how much block weight do they use?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on fees.tx_size preserves range, grain and annotations.
+  data_freshness: daily
+- id: fees.value_bands
+  title: Transaction Value Bands
+  category: fees
+  status: existing
+  implementation: not_started
+  phase: phase_8_fees
+  priority: P1
+  question: 'Who is moving value: dust, retail, institutional, whales?'
+  parity:
+  - coc.transfer_volumes
+  - lib.large_tx
+  archetype: stacked_area
+  chart_types:
+  - stacked_area
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: outputs
+    scale: linear
+  metrics:
+  - value_dust_daily
+  - value_small_daily
+  - value_retail_daily
+  - value_institutional_daily
+  - value_whale_daily
+  - value_median_daily
+  - value_median_weekly
+  - large_tx_daily
+  - large_tx_hourly
+  - large_tx_weekly
+  - large_tx_share_daily
+  - value_dust_btc_daily
+  - value_small_btc_daily
+  - value_retail_btc_daily
+  - value_institutional_btc_daily
+  - value_whale_btc_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: value_dust_daily
+  series:
+  - metric: value_dust_daily
+    axis: left
+    style: area
+    label: Dust
+  - metric: value_small_daily
+    axis: left
+    style: area
+    label: Small
+  - metric: value_retail_daily
+    axis: left
+    style: area
+    label: Retail
+  - metric: value_institutional_daily
+    axis: left
+    style: area
+    label: Institutional
+  - metric: value_whale_daily
+    axis: left
+    style: area
+    label: Whale
+  variants:
+  - id: count
+    label: Count
+    series:
+    - value_dust_daily
+  - id: btc
+    label: BTC
+    series:
+    - value_dust_btc_daily
+  - id: share
+    label: Share
+    series:
+    - value_whale_daily
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - percent_mode
+  - range
+  - reorder
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show composition and how shares shift over time.
+  - 'Who is moving value: dust, retail, institutional, whales?'
+  acceptance:
+  - Share mode sums to 100% within rounding tolerance.
+  - Stack order is stable and user-reorderable.
+  - Hidden series are excluded from the percent denominator.
+  - Switching every variant on fees.value_bands preserves range, grain and annotations.
+  - Bands sum to transaction count or BTC volume according to variant.
+  - Large-tx share uses the documented >10 BTC threshold.
+  data_freshness: daily
+- id: fees.vin_vout
+  title: Inputs & Outputs per Tx
+  category: fees
+  status: existing
+  implementation: not_started
+  phase: phase_8_fees
+  priority: P1
+  question: Is transaction batching improving?
+  parity:
+  - coc.vin_vout
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: inputs
+    scale: linear
+  metrics:
+  - vin_mean_daily
+  - vin_mean_weekly
+  - vout_mean_daily
+  - vout_mean_weekly
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: vin_mean_daily
+  series:
+  - metric: vin_mean_daily
+    axis: left
+    style: line
+    label: Inputs/tx
+  - metric: vout_mean_daily
+    axis: left
+    style: line
+    label: Outputs/tx
+  variants: []
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - Is transaction batching improving?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on fees.vin_vout preserves range, grain and annotations.
+  data_freshness: daily
+- id: flow.cdd
+  title: Coin Days Destroyed
+  category: flow
+  status: existing
+  implementation: not_started
+  phase: phase_9_flow
+  priority: P1
+  question: Are old coins moving?
+  parity:
+  - lib.cdd
+  - coc.cdd
+  archetype: bar_series
+  chart_types:
+  - columns
+  - stacked_columns
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: BTC-days
+    scale: linear
+  metrics:
+  - cdd_daily
+  - cdd_supply_adjusted_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: cdd_daily
+  series:
+  - metric: cdd_daily
+    axis: left
+    style: bar
+    label: CDD
+  - metric: cdd_supply_adjusted_daily
+    axis: left
+    style: line
+    label: Supply-adjusted CDD
+  variants:
+  - id: cdd
+    label: CDD
+    series:
+    - cdd_daily
+  - id: adjusted
+    label: Supply-Adjusted CDD
+    series:
+    - cdd_supply_adjusted_daily
+  controls:
+  - bar_mode
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show discrete period values and outliers clearly.
+  - Are old coins moving?
+  acceptance:
+  - Grouped and stacked modes are labelled.
+  - Negative values render below zero.
+  - Bar width adapts to grain and stays legible at 1D and All ranges.
+  - Switching every variant on flow.cdd preserves range, grain and annotations.
+  - CDD equals value x age for spent outputs; formula is documented.
+  - Supply-adjusted CDD divides by circulating supply.
+  data_freshness: daily
+- id: flow.etf
+  title: ETF Flows
+  category: flow
+  status: existing
+  implementation: not_started
+  phase: phase_9_flow
+  priority: P1
+  question: Are ETFs accumulating or distributing?
+  parity:
+  - lib.etf_flows
+  - coc.etf_flows
+  archetype: bar_series
+  chart_types:
+  - columns
+  - stacked_columns
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: BTC
+    scale: linear
+  - id: right
+    unit: BTC
+    scale: log
+  metrics:
+  - etf_flow_btc_daily
+  - etf_flow_usd_daily
+  - etf_cumulative_btc_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: etf_flow_btc_daily
+  series:
+  - metric: etf_flow_btc_daily
+    axis: left
+    style: bar
+    label: Daily flow BTC
+  - metric: etf_cumulative_btc_daily
+    axis: right
+    style: line
+    label: Cumulative BTC
+  variants:
+  - id: btc
+    label: BTC Flow
+    series:
+    - etf_flow_btc_daily
+  - id: usd
+    label: USD Flow
+    series:
+    - etf_flow_usd_daily
+  - id: cumulative
+    label: Cumulative
+    series:
+    - etf_cumulative_btc_daily
+  controls:
+  - bar_mode
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show discrete period values and outliers clearly.
+  - Are ETFs accumulating or distributing?
+  acceptance:
+  - Grouped and stacked modes are labelled.
+  - Negative values render below zero.
+  - Bar width adapts to grain and stays legible at 1D and All ranges.
+  - Switching every variant on flow.etf preserves range, grain and annotations.
+  - Cumulative BTC equals the running sum of daily BTC flows.
+  - USD and BTC series use the same flow date.
+  data_freshness: daily
+- id: flow.legacy
+  title: Legacy Transfer Volume
+  category: flow
+  status: existing
+  implementation: not_started
+  phase: phase_9_flow
+  priority: P1
+  question: Legacy alias for transfer volume.
+  parity:
+  - coc.transfer_volumes
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: tx
+    scale: linear
+  metrics:
+  - tx_volume_hourly
+  legacy_metrics:
+  - tx_volume_hourly
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: tx_volume_hourly
+  series:
+  - metric: tx_volume_hourly
+    axis: left
+    style: line
+    label: TX volume / hour
+  variants: []
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - Legacy alias for transfer volume.
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on flow.legacy preserves range, grain and annotations.
+  data_freshness: hourly
+- id: flow.nvt
+  title: NVT Ratio
+  category: flow
+  status: existing
+  implementation: not_started
+  phase: phase_9_flow
+  priority: P1
+  question: Is network value high versus transfer value?
+  parity:
+  - lib.nvt
+  - coc.nvt
+  archetype: bands_overlay
+  chart_types:
+  - line
+  - area
+  - band
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  metrics:
+  - nvt_daily
+  - nvt_sma30_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: nvt_daily
+  series:
+  - metric: nvt_daily
+    axis: left
+    style: line
+    label: NVT
+  - metric: nvt_sma30_daily
+    axis: left
+    style: line
+    label: NVT SMA30
+  variants: []
+  controls:
+  - band_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - quantile_window
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show price or a metric relative to model bands and historical quantiles.
+  - Is network value high versus transfer value?
+  acceptance:
+  - Band fill is bounded by the correct upper/lower series at every point.
+  - Band toggle changes only visibility, never the underlying scale.
+  - Missing band points break the fill rather than closing to zero.
+  - Switching every variant on flow.nvt preserves range, grain and annotations.
+  data_freshness: daily
+- id: flow.transfer_volume
+  title: Transfer Volume & Velocity
+  category: flow
+  status: existing
+  implementation: not_started
+  phase: phase_9_flow
+  priority: P1
+  question: How much value is moving onchain?
+  parity:
+  - coc.transfer_volumes
+  - lib.transfer_volume
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: BTC
+    scale: linear
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - transfer_volume_daily
+  - transfer_volume_hourly
+  - transfer_volume_weekly
+  - transfer_volume_sma7_daily
+  - transfer_volume_sma30_daily
+  - transfer_volume_cumulative_daily
+  - transfer_count_daily
+  - transfer_count_hourly
+  - transfer_usd_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: transfer_volume_daily
+  series:
+  - metric: transfer_volume_daily
+    axis: left
+    style: bar
+    label: Transfer volume BTC
+  - metric: transfer_usd_daily
+    axis: right
+    style: line
+    label: Transfer volume USD
+  variants:
+  - id: btc
+    label: BTC
+    series:
+    - transfer_volume_daily
+  - id: usd
+    label: USD
+    series:
+    - transfer_usd_daily
+  - id: count
+    label: Count
+    series:
+    - transfer_count_daily
+  - id: cumulative
+    label: Cumulative
+    series:
+    - transfer_volume_cumulative_daily
+  controls:
+  - axis_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - dual_axis_labels
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare a metric with BTC price without losing either scale.
+  - How much value is moving onchain?
+  acceptance:
+  - Both Y axes are visible and colour-matched to their series.
+  - Toggling price hides the right axis and reflows the left axis.
+  - Axis assignment is preserved across range and variant changes.
+  - Switching every variant on flow.transfer_volume preserves range, grain and annotations.
+  - USD volume equals BTC volume multiplied by the daily close.
+  - Cumulative series is monotonic except across reorg corrections.
+  data_freshness: daily
+- id: flow.value_bands
+  title: Value Bands in BTC
+  category: flow
+  status: existing
+  implementation: not_started
+  phase: phase_9_flow
+  priority: P1
+  question: What BTC value sits in each transfer band?
+  parity:
+  - coc.transfer_volumes
+  archetype: stacked_area
+  chart_types:
+  - stacked_area
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: BTC
+    scale: linear
+  metrics:
+  - value_dust_btc_daily
+  - value_small_btc_daily
+  - value_retail_btc_daily
+  - value_institutional_btc_daily
+  - value_whale_btc_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: value_dust_btc_daily
+  series:
+  - metric: value_dust_btc_daily
+    axis: left
+    style: area
+    label: Dust
+  - metric: value_small_btc_daily
+    axis: left
+    style: area
+    label: Small
+  - metric: value_retail_btc_daily
+    axis: left
+    style: area
+    label: Retail
+  - metric: value_institutional_btc_daily
+    axis: left
+    style: area
+    label: Institutional
+  - metric: value_whale_btc_daily
+    axis: left
+    style: area
+    label: Whale
+  variants:
+  - id: btc
+    label: BTC
+    series:
+    - value_dust_btc_daily
+  - id: share
+    label: Share
+    series:
+    - value_whale_btc_daily
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - percent_mode
+  - range
+  - reorder
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show composition and how shares shift over time.
+  - What BTC value sits in each transfer band?
+  acceptance:
+  - Share mode sums to 100% within rounding tolerance.
+  - Stack order is stable and user-reorderable.
+  - Hidden series are excluded from the percent denominator.
+  - Switching every variant on flow.value_bands preserves range, grain and annotations.
+  data_freshness: daily
+- id: flow.vddm
+  title: Value Days Destroyed Multiple
+  category: flow
+  status: existing
+  implementation: not_started
+  phase: phase_9_flow
+  priority: P1
+  question: Is spent value high versus HODL value?
+  parity:
+  - lib.vddm
+  - coc.vddm
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: multiple
+    scale: linear
+  - id: right
+    unit: BTC
+    scale: log
+  metrics:
+  - vddm_daily
+  - spent_value_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: vddm_daily
+  series:
+  - metric: vddm_daily
+    axis: left
+    style: line
+    label: VDDM
+  - metric: spent_value_daily
+    axis: right
+    style: line
+    label: Spent value
+  variants: []
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - Is spent value high versus HODL value?
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on flow.vddm preserves range, grain and annotations.
+  data_freshness: daily
+- id: flow.velocity
+  title: Monetary Velocity
+  category: flow
+  status: existing
+  implementation: not_started
+  phase: phase_9_flow
+  priority: P1
+  question: How fast is supply circulating?
+  parity:
+  - coc.velocity
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  metrics:
+  - velocity_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: velocity_daily
+  series:
+  - metric: velocity_daily
+    axis: left
+    style: line
+    label: Velocity
+  variants: []
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - How fast is supply circulating?
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on flow.velocity preserves range, grain and annotations.
+  data_freshness: daily
+- id: mining.hashprice
+  title: Hashprice
+  category: mining
+  status: existing
+  implementation: not_started
+  phase: phase_10_mining
+  priority: P1
+  question: What does hash earn per unit?
+  parity:
+  - coc.hashprice
+  - lib.hashprice
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: USD/TH
+    scale: linear
+  metrics:
+  - hashprice_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: hashprice_daily
+  series:
+  - metric: hashprice_daily
+    axis: left
+    style: line
+    label: Hashprice
+  variants: []
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - What does hash earn per unit?
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on mining.hashprice preserves range, grain and annotations.
+  data_freshness: daily
+- id: mining.hashrate
+  title: Hashrate & Difficulty
+  category: mining
+  status: existing
+  implementation: not_started
+  phase: phase_10_mining
+  priority: P1
+  question: Is mining power growing?
+  parity:
+  - lib.hashrate
+  - coc.difficulty
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: H/s
+    scale: linear
+  - id: right
+    unit: difficulty
+    scale: log
+  metrics:
+  - hashrate_daily
+  - hashrate_weekly
+  - hashrate_sma30_daily
+  - difficulty_daily
+  - difficulty_weekly
+  - difficulty_sma14_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: hashrate_daily
+  series:
+  - metric: hashrate_daily
+    axis: left
+    style: line
+    label: Hashrate
+  - metric: difficulty_daily
+    axis: right
+    style: line
+    label: Difficulty
+  variants:
+  - id: hashrate
+    label: Hashrate
+    series:
+    - hashrate_daily
+  - id: difficulty
+    label: Difficulty
+    series:
+    - difficulty_daily
+  controls:
+  - axis_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - dual_axis_labels
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Compare a metric with BTC price without losing either scale.
+  - Is mining power growing?
+  acceptance:
+  - Both Y axes are visible and colour-matched to their series.
+  - Toggling price hides the right axis and reflows the left axis.
+  - Axis assignment is preserved across range and variant changes.
+  - Switching every variant on mining.hashrate preserves range, grain and annotations.
+  - Hashrate derives from difficulty and block interval; formula is documented.
+  - Difficulty and hashrate use separate axes.
+  data_freshness: daily
+- id: mining.hashribbon
+  title: Hash Ribbons
+  category: mining
+  status: existing
+  implementation: not_started
+  phase: phase_10_mining
+  priority: P1
+  question: Are miners capitulating?
+  parity:
+  - lib.hash_ribbons
+  - coc.hashribbons
+  archetype: bands_overlay
+  chart_types:
+  - line
+  - area
+  - band
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: H/s
+    scale: linear
+  metrics:
+  - hashribbon_fast_daily
+  - hashribbon_slow_daily
+  - hashribbon_cross_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: hashribbon_fast_daily
+  series:
+  - metric: hashribbon_fast_daily
+    axis: left
+    style: line
+    label: Fast MA
+  - metric: hashribbon_slow_daily
+    axis: left
+    style: line
+    label: Slow MA
+  variants: []
+  controls:
+  - band_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - quantile_window
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show price or a metric relative to model bands and historical quantiles.
+  - Are miners capitulating?
+  acceptance:
+  - Band fill is bounded by the correct upper/lower series at every point.
+  - Band toggle changes only visibility, never the underlying scale.
+  - Missing band points break the fill rather than closing to zero.
+  - Switching every variant on mining.hashribbon preserves range, grain and annotations.
+  - Fast and slow ribbon MAs use the documented windows.
+  - Cross marker appears on the crossing date, not the next bar.
+  data_freshness: daily
+- id: mining.revenue
+  title: Miner Revenue
+  category: mining
+  status: existing
+  implementation: not_started
+  phase: phase_10_mining
+  priority: P1
+  question: How much do miners earn from subsidy and fees?
+  parity:
+  - lib.miner_revenue
+  - coc.mining_revenue
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: BTC
+    scale: linear
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - miner_revenue_btc_daily
+  - miner_revenue_sma7_daily
+  - miner_revenue_usd_daily
+  - reward_daily
+  - reward_weekly
+  - reward_cumulative_daily
+  - fee_share_pct_daily
+  - fees_vs_reward_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: miner_revenue_btc_daily
+  series:
+  - metric: miner_revenue_btc_daily
+    axis: left
+    style: bar
+    label: Revenue BTC
+  - metric: miner_revenue_usd_daily
+    axis: right
+    style: line
+    label: Revenue USD
+  variants:
+  - id: btc
+    label: BTC
+    series:
+    - miner_revenue_btc_daily
+  - id: usd
+    label: USD
+    series:
+    - miner_revenue_usd_daily
+  - id: fees
+    label: Fees vs Subsidy
+    series:
+    - fee_share_pct_daily
+    - fees_vs_reward_daily
+  controls:
+  - axis_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - dual_axis_labels
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Compare a metric with BTC price without losing either scale.
+  - How much do miners earn from subsidy and fees?
+  acceptance:
+  - Both Y axes are visible and colour-matched to their series.
+  - Toggling price hides the right axis and reflows the left axis.
+  - Axis assignment is preserved across range and variant changes.
+  - Switching every variant on mining.revenue preserves range, grain and annotations.
+  - Subsidy + fees equals miner revenue in BTC.
+  - Fee share equals fees / revenue.
+  data_freshness: daily
+- id: network.blocks
+  title: Blocks & Block Interval
+  category: network
+  status: existing
+  implementation: not_started
+  phase: phase_11_network
+  priority: P1
+  question: Is the chain producing blocks on schedule?
+  parity:
+  - lib.blocks
+  - coc.block_interval
+  archetype: bar_series
+  chart_types:
+  - columns
+  - stacked_columns
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: blocks
+    scale: linear
+  metrics:
+  - blocks_daily
+  - blocks_hourly
+  - blocks_weekly
+  - blocks_sma7_daily
+  - blocks_cumulative_daily
+  - avg_block_interval_daily
+  - avg_block_interval_weekly
+  - height_daily
+  - block_stats_daily
+  legacy_metrics:
+  - block_stats_daily
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: blocks_daily
+  series:
+  - metric: blocks_daily
+    axis: left
+    style: bar
+    label: Blocks
+  - metric: blocks_sma7_daily
+    axis: left
+    style: line
+    label: SMA7
+  variants:
+  - id: blocks
+    label: Blocks
+    series:
+    - blocks_daily
+  - id: interval
+    label: Interval
+    series:
+    - avg_block_interval_daily
+  - id: height
+    label: Height
+    series:
+    - height_daily
+  controls:
+  - bar_mode
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show discrete period values and outliers clearly.
+  - Is the chain producing blocks on schedule?
+  acceptance:
+  - Grouped and stacked modes are labelled.
+  - Negative values render below zero.
+  - Bar width adapts to grain and stays legible at 1D and All ranges.
+  - Switching every variant on network.blocks preserves range, grain and annotations.
+  - Blocks per day is around 144; outliers are real, not clamped.
+  - Block interval target line is 600 seconds.
+  data_freshness: daily
+- id: network.blocksize
+  title: Block Size & Weight
+  category: network
+  status: existing
+  implementation: not_started
+  phase: phase_11_network
+  priority: P1
+  question: How full are blocks?
+  parity:
+  - lib.block_size
+  - coc.block_size
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: bytes
+    scale: linear
+  - id: right
+    unit: WU
+    scale: log
+  metrics:
+  - avg_block_size_daily
+  - avg_block_size_weekly
+  - avg_block_size_sma7_daily
+  - avg_block_weight_daily
+  - avg_block_weight_weekly
+  - avg_block_weight_sma7_daily
+  - block_size_total_daily
+  - block_size_total_weekly
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: avg_block_size_daily
+  series:
+  - metric: avg_block_size_daily
+    axis: left
+    style: line
+    label: Avg size
+  - metric: avg_block_weight_daily
+    axis: right
+    style: line
+    label: Avg weight
+  variants:
+  - id: size
+    label: Size
+    series:
+    - avg_block_size_daily
+  - id: weight
+    label: Weight
+    series:
+    - avg_block_weight_daily
+  - id: total
+    label: Total
+    series:
+    - block_size_total_daily
+  controls:
+  - axis_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - dual_axis_labels
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare a metric with BTC price without losing either scale.
+  - How full are blocks?
+  acceptance:
+  - Both Y axes are visible and colour-matched to their series.
+  - Toggling price hides the right axis and reflows the left axis.
+  - Axis assignment is preserved across range and variant changes.
+  - Switching every variant on network.blocksize preserves range, grain and annotations.
+  data_freshness: daily
+- id: network.lightning
+  title: Lightning Network
+  category: network
+  status: existing
+  implementation: not_started
+  phase: phase_11_network
+  priority: P1
+  question: Is Lightning capacity and node count growing?
+  parity:
+  - lib.lightning
+  - coc.lightning
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: BTC
+    scale: linear
+  - id: right
+    unit: nodes
+    scale: log
+  metrics:
+  - lightning_capacity_daily
+  - lightning_nodes_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: lightning_capacity_daily
+  series:
+  - metric: lightning_capacity_daily
+    axis: left
+    style: line
+    label: Capacity BTC
+  - metric: lightning_nodes_daily
+    axis: right
+    style: line
+    label: Nodes
+  variants: []
+  controls:
+  - axis_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - dual_axis_labels
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare a metric with BTC price without losing either scale.
+  - Is Lightning capacity and node count growing?
+  acceptance:
+  - Both Y axes are visible and colour-matched to their series.
+  - Toggling price hides the right axis and reflows the left axis.
+  - Axis assignment is preserved across range and variant changes.
+  - Switching every variant on network.lightning preserves range, grain and annotations.
+  data_freshness: daily
+- id: network.tx_per_block
+  title: Transactions per Block
+  category: network
+  status: existing
+  implementation: not_started
+  phase: phase_11_network
+  priority: P1
+  question: Is block demand rising?
+  parity:
+  - coc.txs_per_block
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: tx
+    scale: linear
+  metrics:
+  - avg_txs_per_block_daily
+  - avg_txs_per_block_weekly
+  - avg_txs_per_block_sma7_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: avg_txs_per_block_daily
+  series:
+  - metric: avg_txs_per_block_daily
+    axis: left
+    style: line
+    label: Tx/block
+  - metric: avg_txs_per_block_sma7_daily
+    axis: left
+    style: line
+    label: SMA7
+  variants: []
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - Is block demand rising?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on network.tx_per_block preserves range, grain and annotations.
+  data_freshness: daily
+- id: script.counts
+  title: Script Type Counts
+  category: script
+  status: existing
+  implementation: not_started
+  phase: phase_12_script
+  priority: P1
+  question: Which output script types are used?
+  parity:
+  - coc.script_types
+  - lib.script_types
+  archetype: stacked_area
+  chart_types:
+  - stacked_area
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: outputs
+    scale: linear
+  metrics:
+  - script_p2pkh_daily
+  - script_p2sh_daily
+  - script_p2wpkh_daily
+  - script_p2wsh_daily
+  - script_p2tr_daily
+  - script_pubkey_daily
+  - script_multisig_daily
+  - script_nulldata_daily
+  - script_nonstandard_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: script_p2pkh_daily
+  series:
+  - metric: script_p2pkh_daily
+    axis: left
+    style: area
+    label: P2PKH
+  - metric: script_p2sh_daily
+    axis: left
+    style: area
+    label: P2SH
+  - metric: script_p2wpkh_daily
+    axis: left
+    style: area
+    label: P2WPKH
+  - metric: script_p2wsh_daily
+    axis: left
+    style: area
+    label: P2WSH
+  - metric: script_p2tr_daily
+    axis: left
+    style: area
+    label: P2TR
+  - metric: script_pubkey_daily
+    axis: left
+    style: area
+    label: P2PK
+  - metric: script_multisig_daily
+    axis: left
+    style: area
+    label: Multisig
+  - metric: script_nulldata_daily
+    axis: left
+    style: area
+    label: Null data
+  - metric: script_nonstandard_daily
+    axis: left
+    style: area
+    label: Nonstandard
+  variants:
+  - id: count
+    label: Count
+    series:
+    - script_p2pkh_daily
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - percent_mode
+  - range
+  - reorder
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show composition and how shares shift over time.
+  - Which output script types are used?
+  acceptance:
+  - Share mode sums to 100% within rounding tolerance.
+  - Stack order is stable and user-reorderable.
+  - Hidden series are excluded from the percent denominator.
+  - Switching every variant on script.counts preserves range, grain and annotations.
+  - Script counts sum to total outputs within documented tolerance.
+  - Unknown script types are grouped as nonstandard.
+  data_freshness: daily
+- id: script.shares
+  title: Script Type Shares
+  category: script
+  status: existing
+  implementation: not_started
+  phase: phase_12_script
+  priority: P1
+  question: How is usage split by script type?
+  parity:
+  - coc.script_types
+  archetype: stacked_area
+  chart_types:
+  - stacked_area
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  metrics:
+  - script_p2pkh_share_daily
+  - script_p2sh_share_daily
+  - script_p2wpkh_share_daily
+  - script_p2wsh_share_daily
+  - script_p2tr_share_daily
+  - script_pubkey_share_daily
+  - script_multisig_share_daily
+  - script_nulldata_share_daily
+  - script_nonstandard_share_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: script_p2pkh_share_daily
+  series:
+  - metric: script_p2pkh_share_daily
+    axis: left
+    style: area
+    label: P2PKH
+  - metric: script_p2sh_share_daily
+    axis: left
+    style: area
+    label: P2SH
+  - metric: script_p2wpkh_share_daily
+    axis: left
+    style: area
+    label: P2WPKH
+  - metric: script_p2wsh_share_daily
+    axis: left
+    style: area
+    label: P2WSH
+  - metric: script_p2tr_share_daily
+    axis: left
+    style: area
+    label: P2TR
+  - metric: script_pubkey_share_daily
+    axis: left
+    style: area
+    label: P2PK
+  - metric: script_multisig_share_daily
+    axis: left
+    style: area
+    label: Multisig
+  - metric: script_nulldata_share_daily
+    axis: left
+    style: area
+    label: Null data
+  - metric: script_nonstandard_share_daily
+    axis: left
+    style: area
+    label: Nonstandard
+  variants:
+  - id: share
+    label: Share
+    series:
+    - script_p2pkh_share_daily
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - percent_mode
+  - range
+  - reorder
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show composition and how shares shift over time.
+  - How is usage split by script type?
+  acceptance:
+  - Share mode sums to 100% within rounding tolerance.
+  - Stack order is stable and user-reorderable.
+  - Hidden series are excluded from the percent denominator.
+  - Switching every variant on script.shares preserves range, grain and annotations.
+  data_freshness: daily
+- id: macro.dashboard
+  title: Macro Dashboard
+  category: macro
+  status: existing
+  implementation: not_started
+  phase: phase_13_macro
+  priority: P1
+  question: Is liquidity risk-on or risk-off?
+  parity:
+  - itc.macro
+  - lib.macro
+  - coc.capital_rotation
+  archetype: dashboard_grid
+  chart_types:
+  - grid
+  panes:
+  - multi
+  axes: []
+  metrics:
+  - dxy_daily
+  - cpi_yoy_daily
+  - fed_funds_daily
+  - m2_global_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: m2_global_daily
+  series: []
+  variants:
+  - id: liquidity
+    label: Liquidity
+    series:
+    - m2_global_daily
+    - fed_funds_daily
+  - id: inflation
+    label: Inflation
+    series:
+    - cpi_yoy_daily
+  - id: dollar
+    label: Dollar
+    series:
+    - dxy_daily
+  controls:
+  - card_select
+  - fullscreen
+  - grain
+  - layout
+  - range
+  - screenshot
+  - sync_range
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Answer a multi-metric question in one screen.
+  - Is liquidity risk-on or risk-off?
+  acceptance:
+  - All cards share the selected range and grain.
+  - Card order persists per user.
+  - Empty or stale cards show an explicit badge, never a blank panel.
+  - Switching every variant on macro.dashboard preserves range, grain and annotations.
+  - All cards share the selected range.
+  - Each card shows its own unit and source freshness.
+  data_freshness: daily
+- id: macro.relative
+  title: BTC Dominance / ETH-BTC / Total Cap
+  category: macro
+  status: existing
+  implementation: not_started
+  phase: phase_13_macro
+  priority: P1
+  question: Is capital rotating into or out of BTC?
+  parity:
+  - itc.dominance
+  - itc.flippening
+  - lib.macro
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: pct
+    scale: linear
+  - id: right
+    unit: ratio
+    scale: log
+  metrics:
+  - btc_dominance_daily
+  - ethbtc_daily
+  - total_mcap_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: btc_dominance_daily
+  series:
+  - metric: btc_dominance_daily
+    axis: left
+    style: line
+    label: BTC dominance %
+  - metric: ethbtc_daily
+    axis: right
+    style: line
+    label: ETH/BTC
+  variants:
+  - id: dominance
+    label: Dominance
+    series:
+    - btc_dominance_daily
+  - id: ethbtc
+    label: ETH/BTC
+    series:
+    - ethbtc_daily
+  - id: total
+    label: Total Cap
+    series:
+    - total_mcap_daily
+  controls:
+  - axis_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - dual_axis_labels
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare a metric with BTC price without losing either scale.
+  - Is capital rotating into or out of BTC?
+  acceptance:
+  - Both Y axes are visible and colour-matched to their series.
+  - Toggling price hides the right axis and reflows the left axis.
+  - Axis assignment is preserved across range and variant changes.
+  - Switching every variant on macro.relative preserves range, grain and annotations.
+  data_freshness: daily
+- id: derivatives.funding
+  title: Funding Rates
+  category: derivatives
+  status: existing
+  implementation: not_started
+  phase: phase_14_derivatives
+  priority: P1
+  question: Are longs paying shorts?
+  parity:
+  - lib.funding
+  - coc.funding
+  archetype: bar_series
+  chart_types:
+  - columns
+  - stacked_columns
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: rate
+    scale: linear
+  metrics:
+  - funding_rate_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: funding_rate_daily
+  series:
+  - metric: funding_rate_daily
+    axis: left
+    style: bar
+    label: Funding rate
+  variants:
+  - id: rate
+    label: Funding
+    series:
+    - funding_rate_daily
+  controls:
+  - bar_mode
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show discrete period values and outliers clearly.
+  - Are longs paying shorts?
+  acceptance:
+  - Grouped and stacked modes are labelled.
+  - Negative values render below zero.
+  - Bar width adapts to grain and stays legible at 1D and All ranges.
+  - Switching every variant on derivatives.funding preserves range, grain and annotations.
+  - Zero line is visible; positive/negative bars are colour-coded.
+  - Annualised toggle uses 365 days and is labelled.
+  data_freshness: daily
+- id: derivatives.open_interest
+  title: Open Interest
+  category: derivatives
+  status: existing
+  implementation: not_started
+  phase: phase_14_derivatives
+  priority: P1
+  question: How leveraged is the futures market?
+  parity:
+  - lib.open_interest
+  - coc.open_interest
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: USD
+    scale: linear
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - open_interest_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: open_interest_daily
+  series:
+  - metric: open_interest_daily
+    axis: left
+    style: line
+    label: Open interest
+  - metric: price_close_daily
+    axis: right
+    style: line
+    label: BTC price
+  variants:
+  - id: oi
+    label: Open Interest
+    series:
+    - open_interest_daily
+  controls:
+  - axis_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - dual_axis_labels
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare a metric with BTC price without losing either scale.
+  - How leveraged is the futures market?
+  acceptance:
+  - Both Y axes are visible and colour-matched to their series.
+  - Toggling price hides the right axis and reflows the left axis.
+  - Axis assignment is preserved across range and variant changes.
+  - Switching every variant on derivatives.open_interest preserves range, grain and annotations.
+  data_freshness: daily
+- id: sentiment.fear_greed
+  title: Fear & Greed
+  category: sentiment
+  status: existing
+  implementation: not_started
+  phase: phase_15_sentiment
+  priority: P1
+  question: Is sentiment fearful or greedy?
+  parity:
+  - lib.fear_greed
+  - coc.fear_greed
+  archetype: gauge_composite
+  chart_types:
+  - gauge
+  - line
+  panes:
+  - gauge
+  - history
+  axes:
+  - id: gauge
+    unit: 0-100
+    scale: linear
+  metrics:
+  - fear_greed_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: fear_greed_daily
+  series:
+  - metric: fear_greed_daily
+    axis: gauge
+    style: gauge
+    label: Fear & Greed
+  variants:
+  - id: gauge
+    label: Gauge
+    series:
+    - fear_greed_daily
+  - id: history
+    label: History
+    series:
+    - fear_greed_daily
+  controls:
+  - components
+  - fullscreen
+  - grain
+  - history_toggle
+  - range
+  - screenshot
+  - thresholds
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Give one number for the current regime plus the evidence behind it.
+  - Is sentiment fearful or greedy?
+  acceptance:
+  - Gauge bands and labels match the metric definition.
+  - Component contributions are visible and sum correctly.
+  - History toggle shows the same value over time.
+  - Switching every variant on sentiment.fear_greed preserves range, grain and annotations.
+  - Gauge bands match the published 0-100 scale.
+  - History uses the same scale and source.
+  data_freshness: daily
+- id: alerts.manager
+  title: Chart Alerts
+  category: platform
+  status: new
+  implementation: not_started
+  phase: phase_15_platform
+  priority: P2
+  question: Can users be notified when a level breaks?
+  parity:
+  - itc.alerts
+  - lib.alerts
+  - coc.alerts
+  archetype: dashboard_grid
+  chart_types:
+  - grid
+  panes:
+  - multi
+  axes: []
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - alert_rules
+  - alert_events
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - card_select
+  - fullscreen
+  - grain
+  - layout
+  - range
+  - screenshot
+  - sync_range
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Answer a multi-metric question in one screen.
+  - Can users be notified when a level breaks?
+  acceptance:
+  - All cards share the selected range and grain.
+  - Card order persists per user.
+  - Empty or stale cards show an explicit badge, never a blank panel.
+  - Switching every variant on alerts.manager preserves range, grain and annotations.
+  - Rules fire once per bucket and respect cooldown.
+  - Paused rules never deliver.
+  data_freshness: n/a
+  data_requirements: 'New derived series or external ingest required: alert_rules, alert_events'
+- id: compare.overlay
+  title: Compare Overlay
+  category: platform
+  status: new
+  implementation: not_started
+  phase: phase_15_platform
+  priority: P2
+  question: How do selected metrics move together?
+  parity:
+  - itc.compare
+  - lib.compare
+  - coc.compare
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: USD
+    scale: linear
+  metrics:
+  - price_close_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - normalized_series
+  default_metric: price_close_daily
+  series:
+  - metric: price_close_daily
+    axis: left
+    style: line
+    label: BTC close / day
+  variants: []
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - How do selected metrics move together?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on compare.overlay preserves range, grain and annotations.
+  - Normalised overlay starts every series at 100.
+  - Correlation matrix is symmetric with 1.0 on the diagonal.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: normalized_series'
+- id: strategies.dca
+  title: DCA Lab
+  category: platform
+  status: existing
+  implementation: not_started
+  phase: phase_15_platform
+  priority: P0
+  question: What if I DCA versus lump sum?
+  parity:
+  - itc.dca
+  - lib.portfolio
+  archetype: dashboard_grid
+  chart_types:
+  - grid
+  panes:
+  - multi
+  axes: []
+  metrics:
+  - price_close_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: price_close_daily
+  series: []
+  variants: []
+  controls:
+  - card_select
+  - fullscreen
+  - grain
+  - layout
+  - range
+  - screenshot
+  - sync_range
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Answer a multi-metric question in one screen.
+  - What if I DCA versus lump sum?
+  acceptance:
+  - All cards share the selected range and grain.
+  - Card order persists per user.
+  - Empty or stale cards show an explicit badge, never a blank panel.
+  - Switching every variant on strategies.dca preserves range, grain and annotations.
+  - DCA uses the selected frequency and daily close.
+  - Fees and slippage assumptions are displayed.
+  data_freshness: daily
+- id: strategies.exit
+  title: Exit Strategy Simulator
+  category: platform
+  status: new
+  implementation: not_started
+  phase: phase_15_platform
+  priority: P2
+  question: When would rule-based exits have sold?
+  parity:
+  - itc.exit
+  - lib.strategies
+  archetype: dashboard_grid
+  chart_types:
+  - grid
+  panes:
+  - multi
+  axes: []
+  metrics:
+  - price_close_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - exit_signals
+  default_metric: price_close_daily
+  series: []
+  variants: []
+  controls:
+  - card_select
+  - fullscreen
+  - grain
+  - layout
+  - range
+  - screenshot
+  - sync_range
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Answer a multi-metric question in one screen.
+  - When would rule-based exits have sold?
+  acceptance:
+  - All cards share the selected range and grain.
+  - Card order persists per user.
+  - Empty or stale cards show an explicit badge, never a blank panel.
+  - Switching every variant on strategies.exit preserves range, grain and annotations.
+  - 'No lookahead: signals use data available at the close.'
+  - Fees and slippage are displayed.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: exit_signals'
+- id: strategies.portfolio
+  title: Risk Portfolio Tester
+  category: platform
+  status: new
+  implementation: not_started
+  phase: phase_15_platform
+  priority: P2
+  question: How would a portfolio have behaved?
+  parity:
+  - itc.portfolio
+  - itc.mpt
+  - lib.portfolio
+  archetype: dashboard_grid
+  chart_types:
+  - grid
+  panes:
+  - multi
+  axes: []
+  metrics:
+  - price_close_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - portfolio_weights
+  - portfolio_metrics
+  default_metric: price_close_daily
+  series: []
+  variants: []
+  controls:
+  - card_select
+  - fullscreen
+  - grain
+  - layout
+  - range
+  - screenshot
+  - sync_range
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Answer a multi-metric question in one screen.
+  - How would a portfolio have behaved?
+  acceptance:
+  - All cards share the selected range and grain.
+  - Card order persists per user.
+  - Empty or stale cards show an explicit badge, never a blank panel.
+  - Switching every variant on strategies.portfolio preserves range, grain and annotations.
+  - Weights sum to 100%.
+  - Rebalance frequency and fees are displayed.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: portfolio_weights, portfolio_metrics'
+- id: workbench.custom
+  title: Indicator Workbench
+  category: platform
+  status: new
+  implementation: not_started
+  phase: phase_15_platform
+  priority: P2
+  question: Can users compose custom indicators without code?
+  parity:
+  - itc.workbench
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: USD
+    scale: linear
+  metrics:
+  - price_close_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - formula_engine
+  default_metric: price_close_daily
+  series:
+  - metric: price_close_daily
+    axis: left
+    style: line
+    label: BTC close / day
+  variants: []
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - Can users compose custom indicators without code?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on workbench.custom preserves range, grain and annotations.
+  - Formula parser rejects unknown identifiers and SQL.
+  - Depth limit is 20 and errors are shown inline.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: formula_engine'
+- id: cointime.liveliness
+  title: Liveliness & Vaultedness
+  category: cycle
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: Is old supply waking up or vaulting?
+  parity:
+  - coc.liveliness
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: value
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - liveliness
+  - vaultedness
+  - liveliness_derivative_30d
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - Is old supply waking up or vaulting?
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on cointime.liveliness preserves range, grain and annotations.
+  - Liveliness and vaultedness stay in 0-1.
+  - Derivative window is labelled.
+  data_freshness: n/a
+  data_requirements: 'New derived series or external ingest required: liveliness, vaultedness, liveliness_derivative_30d'
+- id: cointime.supply_regions
+  title: Active vs Vaulted Supply
+  category: cycle
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: How much supply is active versus vaulted?
+  parity:
+  - coc.supply_regions
+  archetype: stacked_area
+  chart_types:
+  - stacked_area
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: value
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - active_supply
+  - vaulted_supply
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - percent_mode
+  - range
+  - reorder
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show composition and how shares shift over time.
+  - How much supply is active versus vaulted?
+  acceptance:
+  - Share mode sums to 100% within rounding tolerance.
+  - Stack order is stable and user-reorderable.
+  - Hidden series are excluded from the percent denominator.
+  - Switching every variant on cointime.supply_regions preserves range, grain and annotations.
+  data_freshness: n/a
+  data_requirements: 'New derived series or external ingest required: active_supply, vaulted_supply'
+- id: cycle.master
+  title: Cycle Master Dashboard
+  category: cycle
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: How do cycle extremes line up across models?
+  parity:
+  - itc.cycle_master
+  - lib.cycle_master
+  archetype: dashboard_grid
+  chart_types:
+  - grid
+  panes:
+  - multi
+  axes: []
+  metrics:
+  - risk_daily
+  - mvrv_z_daily
+  - ma200w_daily
+  - pi_oscillator_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: risk_daily
+  series: []
+  variants:
+  - id: grid
+    label: Dashboard
+    series:
+    - risk_daily
+    - mvrv_z_daily
+    - ma200w_daily
+    - pi_oscillator_daily
+  controls:
+  - card_select
+  - fullscreen
+  - grain
+  - layout
+  - range
+  - screenshot
+  - sync_range
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Answer a multi-metric question in one screen.
+  - How do cycle extremes line up across models?
+  acceptance:
+  - All cards share the selected range and grain.
+  - Card order persists per user.
+  - Empty or stale cards show an explicit badge, never a blank panel.
+  - Switching every variant on cycle.master preserves range, grain and annotations.
+  data_freshness: daily
+- id: derivatives.liquidations
+  title: Liquidations
+  category: derivatives
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: Where did leverage get flushed?
+  parity:
+  - coc.liquidations
+  archetype: bar_series
+  chart_types:
+  - columns
+  - stacked_columns
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: value
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - long_liquidations_usd
+  - short_liquidations_usd
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - bar_mode
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show discrete period values and outliers clearly.
+  - Where did leverage get flushed?
+  acceptance:
+  - Grouped and stacked modes are labelled.
+  - Negative values render below zero.
+  - Bar width adapts to grain and stays legible at 1D and All ranges.
+  - Switching every variant on derivatives.liquidations preserves range, grain and annotations.
+  data_freshness: n/a
+  data_requirements: 'New derived series or external ingest required: long_liquidations_usd, short_liquidations_usd'
+- id: derivatives.options
+  title: Options OI / IV / Skew
+  category: derivatives
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: What are options markets pricing?
+  parity:
+  - coc.options
+  - coc.ibit_options
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: value
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - options_oi
+  - options_volume
+  - atm_iv
+  - put_call_ratio
+  - delta_skew
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - What are options markets pricing?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on derivatives.options preserves range, grain and annotations.
+  data_freshness: n/a
+  data_requirements: 'New derived series or external ingest required: options_oi, options_volume, atm_iv, put_call_ratio,
+    delta_skew'
+- id: derivatives.term_structure
+  title: Futures Term Structure
+  category: derivatives
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: Is the futures curve in contango or backwardation?
+  parity:
+  - coc.term_structure
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: value
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - futures_term_structure
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - Is the futures curve in contango or backwardation?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on derivatives.term_structure preserves range, grain and annotations.
+  data_freshness: n/a
+  data_requirements: 'New derived series or external ingest required: futures_term_structure'
+- id: etf.balances
+  title: ETF Balances & AUM
+  category: flow
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: How much BTC do ETFs hold?
+  parity:
+  - coc.etf_balances
+  - lib.etf
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: value
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - etf_holdings_btc
+  - etf_aum_usd
+  - etf_volume_usd
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - axis_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - dual_axis_labels
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare a metric with BTC price without losing either scale.
+  - How much BTC do ETFs hold?
+  acceptance:
+  - Both Y axes are visible and colour-matched to their series.
+  - Toggling price hides the right axis and reflows the left axis.
+  - Axis assignment is preserved across range and variant changes.
+  - Switching every variant on etf.balances preserves range, grain and annotations.
+  - Holdings and AUM use the same issuer set and date.
+  - Freshness badge shows the issuer data date.
+  data_freshness: n/a
+  data_requirements: 'New derived series or external ingest required: etf_holdings_btc, etf_aum_usd, etf_volume_usd'
+- id: macro.correlations
+  title: Cross-Asset Correlations
+  category: macro
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: How does BTC correlate with macro assets?
+  parity:
+  - coc.correlations
+  archetype: scatter
+  chart_types:
+  - scatter
+  - regression
+  panes:
+  - scatter
+  axes:
+  - id: x
+    unit: USD
+    scale: linear
+  - id: y
+    unit: index
+    scale: linear
+  metrics:
+  - price_close_daily
+  - dxy_daily
+  - m2_global_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - rolling_correlation_btc_dxy
+  - rolling_correlation_btc_m2
+  default_metric: price_close_daily
+  series: []
+  variants: []
+  controls:
+  - csv
+  - hover_detail
+  - log_x
+  - log_y
+  - quadrants
+  - range
+  - regression
+  - screenshot
+  - x_metric
+  - y_metric
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show relationship, clusters and outliers between two metrics.
+  - How does BTC correlate with macro assets?
+  acceptance:
+  - Axis labels name both metrics and units.
+  - Regression line and R² are shown only when computed.
+  - Hover identifies the date behind each point.
+  - Switching every variant on macro.correlations preserves range, grain and annotations.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: rolling_correlation_btc_dxy, rolling_correlation_btc_m2'
+- id: profitability.realized_pnl
+  title: Net Realized PnL
+  category: profitability
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: How much profit or loss is being realized?
+  parity:
+  - coc.net_realised_pnl
+  - lib.realized_pnl
+  archetype: bar_series
+  chart_types:
+  - columns
+  - stacked_columns
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: value
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - net_realized_pnl_usd
+  - net_realized_pnl_btc
+  - realized_profit_usd
+  - realized_loss_usd
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - bar_mode
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show discrete period values and outliers clearly.
+  - How much profit or loss is being realized?
+  acceptance:
+  - Grouped and stacked modes are labelled.
+  - Negative values render below zero.
+  - Bar width adapts to grain and stays legible at 1D and All ranges.
+  - Switching every variant on profitability.realized_pnl preserves range, grain and annotations.
+  - Net realized PnL = realized profit minus realized loss.
+  - USD series equals BTC series multiplied by the daily close.
+  data_freshness: n/a
+  data_requirements: 'New derived series or external ingest required: net_realized_pnl_usd, net_realized_pnl_btc, realized_profit_usd,
+    realized_loss_usd'
+- id: profitability.sell_side_risk
+  title: Sell-Side Risk Ratio
+  category: profitability
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: How much sell pressure per unit of realized cap?
+  parity:
+  - coc.sell_side_risk
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: value
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - sell_side_risk
+  - sell_side_risk_sth
+  - sell_side_risk_lth
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - How much sell pressure per unit of realized cap?
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on profitability.sell_side_risk preserves range, grain and annotations.
+  - Formula and denominator are documented in the chart description.
+  - Division by zero is rendered as a gap, not infinity.
+  data_freshness: n/a
+  data_requirements: 'New derived series or external ingest required: sell_side_risk, sell_side_risk_sth, sell_side_risk_lth'
+- id: profitability.sopr_cohorts
+  title: SOPR by Cohort
+  category: profitability
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: Are STH or LTH selling at profit or loss?
+  parity:
+  - coc.sth_sopr
+  - coc.lth_sopr
+  archetype: multi_series
+  chart_types:
+  - line
+  - step
+  - area
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: value
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - sth_sopr
+  - lth_sopr
+  - sth_sopr_z
+  - lth_sopr_z
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - axis_assign
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - normalize
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - series_toggle
+  - smoothing
+  - zoom
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare related series in one frame with explicit units and axes.
+  - Are STH or LTH selling at profit or loss?
+  acceptance:
+  - Normalisation modes (raw, %, index=100, z-score) are labelled and reversible.
+  - Each series can be hidden without changing the others.
+  - Series with incompatible units default to separate axes or are rejected.
+  - Switching every variant on profitability.sopr_cohorts preserves range, grain and annotations.
+  - Weighted cohort SOPR equals market SOPR within 0.1%.
+  - Cohort boundary is 155 days and labelled.
+  data_freshness: n/a
+  data_requirements: 'New derived series or external ingest required: sth_sopr, lth_sopr, sth_sopr_z, lth_sopr_z'
+- id: risk.dashboard
+  title: Risk Regime Dashboard
+  category: risk
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: Which risk components are flashing?
+  parity:
+  - itc.risk_dashboard
+  archetype: dashboard_grid
+  chart_types:
+  - grid
+  panes:
+  - multi
+  axes: []
+  metrics:
+  - risk_daily
+  - risk_mvrv_daily
+  - risk_nupl_daily
+  - risk_sopr_daily
+  - risk_puell_daily
+  - risk_mayer_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: risk_daily
+  series: []
+  variants: []
+  controls:
+  - card_select
+  - fullscreen
+  - grain
+  - layout
+  - range
+  - screenshot
+  - sync_range
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Answer a multi-metric question in one screen.
+  - Which risk components are flashing?
+  acceptance:
+  - All cards share the selected range and grain.
+  - Card order persists per user.
+  - Empty or stale cards show an explicit badge, never a blank panel.
+  - Switching every variant on risk.dashboard preserves range, grain and annotations.
+  data_freshness: daily
+- id: supply.profit_loss
+  title: Supply in Profit / Loss
+  category: supply
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: What share of supply is in profit or loss?
+  parity:
+  - coc.supply_in_profit
+  - lib.supply_in_profit
+  archetype: bands_overlay
+  chart_types:
+  - line
+  - area
+  - band
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: value
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - pct_supply_in_profit
+  - pct_supply_in_loss
+  - pct_supply_in_profit_sth
+  - pct_supply_in_profit_lth
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - band_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - quantile_window
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show price or a metric relative to model bands and historical quantiles.
+  - What share of supply is in profit or loss?
+  acceptance:
+  - Band fill is bounded by the correct upper/lower series at every point.
+  - Band toggle changes only visibility, never the underlying scale.
+  - Missing band points break the fill rather than closing to zero.
+  - Switching every variant on supply.profit_loss preserves range, grain and annotations.
+  - Profit and loss shares sum to 100% within rounding.
+  - Cohort split sums to the market share.
+  data_freshness: n/a
+  data_requirements: 'New derived series or external ingest required: pct_supply_in_profit, pct_supply_in_loss, pct_supply_in_profit_sth,
+    pct_supply_in_profit_lth'
+- id: technical.bollinger
+  title: Bollinger Bands
+  category: price
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: Is price stretched versus its 20D band?
+  parity:
+  - coc.bollinger
+  archetype: bands_overlay
+  chart_types:
+  - line
+  - area
+  - band
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: USD
+    scale: linear
+  metrics:
+  - price_close_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - bollinger_upper
+  - bollinger_middle
+  - bollinger_lower
+  default_metric: price_close_daily
+  series:
+  - metric: price_close_daily
+    axis: left
+    style: line
+    label: BTC close / day
+  variants: []
+  controls:
+  - band_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - quantile_window
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show price or a metric relative to model bands and historical quantiles.
+  - Is price stretched versus its 20D band?
+  acceptance:
+  - Band fill is bounded by the correct upper/lower series at every point.
+  - Band toggle changes only visibility, never the underlying scale.
+  - Missing band points break the fill rather than closing to zero.
+  - Switching every variant on technical.bollinger preserves range, grain and annotations.
+  - Bands use 20D SMA and 2 standard deviations by default.
+  - Band fill breaks on null.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: bollinger_upper, bollinger_middle, bollinger_lower'
+- id: technical.drawdown_table
+  title: Drawdown Table
+  category: price
+  status: new
+  implementation: in_progress
+  phase: phase_16_data_dependent
+  priority: P2
+  question: How do current and past drawdowns compare?
+  parity:
+  - coc.drawdowns
+  - lib.drawdowns
+  archetype: table
+  chart_types:
+  - table
+  panes:
+  - table
+  axes: []
+  metrics:
+  - drawdown_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - drawdown_episodes
+  default_metric: drawdown_daily
+  series: []
+  variants: []
+  controls:
+  - export_csv
+  - period
+  - range
+  - screenshot
+  - sort
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Answer period-by-period comparison questions without chart distortion.
+  - How do current and past drawdowns compare?
+  acceptance:
+  - Sorting is numeric where appropriate.
+  - Colour scales remain readable in light and dark themes.
+  - CSV export matches the visible table.
+  - Switching every variant on technical.drawdown_table preserves range, grain and annotations.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: drawdown_episodes'
+- id: technical.macd
+  title: MACD
+  category: price
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: Is momentum accelerating or fading?
+  parity:
+  - coc.macd
+  archetype: multi_pane
+  chart_types:
+  - line
+  - columns
+  panes:
+  - price
+  - indicator
+  axes:
+  - id: left
+    unit: USD
+    scale: linear
+  metrics:
+  - price_close_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - macd_line
+  - macd_signal
+  - macd_histogram
+  default_metric: price_close_daily
+  series:
+  - metric: price_close_daily
+    axis: left
+    style: line
+    label: BTC close / day
+  variants: []
+  controls:
+  - crosshair
+  - csv
+  - fullscreen
+  - grain
+  - indicator_params
+  - legend
+  - log_axis
+  - range
+  - reset_zoom
+  - screenshot
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show price and a derived indicator in linked panes.
+  - Is momentum accelerating or fading?
+  acceptance:
+  - Panes share the time axis and crosshair.
+  - Indicator parameters are explicit and persisted.
+  - Pane heights are resizable and remembered.
+  - Switching every variant on technical.macd preserves range, grain and annotations.
+  - MACD uses 12/26/9 by default and labels parameters.
+  - Histogram is MACD minus signal.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: macd_line, macd_signal, macd_histogram'
+- id: technical.monthly_returns
+  title: Monthly Returns Heatmap
+  category: price
+  status: new
+  implementation: in_progress
+  phase: phase_16_data_dependent
+  priority: P2
+  question: Which months were strong or weak?
+  parity:
+  - lib.monthly_returns
+  - coc.monthly_performance
+  archetype: heatmap
+  chart_types:
+  - heatmap
+  panes:
+  - heatmap
+  axes:
+  - id: x
+    unit: month
+    scale: linear
+  - id: y
+    unit: year
+    scale: linear
+  - id: color
+    unit: pct
+    scale: linear
+  metrics:
+  - price_close_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - monthly_return_matrix
+  default_metric: price_close_daily
+  series:
+  - metric: price_close_daily
+    axis: y
+    style: line
+    label: BTC close / day
+  variants: []
+  controls:
+  - bin_size
+  - color_scale
+  - csv
+  - fullscreen
+  - hover_detail
+  - log_color
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Reveal how a two-dimensional distribution changes over time.
+  - Which months were strong or weak?
+  acceptance:
+  - Colour scale legend shows units and min/max.
+  - Empty bins render as background, not zero-colour.
+  - Hover reports date, bin range and value.
+  - Switching every variant on technical.monthly_returns preserves range, grain and annotations.
+  - Monthly returns are calendar-month close-to-close.
+  - Heatmap colour scale is symmetric around zero.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: monthly_return_matrix'
+- id: technical.seasonality
+  title: Seasonality
+  category: price
+  status: new
+  implementation: in_progress
+  phase: phase_16_data_dependent
+  priority: P2
+  question: How does this month/quarter usually perform?
+  parity:
+  - lib.seasonality
+  - coc.monthly_performance
+  archetype: table
+  chart_types:
+  - table
+  panes:
+  - table
+  axes: []
+  metrics:
+  - price_close_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - seasonality_matrix
+  default_metric: price_close_daily
+  series: []
+  variants: []
+  controls:
+  - export_csv
+  - period
+  - range
+  - screenshot
+  - sort
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Answer period-by-period comparison questions without chart distortion.
+  - How does this month/quarter usually perform?
+  acceptance:
+  - Sorting is numeric where appropriate.
+  - Colour scales remain readable in light and dark themes.
+  - CSV export matches the visible table.
+  - Switching every variant on technical.seasonality preserves range, grain and annotations.
+  - Matrix cells use the same return definition.
+  - Average and median are distinguished.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: seasonality_matrix'
+- id: technical.stochastic
+  title: Stochastic Oscillator
+  category: price
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: Is price at an extreme in its recent range?
+  parity:
+  - coc.stochastic
+  archetype: line_oscillator
+  chart_types:
+  - line
+  - step
+  - area
+  - histogram
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: USD
+    scale: linear
+  metrics:
+  - price_close_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - stoch_k
+  - stoch_d
+  default_metric: price_close_daily
+  series:
+  - metric: price_close_daily
+    axis: left
+    style: line
+    label: BTC close / day
+  variants: []
+  controls:
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - histogram_variant
+  - legend
+  - log_axis
+  - price_overlay
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show whether the metric is high, low, rising or falling versus its own history.
+  - Is price at an extreme in its recent range?
+  acceptance:
+  - ZERO and null values are not silently coerced; gaps render as gaps.
+  - Threshold lines are labelled with exact values.
+  - Histogram variant bins the selected window and labels bin width.
+  - Switching every variant on technical.stochastic preserves range, grain and annotations.
+  - '%K and %D use the documented periods and stay 0-100.'
+  - Overbought/oversold thresholds are labelled.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: stoch_k, stoch_d'
+- id: treasury.companies
+  title: Treasury Companies
+  category: macro
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: Which public companies hold BTC and at what cost?
+  parity:
+  - coc.treasuries
+  - lib.treasury
+  archetype: table
+  chart_types:
+  - table
+  panes:
+  - table
+  axes: []
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - treasury_holdings_btc
+  - treasury_cost_basis
+  - treasury_mnav
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - export_csv
+  - period
+  - range
+  - screenshot
+  - sort
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Answer period-by-period comparison questions without chart distortion.
+  - Which public companies hold BTC and at what cost?
+  acceptance:
+  - Sorting is numeric where appropriate.
+  - Colour scales remain readable in light and dark themes.
+  - CSV export matches the visible table.
+  - Switching every variant on treasury.companies preserves range, grain and annotations.
+  - Cost basis equals holdings-weighted acquisition price.
+  - mNAV uses market cap / BTC NAV and is labelled.
+  data_freshness: n/a
+  data_requirements: 'New derived series or external ingest required: treasury_holdings_btc, treasury_cost_basis, treasury_mnav'
+- id: urpd.diffs
+  title: URPD Differences
+  category: valuation
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: Which price levels gained or lost supply?
+  parity:
+  - coc.urpd_diff
+  archetype: price_distribution
+  chart_types:
+  - columns
+  panes:
+  - distribution
+  axes:
+  - id: x
+    unit: USD
+    scale: log
+  - id: y
+    unit: BTC
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - urpd_diff_7d
+  - urpd_diff_30d
+  - urpd_diff_90d
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - range
+  - bin_size
+  - log_x
+  - log_y
+  - percent_mode
+  - series_toggle
+  - hover_detail
+  - zoom
+  - reset_zoom
+  - fullscreen
+  - screenshot
+  - csv
+  - saved_layout
+  annotations:
+  - crosshair
+  expected:
+  - Show discrete period values and outliers clearly.
+  - Which price levels gained or lost supply?
+  acceptance:
+  - Grouped and stacked modes are labelled.
+  - Negative values render below zero.
+  - Bar width adapts to grain and stays legible at 1D and All ranges.
+  - Switching every variant on urpd.diffs preserves range, grain and annotations.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: urpd_diff_7d, urpd_diff_30d, urpd_diff_90d'
+- id: urpd.distribution
+  title: 'URPD: Supply by Cost Basis'
+  category: valuation
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: Where is supply clustered by onchain cost basis?
+  parity:
+  - coc.urpd
+  - lib.urpd
+  archetype: price_distribution
+  chart_types:
+  - columns
+  panes:
+  - distribution
+  axes:
+  - id: x
+    unit: USD
+    scale: log
+  - id: y
+    unit: BTC
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - urpd_bins
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - range
+  - bin_size
+  - log_x
+  - log_y
+  - percent_mode
+  - series_toggle
+  - hover_detail
+  - zoom
+  - reset_zoom
+  - fullscreen
+  - screenshot
+  - csv
+  - saved_layout
+  annotations:
+  - crosshair
+  expected:
+  - Show discrete period values and outliers clearly.
+  - Where is supply clustered by onchain cost basis?
+  acceptance:
+  - Grouped and stacked modes are labelled.
+  - Negative values render below zero.
+  - Bar width adapts to grain and stays legible at 1D and All ranges.
+  - Switching every variant on urpd.distribution preserves range, grain and annotations.
+  - Bins sum to circulating supply within rounding.
+  - Price buckets and log scale are labelled.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: urpd_bins'
+- id: urpd.heatmap
+  title: URPD Heatmap
+  category: valuation
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: How has the cost-basis distribution shifted over time?
+  parity:
+  - coc.urpd_heatmap
+  archetype: heatmap
+  chart_types:
+  - heatmap
+  panes:
+  - heatmap
+  axes:
+  - id: x
+    unit: USD
+    scale: log
+  - id: y
+    unit: date
+    scale: linear
+  - id: color
+    unit: BTC
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - urpd_heatmap
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - bin_size
+  - color_scale
+  - csv
+  - fullscreen
+  - hover_detail
+  - log_color
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Reveal how a two-dimensional distribution changes over time.
+  - How has the cost-basis distribution shifted over time?
+  acceptance:
+  - Colour scale legend shows units and min/max.
+  - Empty bins render as background, not zero-colour.
+  - Hover reports date, bin range and value.
+  - Switching every variant on urpd.heatmap preserves range, grain and annotations.
+  - Empty bins render as background, not zero.
+  - Colour legend shows supply units and min/max.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: urpd_heatmap'
+- id: valuation.histograms
+  title: MVRV / NUPL / SOPR Histograms
+  category: valuation
+  status: new
+  implementation: in_progress
+  phase: phase_16_data_dependent
+  priority: P2
+  question: How does today compare with historical distributions?
+  parity:
+  - coc.histogram_mvrv
+  - coc.histogram_nupl
+  - coc.histogram_sopr
+  - lib.mvrv_histogram
+  archetype: distribution_histogram
+  chart_types:
+  - histogram
+  panes:
+  - distribution
+  axes:
+  - id: x
+    unit: ratio
+    scale: linear
+  - id: y
+    unit: count
+    scale: linear
+  metrics:
+  - mvrv_daily
+  - nupl_daily
+  - sopr_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics: []
+  default_metric: mvrv_daily
+  series: []
+  variants:
+  - id: mvrv
+    label: MVRV
+    series:
+    - mvrv_daily
+  - id: nupl
+    label: NUPL
+    series:
+    - nupl_daily
+  - id: sopr
+    label: SOPR
+    series:
+    - sopr_daily
+  controls:
+  - bins
+  - csv
+  - log_y
+  - percentile_markers
+  - range
+  - screenshot
+  - window
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Place the current value inside its historical distribution.
+  - How does today compare with historical distributions?
+  acceptance:
+  - Bin count and window are displayed.
+  - Current-value marker matches the latest API point.
+  - Changing window or bins recomputes without refetching unrelated metrics.
+  - Switching every variant on valuation.histograms preserves range, grain and annotations.
+  data_freshness: daily
+- id: valuation.quantile_bands
+  title: MVRV Quantile Bands
+  category: valuation
+  status: new
+  implementation: not_started
+  phase: phase_16_data_dependent
+  priority: P2
+  question: Which historical valuation quantile is price in?
+  parity:
+  - lib.mvrv_quantiles
+  - coc.quantiles
+  archetype: bands_overlay
+  chart_types:
+  - line
+  - area
+  - band
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  - id: right
+    unit: USD
+    scale: log
+  metrics:
+  - mvrv_daily
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - mvrv_quantile_bands
+  default_metric: mvrv_daily
+  series:
+  - metric: mvrv_daily
+    axis: left
+    style: line
+    label: MVRV / day
+  - metric: price_close_daily
+    axis: right
+    style: line
+    label: BTC price
+  variants: []
+  controls:
+  - band_toggle
+  - crosshair
+  - csv
+  - custom_range
+  - fullscreen
+  - grain
+  - legend
+  - log_axis
+  - price_overlay
+  - quantile_window
+  - range
+  - reset_zoom
+  - saved_layout
+  - screenshot
+  - smoothing
+  - thresholds
+  - zoom
+  annotations:
+  - halvings
+  - crosshair
+  - last_value
+  expected:
+  - Show price or a metric relative to model bands and historical quantiles.
+  - Which historical valuation quantile is price in?
+  acceptance:
+  - Band fill is bounded by the correct upper/lower series at every point.
+  - Band toggle changes only visibility, never the underlying scale.
+  - Missing band points break the fill rather than closing to zero.
+  - Switching every variant on valuation.quantile_bands preserves range, grain and annotations.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: mvrv_quantile_bands'
+- id: cycle.rainbow
+  title: Rainbow Chart
+  category: cycle
+  status: new
+  implementation: not_started
+  phase: phase_17_parity_extension
+  priority: P2
+  question: Where is price inside the logarithmic rainbow bands?
+  parity:
+  - lib.rainbow
+  - coc.rainbow
+  archetype: bands_overlay
+  chart_types:
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: USD
+    scale: log
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - rainbow_bands
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - range
+  - grain
+  - legend
+  - crosshair
+  - screenshot
+  - csv
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show price against logarithmic growth bands.
+  acceptance:
+  - Band boundaries follow the documented model.
+  - Log scale is mandatory and labelled.
+  - Price overlay uses the same log axis.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: rainbow_bands'
+- id: entity.exchange_balances
+  title: Exchange Balances & Netflow
+  category: flow
+  status: new
+  implementation: not_started
+  phase: phase_17_parity_extension
+  priority: P2
+  question: How much BTC sits on exchanges and is it flowing in or out?
+  parity:
+  - coc.exchange_balances
+  - lib.exchange_balances
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: BTC
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - exchange_balance_btc
+  - exchange_netflow_btc
+  - exchange_inflow_btc
+  - exchange_outflow_btc
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - range
+  - grain
+  - legend
+  - crosshair
+  - screenshot
+  - csv
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Track exchange-held BTC and netflow as a proxy for sell-side supply.
+  acceptance:
+  - Exchange balances reconcile with the labelled address set.
+  - Netflow equals inflow minus outflow.
+  - Entity labels are versioned and auditable.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: exchange_balance_btc, exchange_netflow_btc, exchange_inflow_btc,
+    exchange_outflow_btc'
+- id: etf.market
+  title: ETF Market Dashboard
+  category: flow
+  status: new
+  implementation: not_started
+  phase: phase_17_parity_extension
+  priority: P2
+  question: How are ETF flows, holdings and trading activity evolving?
+  parity:
+  - coc.etf_price_volume_mvrv
+  - coc.etf_dominance
+  - coc.aggregate_volume
+  archetype: dashboard_grid
+  chart_types:
+  - grid
+  panes:
+  - multi
+  axes: []
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - etf_price
+  - etf_volume_usd
+  - etf_mvrv
+  - etf_dominance
+  - aggregate_volume_usd
+  - etf_cash_carry
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - range
+  - grain
+  - legend
+  - crosshair
+  - screenshot
+  - csv
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Combine ETF flows, balances, price/volume and cash-and-carry.
+  acceptance:
+  - All cards share range and freshness.
+  - ETF dominance denominator is documented.
+  - Aggregate volume categories are labelled.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: etf_price, etf_volume_usd, etf_mvrv, etf_dominance,
+    aggregate_volume_usd, etf_cash_carry'
+- id: flow.capital_rotation
+  title: Capital Rotation
+  category: flow
+  status: new
+  implementation: not_started
+  phase: phase_17_parity_extension
+  priority: P2
+  question: Is capital rotating into BTC or stalling?
+  parity:
+  - coc.capital_rotation
+  - coc.rcap_net_position_change
+  - coc.marketcap_gained_per_dollar
+  archetype: multi_series
+  chart_types:
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: USD
+    scale: linear
+  - id: right
+    unit: ratio
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - realized_cap_net_position_change
+  - stablecoin_supply_usd
+  - market_cap_gained_per_dollar
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - range
+  - grain
+  - legend
+  - crosshair
+  - screenshot
+  - csv
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Track net realized capital flows and stablecoin liquidity.
+  acceptance:
+  - Realized cap net change equals the 30-day difference.
+  - Market cap gained per dollar is labelled and bounded.
+  - Stablecoin supply source and freshness are shown.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: realized_cap_net_position_change, stablecoin_supply_usd,
+    market_cap_gained_per_dollar'
+- id: flow.lifespan_signals
+  title: Lifespan Signals
+  category: flow
+  status: new
+  implementation: not_started
+  phase: phase_17_parity_extension
+  priority: P2
+  question: Are old coins moving and is seller exhaustion building?
+  parity:
+  - coc.binary_cdd
+  - coc.seller_exhaustion
+  - coc.consecutive_days
+  archetype: multi_series
+  chart_types:
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: score
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - binary_cdd
+  - seller_exhaustion
+  - consecutive_days_mvrv_above_1
+  - consecutive_days_sopr_above_1
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - range
+  - grain
+  - legend
+  - crosshair
+  - screenshot
+  - csv
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Flag statistically significant coinday destruction and trend persistence.
+  acceptance:
+  - Binary CDD threshold is documented and reproducible.
+  - Consecutive-day counters reset correctly on a break.
+  - Seller exhaustion formula is public and labelled.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: binary_cdd, seller_exhaustion, consecutive_days_mvrv_above_1,
+    consecutive_days_sopr_above_1'
+- id: mining.models
+  title: Mining Models
+  category: mining
+  status: new
+  implementation: not_started
+  phase: phase_17_parity_extension
+  priority: P2
+  question: What do mining cost and difficulty models imply about price?
+  parity:
+  - coc.difficulty_regression
+  - coc.difficulty_per_issuance
+  - coc.miner_profitable_days
+  - coc.mining_pulse
+  archetype: multi_series
+  chart_types:
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: USD
+    scale: log
+  - id: right
+    unit: ratio
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - difficulty_regression_price
+  - difficulty_per_issuance
+  - miner_profitable_days
+  - mining_pulse
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - range
+  - grain
+  - legend
+  - crosshair
+  - screenshot
+  - csv
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show difficulty-based valuation and miner stress in one view.
+  acceptance:
+  - Difficulty regression formula and fit window are documented.
+  - Profitable-days calculation uses the stated cost model.
+  - Mining pulse components are labelled and signed.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: difficulty_regression_price, difficulty_per_issuance,
+    miner_profitable_days, mining_pulse'
+- id: supply.net_position_change
+  title: Supply Net Position Change
+  category: supply
+  status: new
+  implementation: not_started
+  phase: phase_17_parity_extension
+  priority: P2
+  question: Are holders accumulating or distributing?
+  parity:
+  - coc.lth_netposchange
+  - coc.wallet_netposchange
+  - coc.absorption_rate
+  archetype: bar_series
+  chart_types:
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: BTC
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - lth_net_position_change_30d
+  - wallet_net_position_change_30d
+  - absorption_rate_30d
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - range
+  - grain
+  - legend
+  - crosshair
+  - screenshot
+  - csv
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Show 30-day net position change by cohort and absorption.
+  acceptance:
+  - Net change equals current supply minus 30-day lagged supply.
+  - Absorption rate formula is documented.
+  - Cohort boundaries are labelled.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: lth_net_position_change_30d, wallet_net_position_change_30d,
+    absorption_rate_30d'
+- id: technical.inflation_adjusted
+  title: Inflation-Adjusted Price
+  category: price
+  status: new
+  implementation: not_started
+  phase: phase_17_parity_extension
+  priority: P2
+  question: What does price look like after inflation?
+  parity:
+  - coc.inflation_adjusted_price
+  - lib.inflation_adjusted
+  archetype: line_dual_axis
+  chart_types:
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: USD
+    scale: log
+  - id: right
+    unit: pct
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - inflation_adjusted_price
+  - inflation_adjusted_drawdown
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - range
+  - grain
+  - legend
+  - crosshair
+  - screenshot
+  - csv
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Deflate price by CPI and compare drawdowns.
+  acceptance:
+  - CPI series and base year are documented.
+  - Real and nominal drawdowns are both available.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: inflation_adjusted_price, inflation_adjusted_drawdown'
+- id: technical.price_ranges
+  title: Price High/Low Range
+  category: price
+  status: new
+  implementation: not_started
+  phase: phase_17_parity_extension
+  priority: P2
+  question: How wide is the recent trading range?
+  parity:
+  - coc.price_highlow_range
+  archetype: multi_series
+  chart_types:
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: pct
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - price_range_7d
+  - price_range_30d
+  - price_range_90d
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - range
+  - grain
+  - legend
+  - crosshair
+  - screenshot
+  - csv
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare short, medium and long rolling ranges.
+  acceptance:
+  - Each range uses high-low over the stated window.
+  - Units are USD or percent and labelled.
+  - Missing days break the window rather than shrink silently.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: price_range_7d, price_range_30d, price_range_90d'
+- id: technical.risk_adjusted
+  title: Risk-Adjusted Returns
+  category: price
+  status: new
+  implementation: not_started
+  phase: phase_17_parity_extension
+  priority: P2
+  question: Is BTC compensating for risk across windows?
+  parity:
+  - coc.sharpe_sortino_calmar
+  archetype: multi_series
+  chart_types:
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - sharpe_30d
+  - sortino_30d
+  - calmar_365d
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - range
+  - grain
+  - legend
+  - crosshair
+  - screenshot
+  - csv
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare Sharpe, Sortino and Calmar with explicit windows.
+  acceptance:
+  - Each ratio uses the documented risk-free rate and window.
+  - Division by zero renders a gap.
+  - Ratios are labelled with their window.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: sharpe_30d, sortino_30d, calmar_365d'
+- id: valuation.monetary_premium
+  title: Monetary Premium
+  category: valuation
+  status: new
+  implementation: not_started
+  phase: phase_17_parity_extension
+  priority: P2
+  question: How much premium does the market pay over thermocap?
+  parity:
+  - coc.monetary_premium
+  archetype: line_oscillator
+  chart_types:
+  - line
+  panes:
+  - metric
+  axes:
+  - id: left
+    unit: ratio
+    scale: linear
+  - id: right
+    unit: USD
+    scale: log
+  metrics: []
+  legacy_metrics: []
+  disabled_metrics: []
+  new_metrics:
+  - monetary_premium
+  default_metric: null
+  series: []
+  variants: []
+  controls:
+  - range
+  - grain
+  - legend
+  - crosshair
+  - screenshot
+  - csv
+  annotations:
+  - crosshair
+  - last_value
+  expected:
+  - Compare market value with the cost of production (thermocap).
+  acceptance:
+  - Monetary premium equals market cap / thermocap.
+  - Zero/negative handling is explicit.
+  data_freshness: daily
+  data_requirements: 'New derived series or external ingest required: monetary_premium'
