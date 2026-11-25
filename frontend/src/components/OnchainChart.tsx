@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
-import { QFChart, LineTool, RayTool, HorizontalLineTool, FibonacciTool, MeasureTool } from "@qfo/qfchart";
+import { QFChart, MeasureTool } from "@qfo/qfchart";
 import type { ChartMode, OhlcBar } from "./PriceChart";
 import { cypherGlassChartOptions, metricLineColor, priceLineColor } from "../lib/chartTheme";
 import { registerChartTools } from "../lib/chartTools";
+import { attachAxisZoom } from "../lib/axisZoom";
 import { registerAllQfDrawings } from "../lib/qfdraw/registry";
 
 export interface SeriesPoint {
@@ -38,25 +39,10 @@ export default function OnchainChart({ chartKey, title, points, priceBars, mode 
     });
     // Registration contract mirrors PriceChart (direct calls; tests mock
     // the full QFChart instance the same way).
-    const lineTool = new LineTool();
-    const rayTool = new RayTool();
-    const horizontalTool = new HorizontalLineTool();
-    const fibTool = new FibonacciTool();
     const measureTool = new MeasureTool();
-    chart.registerPlugin(lineTool);
-    chart.registerPlugin(rayTool);
-    chart.registerPlugin(horizontalTool);
-    chart.registerPlugin(fibTool);
     chart.registerPlugin(measureTool);
-    // QFChart built-ins stay registered directly; the 52 ported QFDraw
-    // renderers/tools (incl. rectangle/text) register via the registry and
-    // join the panel-name map spread below.
     const qf = registerAllQfDrawings(chart);
     registerChartTools(chart, {
-      trend: lineTool,
-      horizontal: horizontalTool,
-      ray: rayTool,
-      fibonacci: fibTool,
       measure: measureTool,
       ...qf,
     });
@@ -102,9 +88,11 @@ export default function OnchainChart({ chartKey, title, points, priceBars, mode 
         { isOverlay: true },
       );
     }
+    const detachZoom = attachAxisZoom(chart);
     chartRef.current = chart;
     onReady?.(chart);
     return () => {
+      detachZoom();
       chart.destroy?.();
       chartRef.current = null;
     };

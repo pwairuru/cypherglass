@@ -494,8 +494,150 @@
 }
 
 .chart-fill {
+  position: relative;
   flex: 1;
   min-height: 360px;
+}
+
+/* Selected-drawing toolbar (TradingView/CMC-style floating popup). */
+.drawing-style-toolbar {
+  position: absolute;
+  z-index: 40;
+  width: 268px;
+  padding: 9px 10px 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.28), 0 2px 6px rgb(0 0 0 / 0.16);
+  font-size: 0.72rem;
+  user-select: none;
+  max-height: calc(100% - 16px);
+  overflow-y: auto;
+}
+.dst-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+.dst-title {
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+.dst-close,
+.dst-actions button,
+.dst-widths button,
+.dst-styles button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.dst-close {
+  width: 20px;
+  height: 20px;
+  color: hsl(var(--muted-foreground));
+}
+.dst-close:hover,
+.dst-actions button:hover,
+.dst-widths button:hover,
+.dst-styles button:hover {
+  background: hsl(var(--accent));
+  color: hsl(var(--foreground));
+}
+.dst-colors {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.dst-swatch {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 2px solid hsl(var(--border));
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.35);
+}
+.dst-swatch[aria-pressed="true"] {
+  border-color: hsl(var(--ring));
+  outline: 2px solid hsl(var(--ring) / 0.35);
+  outline-offset: 1px;
+}
+.dst-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 26px;
+  margin-top: 3px;
+}
+.dst-label {
+  width: 36px;
+  flex-shrink: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.dst-widths,
+.dst-styles {
+  display: flex;
+  gap: 3px;
+}
+.dst-widths button,
+.dst-styles button {
+  height: 24px;
+  min-width: 30px;
+  color: hsl(var(--muted-foreground));
+}
+.dst-widths button[aria-pressed="true"],
+.dst-styles button[aria-pressed="true"] {
+  background: hsl(var(--accent));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+.dst-widths button span:last-child {
+  font-size: 0.65rem;
+  opacity: 0.8;
+}
+.dst-line-preview {
+  display: block;
+  width: 15px;
+  background: currentColor;
+  border-radius: 1px;
+}
+.dst-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid hsl(var(--border));
+}
+.dst-actions button {
+  width: 26px;
+  height: 24px;
+  color: hsl(var(--muted-foreground));
+}
+.dst-actions .dst-danger:hover {
+  color: hsl(var(--destructive));
+  background: hsl(var(--destructive) / 0.1);
+}
+.dst-spacer {
+  flex: 1;
+}
+.dst-star {
+  line-height: 1;
+  font-size: 15px;
 }
 
 .chart-empty,
@@ -580,7 +722,9 @@
   border-radius: 8px;
   background: hsl(var(--muted) / 0.4);
   align-self: flex-start;
-  max-height: 100%;
+  /* Keep overflow visible: the group flyouts open to the right, outside the
+     panel box, and any overflow clip would cut every menu off. */
+  overflow: visible;
 }
 .drawing-panel button {
   position: relative;
@@ -695,6 +839,7 @@
 [data-density="compact"] .chart-area {
   gap: 8px !important;
 }
+
 /* Chart platform: catalog, chart page, controls, legend and archetype views. */
 .charts-catalog,
 .chart-page-shell {

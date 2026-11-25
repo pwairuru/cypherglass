@@ -5,7 +5,9 @@ describe("arrow", () => {
     const r = new ArrowDrawingRenderer();
     const g = r.render({ drawing:{id:"a",type:"arrow",points:[{timeIndex:0,value:1},{timeIndex:1,value:2}]}, pixelPoints:[[0,100],[100,50]], isSelected:true, api:{}, coordSys:{x:0,y:0,width:200,height:150} } as any);
     expect(g.type).toBe("group");
-    expect(g.children.filter((c:any)=>c.type==="line").length).toBe(1);
+    // One visible stroke + one invisible wide hit stroke for easy selection.
+    expect(g.children.filter((c:any)=>c.type==="line").length).toBe(2);
+    expect(g.children.some((c:any)=>c.type==="line" && c.name==="line")).toBe(true);
     expect(g.children.filter((c:any)=>c.type==="polygon").length).toBe(1);
     expect(g.children.filter((c:any)=>c.type==="circle").length).toBe(2);
     const head = g.children.find((c:any)=>c.type==="polygon");

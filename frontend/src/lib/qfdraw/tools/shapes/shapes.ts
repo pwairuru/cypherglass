@@ -1,9 +1,14 @@
 // frontend/src/lib/qfdraw/tools/shapes/shapes.ts
 // Attribution: shape math adapted from lightweight-charts-drawing MIT, tools/shapes.
 import type { DrawingRenderContext, DrawingRenderer } from "@qfo/qfchart";
-import { QfTool, groupEl, lineEl } from "../../base";
+import { QfTool, ctxColor, ctxDash, ctxDashOr, ctxWidth, groupEl, lineEl } from "../../base";
 type P=[number,number];
-const st=(c:DrawingRenderContext)=>({stroke:c.drawing.style?.color??"#2962FF",lineWidth:c.drawing.style?.lineWidth??2,fill:"transparent"});
+const st=(c:DrawingRenderContext)=>({
+  stroke:ctxColor(c),
+  lineWidth:ctxWidth(c),
+  fill:"transparent",
+  ...(ctxDash(c)?{lineDash:ctxDash(c)}:{}),
+});
 /** ECharts custom series has no bezier element type ("bezier-curve" throws
  * "graphic type can not be found"), so curves render as sampled polylines. */
 export function sampleCubic(p0:P,p1:P,p2:P,p3:P,segments=24): P[] {
@@ -48,8 +53,9 @@ export class CurveRenderer implements DrawingRenderer { type="curve";
     return groupEl([{type:"polyline",shape:{points:sampleCubic(a,b,cc,d)},style:st(c)}]); } }
 export class DoubleCurveRenderer implements DrawingRenderer { type="doubleCurve";
   render(c:DrawingRenderContext):any{ const pts=c.pixelPoints as P[] | undefined; if(!pts||pts.length<3) return groupEl([]); const [a,b,cc]=pts;
+    const color=ctxColor(c);
     return groupEl([{type:"polyline",shape:{points:sampleCubic(a,b,b,cc)},style:st(c)},
-      lineEl(a,cc,{color:"#787B86",dash:[4,4]})]); } }
+      lineEl(a,cc,{color,lineWidth:ctxWidth(c),dash:ctxDashOr(c,[4,4])})]); } }
 export class RectangleTool extends QfTool { constructor(){super("qf:rectangle");} }
 export class RotatedRectangleTool extends QfTool { constructor(){super("qf:rotatedRectangle");} }
 export class CircleTool extends QfTool { constructor(){super("qf:circle");} }

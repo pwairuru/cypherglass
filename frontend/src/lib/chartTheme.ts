@@ -69,7 +69,7 @@ export interface CypherGlassChartOptions {
   grid: { show: boolean; lineColor: string; lineOpacity: number; borderShow: boolean };
   lastPriceLine: { visible: boolean; color: string; lineStyle: "dashed" };
   layout: { left: string; right: string };
-  dataZoom: { visible: boolean };
+  dataZoom: { visible: boolean; zoomOnTouch: boolean; pannable: boolean };
 }
 
 /** Shared QFChart options for every CypherGlass chart. */
@@ -90,7 +90,8 @@ export function cypherGlassChartOptions(lineMode: boolean): CypherGlassChartOpti
       lineStyle: "dashed" as const,
     },
     layout: { left: "2%", right: "7%" },
-    dataZoom: { visible: false },
+    // Slider hidden, but inside zoom stays live: wheel zooms time, drag pans.
+    dataZoom: { visible: false, zoomOnTouch: true, pannable: true },
   };
   if (lineMode) {
     return {

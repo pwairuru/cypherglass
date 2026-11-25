@@ -6,12 +6,24 @@ describe("registry", () => {
     const chart: any = { registerDrawingRenderer:(r:any)=>renderers.push(r), registerPlugin:(p:any)=>{p.init({addDrawing:()=>{}});plugins.push(p);} };
     const map = registerAllQfDrawings(chart);
     expect(renderers.length).toBeGreaterThanOrEqual(43);
-    for (const t of ["arrow","parallelChannel","andrewsPitchfork","fibExtension","gannBox","longPosition","rectangle","text","table"]) {
+    for (const t of [
+      "line", "horizontal-line", "vertical-line", "ray", "horizontal-ray",
+      "vertical-ray", "extended-line", "fibonacci",
+      "arrow","parallelChannel","andrewsPitchfork","fibExtension","gannBox",
+      "longPosition","rectangle","text","table",
+    ]) {
       expect(renderers.some((r)=>r.type===t), t).toBe(true);
     }
-    for (const k of ["arrow","parallelChannel","gannBox","longPosition","rectangle","text"]) {
+    for (const k of [
+      "line", "horizontal-line", "vertical-line", "ray", "horizontal-ray",
+      "vertical-ray", "extended-line",
+      "arrow","parallelChannel","gannBox","longPosition","rectangle","text",
+    ]) {
       expect(map[k]).toBeDefined();
     }
+    expect((map.longPosition as any).defaultColor).toBe("#089981");
+    expect((map.shortPosition as any).defaultColor).toBe("#F23645");
+    expect((map.highlighter as any).defaultColor).toBe("#FFD600");
   });
   it("drawings survive snapshot/restore with new types", async () => {
     const { snapshotDrawings, restoreDrawings } = await import("../chartTools");

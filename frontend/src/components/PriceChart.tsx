@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
-import { QFChart, LineTool, RayTool, HorizontalLineTool, FibonacciTool, MeasureTool } from "@qfo/qfchart";
+import { QFChart, MeasureTool } from "@qfo/qfchart";
 import { sma } from "../lib/indicators";
 import { cypherGlassChartOptions, metricLineColor, priceLineColor, smaLineColor } from "../lib/chartTheme";
 import { registerChartTools } from "../lib/chartTools";
+import { attachAxisZoom } from "../lib/axisZoom";
 import { registerAllQfDrawings } from "../lib/qfdraw/registry";
 export interface OhlcBar {
   /** Bar time in unix milliseconds (QFChart x labels use new Date(time); Dashboard passes backend ms via toMsBars). */
@@ -23,25 +24,13 @@ export default function PriceChart({ bars, chartKey, mode = "candles", onReady }
       watermark: false,
       ...cypherGlassChartOptions(lineMode),
     });
-    const lineTool = new LineTool();
-    const rayTool = new RayTool();
-    const horizontalTool = new HorizontalLineTool();
-    const fibTool = new FibonacciTool();
     const measureTool = new MeasureTool();
-    chart.registerPlugin(lineTool);
-    chart.registerPlugin(rayTool);
-    chart.registerPlugin(horizontalTool);
-    chart.registerPlugin(fibTool);
     chart.registerPlugin(measureTool);
-    // QFChart built-ins stay registered directly; the 52 ported QFDraw
-    // renderers/tools (incl. rectangle/text) register via the registry and
-    // join the panel-name map spread below.
+    // First-party QFDraw line family + Fibonacci retracement replace
+    // QFChart's built-ins so colour, width, dash and anchor dots stay under
+    // our control. Measure remains a transient built-in overlay.
     const qf = registerAllQfDrawings(chart);
     registerChartTools(chart, {
-      trend: lineTool,
-      horizontal: horizontalTool,
-      ray: rayTool,
-      fibonacci: fibTool,
       measure: measureTool,
       ...qf,
     });
@@ -53,9 +42,14 @@ export default function PriceChart({ bars, chartKey, mode = "candles", onReady }
     }
     const s20 = sma(closes, 20);
     chart.addIndicator("SMA_20", { sma: { data: times.map((t, i) => ({ time: t, value: s20[i] ?? NaN })), options: { style: "line", color: smaLineColor(), linewidth: 1.5 } } }, { isOverlay: true });
+    const detachZoom = attachAxisZoom(chart);
     chartRef.current = chart;
     onReady?.(chart);
-    return () => { chart.destroy?.(); chartRef.current = null; };
+    return () => {
+      detachZoom();
+      chart.destroy?.();
+      chartRef.current = null;
+    };
     // Rebuild when bars change (not chartKey alone): range switches keep the
     // same key but must recompute the SMA_20 indicator, which updateData
     // alone cannot do.

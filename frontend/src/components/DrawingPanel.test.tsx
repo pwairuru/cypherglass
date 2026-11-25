@@ -10,10 +10,24 @@ function setup() {
   return onTool;
 }
 describe("DrawingPanel", () => {
-  it("emits tool activation", () => {
+  it("emits tool activation for the quick line family", () => {
     const onTool = setup();
-    fireEvent.click(screen.getByRole("button", { name: /trend/i }));
-    expect(onTool).toHaveBeenCalledWith("trend");
+    fireEvent.click(screen.getByRole("button", { name: /trend line/i }));
+    expect(onTool).toHaveBeenCalledWith("line");
+    for (const label of [
+      /horizontal line/i,
+      /vertical line/i,
+      /^ray$/i,
+      /horizontal ray/i,
+      /extended line/i,
+    ]) {
+      fireEvent.click(screen.getByRole("button", { name: label }));
+    }
+    expect(onTool).toHaveBeenCalledWith("horizontal-line");
+    expect(onTool).toHaveBeenCalledWith("vertical-line");
+    expect(onTool).toHaveBeenCalledWith("ray");
+    expect(onTool).toHaveBeenCalledWith("horizontal-ray");
+    expect(onTool).toHaveBeenCalledWith("extended-line");
   });
   it("activates rectangle/text via QFDraw registry groups", () => {
     const onTool = setup();

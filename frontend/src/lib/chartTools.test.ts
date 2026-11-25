@@ -8,6 +8,10 @@ import {
   undoChartDrawing,
   registerChartTools,
   activateChartTool,
+  clearChartDrawingSelection,
+  duplicateChartDrawing,
+  selectChartDrawing,
+  updateDrawingStyle,
 } from "./chartTools";
 
 // Fake chart honoring the real QFChart drawing contract (verified in
@@ -17,12 +21,22 @@ function fakeChartWithDrawings(initial: DrawingElement[] = []): QFChart {
   const drawings: DrawingElement[] = initial.map((d) => ({ ...d }));
   return {
     drawings,
+    selectedDrawingId: null,
+    events: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+    render: vi.fn(),
     addDrawing(d: DrawingElement) {
       drawings.push(d);
     },
     removeDrawing(id: string) {
       const i = drawings.findIndex((d) => d.id === id);
       if (i !== -1) drawings.splice(i, 1);
+    },
+    getDrawing(id: string) {
+      return drawings.find((d) => d.id === id);
+    },
+    updateDrawing(d: DrawingElement) {
+      const i = drawings.findIndex((x) => x.id === d.id);
+      if (i !== -1) drawings[i] = d;
     },
   } as unknown as QFChart;
 }
@@ -76,6 +90,35 @@ describe("chartTools drawing round-trip", () => {
     expect(restoreDrawings(fakeChartWithDrawings(), { state: [] })).toBe(0);
   });
 
+  it("migrates legacy line styles on restore but keeps user colours", () => {
+    const chart = fakeChartWithDrawings();
+    const legacy: DrawingElement = {
+      id: "old-line",
+      type: "line",
+      points: [
+        { timeIndex: 0, value: 1 },
+        { timeIndex: 1, value: 2 },
+      ],
+      style: { color: "#d1d4dc", lineWidth: 1 },
+    };
+    const custom: DrawingElement = {
+      ...legacy,
+      id: "custom-line",
+      style: { color: "#F23645", lineWidth: 1 },
+    };
+    expect(restoreDrawings(chart, [legacy, custom])).toBe(2);
+    expect(chart.getDrawing("old-line")?.style).toMatchObject({
+      color: "#2962FF",
+      lineWidth: 2,
+      lineStyle: "solid",
+    });
+    expect(chart.getDrawing("custom-line")?.style).toMatchObject({
+      color: "#F23645",
+      lineWidth: 1,
+      lineStyle: "solid",
+    });
+  });
+
   it("undo removes the last drawing and returns its id", () => {
     const chart = fakeChartWithDrawings([d1, d2]);
     expect(undoChartDrawing(chart)).toBe("fib-2");
@@ -92,6 +135,93 @@ function fakeChart() {
 function fakeTool(id: string) {
   return { id, init: vi.fn(), activate: vi.fn(), deactivate: vi.fn() };
 }
+
+describe("drawing style editing", () => {
+  it("patches colour, width and line style on the selected drawing", () => {
+    const chart = fakeChartWithDrawings([{ ...d1, style: { color: "#d1d4dc", lineWidth: 1 } }]);
+    const next = updateDrawingStyle(chart, "line-1", {
+      color: "#F23645",
+      lineWidth: 3,
+      lineStyle: "dashed",
+    });
+    expect(next?.style).toMatchObject({
+      color: "#F23645",
+      lineWidth: 3,
+      lineStyle: "dashed",
+    });
+    expect(chart.getDrawing("line-1")?.style).toMatchObject({
+      color: "#F23645",
+      lineWidth: 3,
+      lineStyle: "dashed",
+    });
+  });
+
+  it("returns null for an unknown drawing id", () => {
+    const chart = fakeChartWithDrawings([d1]);
+    expect(updateDrawingStyle(chart, "nope", { color: "#089981" })).toBeNull();
+    expect(drawingIds(chart)).toEqual(["line-1"]);
+  });
+
+  it("duplicates a drawing with a new id, cumulative offset and a copied style", () => {
+    const chart = fakeChartWithDrawings([
+      { ...d1, style: { color: "#9C27B0", lineWidth: 2 } },
+    ]);
+    const id = duplicateChartDrawing(chart, "line-1");
+    expect(id).not.toBeNull();
+    expect(id).not.toBe("line-1");
+    const copy = chart.getDrawing(id!);
+    expect(copy).toMatchObject({ type: "line", style: { color: "#9C27B0", lineWidth: 2 } });
+    expect(copy?.points.map((p) => p.timeIndex)).toEqual([1, 2]);
+    expect(drawingIds(chart)).toEqual(["line-1", id]);
+    expect((chart as any).selectedDrawingId).toBe(id);
+    expect(chart.events.emit).toHaveBeenCalledWith("drawing:selected", { id });
+
+    // A second duplicate of the same original must not land on the first.
+    const id2 = duplicateChartDrawing(chart, "line-1");
+    expect(chart.getDrawing(id2!)?.points.map((p) => p.timeIndex)).toEqual([2, 3]);
+    expect(id2).not.toBe(id);
+  });
+
+  it("does not duplicate an unknown drawing", () => {
+    const chart = fakeChartWithDrawings([d1]);
+    expect(duplicateChartDrawing(chart, "nope")).toBeNull();
+    expect(drawingIds(chart)).toEqual(["line-1"]);
+  });
+});
+
+describe("drawing selection helpers", () => {
+  it("selects an existing drawing and re-renders", () => {
+    const chart = fakeChartWithDrawings([d1]);
+    selectChartDrawing(chart, "line-1");
+    expect((chart as any).selectedDrawingId).toBe("line-1");
+    expect(chart.events.emit).toHaveBeenCalledWith("drawing:selected", { id: "line-1" });
+    expect((chart as any).render).toHaveBeenCalled();
+  });
+
+  it("ignores unknown drawing ids", () => {
+    const chart = fakeChartWithDrawings([d1]);
+    selectChartDrawing(chart, "nope");
+    expect((chart as any).selectedDrawingId).toBeNull();
+    expect(chart.events.emit).not.toHaveBeenCalled();
+  });
+
+  it("clears the current selection without touching drawings", () => {
+    const chart = fakeChartWithDrawings([d1]);
+    (chart as any).selectedDrawingId = "line-1";
+    clearChartDrawingSelection(chart);
+    expect((chart as any).selectedDrawingId).toBeNull();
+    expect(chart.events.emit).toHaveBeenCalledWith("drawing:deselected", { id: "line-1" });
+    expect((chart as any).render).toHaveBeenCalled();
+    expect(drawingIds(chart)).toEqual(["line-1"]);
+  });
+
+  it("is a no-op when nothing is selected", () => {
+    const chart = fakeChartWithDrawings([d1]);
+    clearChartDrawingSelection(chart);
+    expect(chart.events.emit).not.toHaveBeenCalled();
+    expect((chart as any).render).not.toHaveBeenCalled();
+  });
+});
 
 describe("activateChartTool", () => {
   it("deactivates the previously activated tool so only one tool is live", () => {
