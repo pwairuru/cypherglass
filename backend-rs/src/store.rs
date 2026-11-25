@@ -132,7 +132,10 @@ impl Store {
         self.evict_expired_challenges(&mut inner);
         inner.challenges.insert(
             pubkey.to_string(),
-            (challenge.to_string(), now() + Duration::from_secs(CHALLENGE_TTL_SECS)),
+            (
+                challenge.to_string(),
+                now() + Duration::from_secs(CHALLENGE_TTL_SECS),
+            ),
         );
         Ok(())
     }
@@ -152,14 +155,23 @@ impl Store {
         Ok(self.mem_get_challenge(&mut inner, pubkey))
     }
 
-    pub async fn consume_challenge(&self, pubkey: &str, challenge: &str) -> Result<bool, StoreError> {
+    pub async fn consume_challenge(
+        &self,
+        pubkey: &str,
+        challenge: &str,
+    ) -> Result<bool, StoreError> {
         let key = format!("nostr:chal:{}", pubkey);
         let mut inner = self.inner.lock().await;
         if let Some(client) = self.get_client(&mut inner).await? {
             let script = Script::new(
                 "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end",
             );
-            match script.key(&key).arg(challenge).invoke_async::<bool>(client).await {
+            match script
+                .key(&key)
+                .arg(challenge)
+                .invoke_async::<bool>(client)
+                .await
+            {
                 Ok(deleted) => return Ok(deleted),
                 Err(_) => {
                     inner.client = None;
@@ -168,7 +180,11 @@ impl Store {
             }
         }
         let current = self.mem_get_challenge(&mut inner, pubkey);
-        if current.as_ref().map(|c| constant_time_eq(c, challenge)).unwrap_or(false) {
+        if current
+            .as_ref()
+            .map(|c| constant_time_eq(c, challenge))
+            .unwrap_or(false)
+        {
             inner.challenges.remove(pubkey);
             Ok(true)
         } else {
@@ -180,10 +196,7 @@ impl Store {
         let key = format!("oauth:state:{}", state);
         let mut inner = self.inner.lock().await;
         if let Some(client) = self.get_client(&mut inner).await? {
-            match client
-                .set_ex::<_, _, ()>(&key, "1", STATE_TTL_SECS)
-                .await
-            {
+            match client.set_ex::<_, _, ()>(&key, "1", STATE_TTL_SECS).await {
                 Ok(()) => return Ok(()),
                 Err(_) => {
                     inner.client = None;
@@ -192,9 +205,10 @@ impl Store {
             }
         }
         self.evict_expired_states(&mut inner);
-        inner
-            .states
-            .insert(state.to_string(), now() + Duration::from_secs(STATE_TTL_SECS));
+        inner.states.insert(
+            state.to_string(),
+            now() + Duration::from_secs(STATE_TTL_SECS),
+        );
         Ok(())
     }
 
@@ -355,7 +369,10 @@ mod tests {
     async fn challenge_roundtrip_in_memory() {
         let s = Store::new("redis://localhost:0".into());
         s.issue_challenge("pk", "chal-1").await.unwrap();
-        assert_eq!(s.get_challenge("pk").await.unwrap(), Some("chal-1".to_string()));
+        assert_eq!(
+            s.get_challenge("pk").await.unwrap(),
+            Some("chal-1".to_string())
+        );
         assert!(s.consume_challenge("pk", "chal-1").await.unwrap());
         assert_eq!(s.get_challenge("pk").await.unwrap(), None);
     }
@@ -365,7 +382,10 @@ mod tests {
         let s = Store::new("redis://localhost:0".into());
         s.issue_challenge("pk", "chal-1").await.unwrap();
         assert!(!s.consume_challenge("pk", "wrong").await.unwrap());
-        assert_eq!(s.get_challenge("pk").await.unwrap(), Some("chal-1".to_string()));
+        assert_eq!(
+            s.get_challenge("pk").await.unwrap(),
+            Some("chal-1".to_string())
+        );
     }
 
     #[tokio::test]

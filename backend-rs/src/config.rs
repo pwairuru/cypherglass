@@ -6,9 +6,7 @@ fn _default_database_url() -> String {
 }
 
 fn _default_jwt_secret() -> SecretString {
-    SecretString::new(
-        "dev-only-not-for-prod-0123456789abcdef0123456789abcdef01234567".into(),
-    )
+    SecretString::new("dev-only-not-for-prod-0123456789abcdef0123456789abcdef01234567".into())
 }
 
 #[derive(Debug, Clone)]
@@ -62,8 +60,10 @@ impl Settings {
             clickhouse_user: env::var("CLICKHOUSE_USER").unwrap_or_else(|_| "bitcoin".into()),
             clickhouse_password: env::var("CLICKHOUSE_PASSWORD")
                 .unwrap_or_else(|_| "bitcoin_clickhouse".into()),
-            clickhouse_database: env::var("CLICKHOUSE_DATABASE").unwrap_or_else(|_| "bitcoin".into()),
-            valkey_url: env::var("VALKEY_URL").unwrap_or_else(|_| "valkey://localhost:6379/0".into()),
+            clickhouse_database: env::var("CLICKHOUSE_DATABASE")
+                .unwrap_or_else(|_| "bitcoin".into()),
+            valkey_url: env::var("VALKEY_URL")
+                .unwrap_or_else(|_| "valkey://localhost:6379/0".into()),
             jwt_secret: SecretString::new(jwt_secret_raw.into()),
             jwt_expire_min: env::var("JWT_EXPIRE_MIN")
                 .ok()

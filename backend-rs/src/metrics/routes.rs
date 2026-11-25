@@ -11,10 +11,7 @@ use crate::AppState;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/v1/metrics", axum::routing::get(list_metrics))
-        .route(
-            "/api/v1/metrics/coverage",
-            axum::routing::get(coverage),
-        )
+        .route("/api/v1/metrics/coverage", axum::routing::get(coverage))
         .route(
             "/api/v1/metrics/{metric_id}/series",
             axum::routing::get(series),
@@ -25,10 +22,7 @@ pub fn router() -> Router<AppState> {
         )
 }
 
-async fn list_metrics(
-    State(_state): State<AppState>,
-    _user: CurrentUser,
-) -> Json<Value> {
+async fn list_metrics(State(_state): State<AppState>, _user: CurrentUser) -> Json<Value> {
     Json(json!(service::list_metrics()))
 }
 

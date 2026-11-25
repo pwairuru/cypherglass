@@ -91,7 +91,9 @@ pub fn validate_avatar_url(url: &str) -> Result<String, &'static str> {
     if lower.starts_with("javascript:") || lower.starts_with("data:") {
         return Err("avatar_url scheme not allowed");
     }
-    if !(trimmed.starts_with("https://") || trimmed.starts_with("http://") || trimmed.starts_with('/'))
+    if !(trimmed.starts_with("https://")
+        || trimmed.starts_with("http://")
+        || trimmed.starts_with('/'))
     {
         return Err("avatar_url must be https://, http://, or site-relative /path");
     }

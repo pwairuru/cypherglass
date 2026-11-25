@@ -87,8 +87,14 @@ fn scope(provider: &str) -> &str {
 
 fn client_credentials(provider: &str, state: &AppState) -> Result<(String, String), OAuthError> {
     match provider {
-        "google" => Ok((state.google_client_id.clone(), state.google_client_secret.clone())),
-        "github" => Ok((state.github_client_id.clone(), state.github_client_secret.clone())),
+        "google" => Ok((
+            state.google_client_id.clone(),
+            state.google_client_secret.clone(),
+        )),
+        "github" => Ok((
+            state.github_client_id.clone(),
+            state.github_client_secret.clone(),
+        )),
         _ => Err(OAuthError::UnknownProvider),
     }
 }
@@ -128,7 +134,10 @@ pub fn get_oauth_url(provider: &str, state: &AppState) -> Result<OAuthUrlOut, OA
         .extend_pairs(params)
         .finish();
     let auth_url = format!("{}?{}", auth_url(provider), qs);
-    Ok(OAuthUrlOut { auth_url, state: oauth_state })
+    Ok(OAuthUrlOut {
+        auth_url,
+        state: oauth_state,
+    })
 }
 
 pub(crate) fn normalize_identity(provider: &str, info: &serde_json::Value) -> Identity {
@@ -140,19 +149,34 @@ pub(crate) fn normalize_identity(provider: &str, info: &serde_json::Value) -> Id
         Identity {
             provider: provider.to_string(),
             uid,
-            email: info.get("email").and_then(|v| v.as_str()).map(|s| s.to_string()),
-            name: info.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()),
-            avatar_url: info.get("picture").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            email: info
+                .get("email")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            name: info
+                .get("name")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            avatar_url: info
+                .get("picture")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
         }
     } else {
-        let uid = info.get("id").and_then(|v| {
-            if let Some(n) = v.as_i64() {
-                Some(n.to_string())
-            } else {
-                v.as_str().map(|s| s.to_string())
-            }
-        }).unwrap_or_default();
-        let email = info.get("email").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let uid = info
+            .get("id")
+            .and_then(|v| {
+                if let Some(n) = v.as_i64() {
+                    Some(n.to_string())
+                } else {
+                    v.as_str().map(|s| s.to_string())
+                }
+            })
+            .unwrap_or_default();
+        let email = info
+            .get("email")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
         let login = info.get("login").and_then(|v| v.as_str());
         let name = info
             .get("name")
@@ -160,7 +184,10 @@ pub(crate) fn normalize_identity(provider: &str, info: &serde_json::Value) -> Id
             .filter(|s| !s.trim().is_empty())
             .or(login)
             .map(|s| s.to_string());
-        let avatar_url = info.get("avatar_url").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let avatar_url = info
+            .get("avatar_url")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
         Identity {
             provider: provider.to_string(),
             uid,
@@ -171,7 +198,11 @@ pub(crate) fn normalize_identity(provider: &str, info: &serde_json::Value) -> Id
     }
 }
 
-pub async fn complete_oauth(provider: &str, code: &str, state: &AppState) -> Result<Identity, OAuthError> {
+pub async fn complete_oauth(
+    provider: &str,
+    code: &str,
+    state: &AppState,
+) -> Result<Identity, OAuthError> {
     if !PROVIDERS.contains(&provider) {
         return Err(OAuthError::UnknownProvider);
     }
@@ -214,7 +245,10 @@ async fn exchange_code(
         .await
         .map_err(|e| OAuthError::ProviderError(e.to_string()))?;
     if !res.status().is_success() {
-        return Err(OAuthError::ProviderError(format!("token exchange status: {}", res.status())));
+        return Err(OAuthError::ProviderError(format!(
+            "token exchange status: {}",
+            res.status()
+        )));
     }
     let data: serde_json::Value = res
         .json()
@@ -226,7 +260,10 @@ async fn exchange_code(
         .ok_or_else(|| OAuthError::ProviderError("no access_token".into()))
 }
 
-async fn fetch_userinfo(provider: &str, access_token: &str) -> Result<serde_json::Value, OAuthError> {
+async fn fetch_userinfo(
+    provider: &str,
+    access_token: &str,
+) -> Result<serde_json::Value, OAuthError> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .build()
@@ -240,16 +277,27 @@ async fn fetch_userinfo(provider: &str, access_token: &str) -> Result<serde_json
         .await
         .map_err(|e| OAuthError::ProviderError(e.to_string()))?;
     if !res.status().is_success() {
-        return Err(OAuthError::ProviderError(format!("userinfo status: {}", res.status())));
+        return Err(OAuthError::ProviderError(format!(
+            "userinfo status: {}",
+            res.status()
+        )));
     }
-    res.json().await.map_err(|e| OAuthError::ProviderError(e.to_string()))
+    res.json()
+        .await
+        .map_err(|e| OAuthError::ProviderError(e.to_string()))
 }
 
 pub fn sanitize_username(candidate: &str, fallback: &str) -> String {
     let lowered = candidate.trim().to_lowercase();
     let name = SANITIZE_RE.replace_all(&lowered, "").into_owned();
-    let name = name.trim_matches(|c: char| c == '.' || c == '_' || c == '-').to_string();
-    let name = if name.len() > 32 { name[..32].to_string() } else { name };
+    let name = name
+        .trim_matches(|c: char| c == '.' || c == '_' || c == '-')
+        .to_string();
+    let name = if name.len() > 32 {
+        name[..32].to_string()
+    } else {
+        name
+    };
     if name.is_empty() {
         fallback.to_string()
     } else {

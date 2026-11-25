@@ -93,13 +93,7 @@ impl ChClient {
         )
     }
 
-    fn new(
-        host: String,
-        port: u16,
-        user: String,
-        password: String,
-        database: String,
-    ) -> Self {
+    fn new(host: String, port: u16, user: String, password: String, database: String) -> Self {
         let client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(5))
             .timeout(Duration::from_secs(15))
@@ -195,10 +189,7 @@ impl ChClient {
 
         let mut rows = Vec::with_capacity(data.len());
         for row in data {
-            let cells = row
-                .as_array()
-                .ok_or_else(ChError::parse_error)?
-                .clone();
+            let cells = row.as_array().ok_or_else(ChError::parse_error)?.clone();
             rows.push(cells);
         }
 

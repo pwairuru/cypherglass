@@ -86,7 +86,10 @@ pub fn check_range(f: &str, t: &str, kind: &str) -> Result<(), ApiError> {
             Ok(v) => v,
             Err(_) => return Ok(()),
         };
-        (df.and_hms_opt(0, 0, 0).unwrap(), dt.and_hms_opt(0, 0, 0).unwrap())
+        (
+            df.and_hms_opt(0, 0, 0).unwrap(),
+            dt.and_hms_opt(0, 0, 0).unwrap(),
+        )
     };
 
     let days = (dt - df).num_days();
@@ -379,7 +382,8 @@ mod tests {
 
     #[test]
     fn hourly_over_370d_422() {
-        let err = check_range("2023-01-01 00:00:00", "2024-01-15 00:00:00", "DateTime").unwrap_err();
+        let err =
+            check_range("2023-01-01 00:00:00", "2024-01-15 00:00:00", "DateTime").unwrap_err();
         assert_eq!(err.status, 422);
         assert!(err.message.contains("370"));
     }
