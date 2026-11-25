@@ -8,6 +8,7 @@ import MetricList, { type MetricSummary } from "../components/MetricList";
 import PriceChart, { type ChartMode, type OhlcBar } from "../components/PriceChart";
 import OnchainChart, { type SeriesPoint } from "../components/OnchainChart";
 import DrawingPanel from "../components/DrawingPanel";
+import DrawingStyleToolbar from "../components/DrawingStyleToolbar";
 import ThemeSwitcher from "../components/ThemeSwitcher";
 import { useTheme } from "../context/ThemeContext";
 import { grainOf, groupMetrics } from "../lib/metricGroups";
@@ -123,8 +124,10 @@ function ChartCard({
 }) {
   const chartRef = useRef<QFChart | null>(null);
   const wrapRef = useRef<HTMLElement>(null);
+  const chartFillRef = useRef<HTMLDivElement>(null);
   const saveCleanup = useRef<(() => void) | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [activeChart, setActiveChart] = useState<QFChart | null>(null);
   const [isFull, setIsFull] = useState(false);
   const [ioError, setIoError] = useState<string | null>(null);
   const [mode, setMode] = useState<ChartMode>(defaultMode);
@@ -153,6 +156,7 @@ function ChartCard({
     // listeners first, otherwise saves duplicate and dead charts leak.
     saveCleanup.current?.();
     chartRef.current = chart;
+    setActiveChart(chart);
     restoreDrawings(chart, loadDrawings(chartKey));
     const save = () => saveDrawings(chartKey, snapshotDrawings(chart));
     for (const ev of DRAWING_SAVE_EVENTS) chart.events?.on(ev, save);
@@ -269,8 +273,13 @@ function ChartCard({
           onExport={handleExport}
           onImport={() => fileRef.current?.click()}
         />
-        <div className="chart-fill" style={{ flex: 1 }}>
+        <div className="chart-fill" ref={chartFillRef} style={{ flex: 1 }}>
           {renderChart(handleReady, mode)}
+          <DrawingStyleToolbar
+            chart={activeChart}
+            containerRef={chartFillRef}
+            onChange={persist}
+          />
         </div>
       </div>
       {description && <p className="chart-desc chart-desc-below">{description}</p>}

@@ -9,6 +9,7 @@
 // wrapper draws them with opacity 0/1 by ctx.isSelected. Texts are silenced
 // so clicks pass through to the body underneath.
 import type { DrawingRenderContext, DrawingRenderer } from "@qfo/qfchart";
+import { normalizeDrawingStyle, type QfDrawingStyle } from "./style";
 
 const MAX_HANDLES = 50;
 
@@ -33,7 +34,11 @@ export function withSelection(inner: DrawingRenderer): DrawingRenderer {
         }
         if (!k.name) k.name = "line";
       }
-      const color = ctx.drawing.style?.color ?? "#2962FF";
+      const style = normalizeDrawingStyle(
+        ctx.drawing.type,
+        (ctx.drawing.style ?? {}) as QfDrawingStyle,
+      );
+      const color = style.color ?? "#2962FF";
       const pts = (ctx.pixelPoints ?? []) as [number, number][];
       const hasBody = kids.some((k) => k?.name === "line");
       if (!hasBody && pts.length > 0) {
@@ -51,9 +56,9 @@ export function withSelection(inner: DrawingRenderer): DrawingRenderer {
         kids.push({
           type: "circle",
           name: `point-${i}`,
-          shape: { cx: p[0], cy: p[1], r: 4 },
-          style: { fill: "#fff", stroke: color, lineWidth: 1, opacity: ctx.isSelected ? 1 : 0 },
-          z: 100,
+          shape: { cx: p[0], cy: p[1], r: 5 },
+          style: { fill: "#fff", stroke: color, lineWidth: 2, opacity: ctx.isSelected ? 1 : 0 },
+          z: 1000,
         });
       }
       return { ...g, children: kids };

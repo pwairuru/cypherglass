@@ -4,18 +4,27 @@ import type { Plugin, QFChart } from "@qfo/qfchart";
 import type { QfCreateMode } from "./base";
 import { withSelection } from "./select";
 import { ArrowDrawingRenderer, ArrowTool } from "./tools/lines/arrow";
+import { LineRenderer, LineTool, HorizontalLineRenderer, HorizontalLineTool, VerticalLineRenderer, VerticalLineTool, RayRenderer, RayTool, HorizontalRayRenderer, HorizontalRayTool, VerticalRayRenderer, VerticalRayTool, ExtendedLineRenderer, ExtendedLineTool } from "./tools/lines/lineFamily";
 import { ParallelChannelRenderer, ParallelChannelTool, RegressionTrendRenderer, RegressionTrendTool, FlatTopBottomRenderer, FlatTopBottomTool, DisjointChannelRenderer, DisjointChannelTool } from "./tools/channels/channels";
 import { AndrewsPitchforkRenderer, AndrewsPitchforkTool, SchiffPitchforkRenderer, SchiffPitchforkTool, ModifiedSchiffPitchforkRenderer, ModifiedSchiffPitchforkTool, InsidePitchforkRenderer, InsidePitchforkTool } from "./tools/pitchforks/pitchforks";
-import { FibExtensionRenderer, FibExtensionTool, FibTimeZoneRenderer, FibTimeZoneTool, FibTimeExtensionRenderer, FibTimeExtensionTool, FibCirclesRenderer, FibCirclesTool, FibSpiralRenderer, FibSpiralTool, FibArcsRenderer, FibArcsTool, FibWedgeRenderer, FibWedgeTool, PitchfanRenderer, PitchfanTool } from "./tools/fibonacci/extras";
+import { FibonacciRetracementRenderer, FibonacciRetracementTool, FibExtensionRenderer, FibExtensionTool, FibTimeZoneRenderer, FibTimeZoneTool, FibTimeExtensionRenderer, FibTimeExtensionTool, FibCirclesRenderer, FibCirclesTool, FibSpiralRenderer, FibSpiralTool, FibArcsRenderer, FibArcsTool, FibWedgeRenderer, FibWedgeTool, PitchfanRenderer, PitchfanTool } from "./tools/fibonacci/extras";
 import { GannBoxRenderer, GannBoxTool, GannFanRenderer, GannFanTool, GannSquareFixedRenderer, GannSquareFixedTool, GannSquareRenderer, GannSquareTool } from "./tools/gann/gann";
 import { LongPositionRenderer, LongPositionTool, ShortPositionRenderer, ShortPositionTool, ForecastRenderer, ForecastTool, BarsPatternRenderer, BarsPatternTool, ProjectionRenderer, ProjectionTool, PriceRangeRenderer, PriceRangeTool, DatePriceRangeRenderer, DatePriceRangeTool } from "./tools/forecast/forecast";
 import { RectangleRenderer, RectangleTool, RotatedRectangleRenderer, RotatedRectangleTool, CircleRenderer, CircleTool, EllipseRenderer, EllipseTool, TriangleRenderer, TriangleTool, ArcRenderer, ArcTool, PathRenderer, PathTool, PolylineRenderer, PolylineTool, CurveRenderer, CurveTool, DoubleCurveRenderer, DoubleCurveTool } from "./tools/shapes/shapes";
 import { TextRenderer, TextTool, CalloutRenderer, CalloutTool, BrushRenderer, BrushTool, HighlighterRenderer, HighlighterTool, ArrowMarkerRenderer, ArrowMarkerTool, AnchoredTextRenderer, AnchoredTextTool, NoteRenderer, NoteTool, PriceNoteRenderer, PriceNoteTool, PriceLabelRenderer, PriceLabelTool, FlagMarkRenderer, FlagMarkTool, PinRenderer, PinTool, CommentRenderer, CommentTool, SignpostRenderer, SignpostTool, TableRenderer, TableTool } from "./tools/annotations/annotations";
 
-export const TOOL_TYPES = ["arrow","parallelChannel","regressionTrend","flatTopBottom","disjointChannel","andrewsPitchfork","schiffPitchfork","modifiedSchiffPitchfork","insidePitchfork","fibExtension","fibTimeZone","fibTimeExtension","fibCircles","fibSpiral","fibArcs","fibWedge","pitchfan","gannBox","gannFan","gannSquareFixed","gannSquare","longPosition","shortPosition","forecast","barsPattern","projection","priceRange","datePriceRange","rectangle","rotatedRectangle","circle","ellipse","triangle","arc","path","polyline","curve","doubleCurve","text","callout","brush","highlighter","arrowMarker","anchoredText","note","priceNote","priceLabel","flagMark","pin","comment","signpost","table"];
+export const TOOL_TYPES = ["line","horizontal-line","vertical-line","ray","horizontal-ray","vertical-ray","extended-line","arrow","parallelChannel","regressionTrend","flatTopBottom","disjointChannel","andrewsPitchfork","schiffPitchfork","modifiedSchiffPitchfork","insidePitchfork","fibonacci","fibExtension","fibTimeZone","fibTimeExtension","fibCircles","fibSpiral","fibArcs","fibWedge","pitchfan","gannBox","gannFan","gannSquareFixed","gannSquare","longPosition","shortPosition","forecast","barsPattern","projection","priceRange","datePriceRange","rectangle","rotatedRectangle","circle","ellipse","triangle","arc","path","polyline","curve","doubleCurve","text","callout","brush","highlighter","arrowMarker","anchoredText","note","priceNote","priceLabel","flagMark","pin","comment","signpost","table"];
 
 /** Tools that ask for label text at creation (window.prompt; default kept
  * when dismissed) and their default labels. */
+/** Tools whose factory colour carries meaning. The style toolbar can still
+ *  override these per drawing. */
+const DEFAULT_COLORS: Record<string, string> = {
+  longPosition: "#089981",
+  shortPosition: "#F23645",
+  highlighter: "#FFD600",
+};
+
 export const TEXT_DEFAULTS: Record<string, string> = {
   text: "Text",
   callout: "Note",
@@ -29,6 +38,13 @@ export const TEXT_DEFAULTS: Record<string, string> = {
  * dblclick finishes, min 2) and click vs freehand-drag mode. Counts match
  * what each DrawingRenderer reads from pixelPoints. */
 export const ANCHORS: Record<string, { n: number; mode: QfCreateMode }> = {
+  line: { n: 2, mode: "click" },
+  "horizontal-line": { n: 1, mode: "click" },
+  "vertical-line": { n: 1, mode: "click" },
+  ray: { n: 2, mode: "click" },
+  "horizontal-ray": { n: 1, mode: "click" },
+  "vertical-ray": { n: 1, mode: "click" },
+  "extended-line": { n: 2, mode: "click" },
   arrow: { n: 2, mode: "click" },
   parallelChannel: { n: 3, mode: "click" },
   regressionTrend: { n: 2, mode: "click" },
@@ -38,6 +54,7 @@ export const ANCHORS: Record<string, { n: number; mode: QfCreateMode }> = {
   schiffPitchfork: { n: 3, mode: "click" },
   modifiedSchiffPitchfork: { n: 3, mode: "click" },
   insidePitchfork: { n: 3, mode: "click" },
+  fibonacci: { n: 2, mode: "click" },
   fibExtension: { n: 3, mode: "click" },
   fibTimeZone: { n: 2, mode: "click" },
   fibTimeExtension: { n: 3, mode: "click" },
@@ -85,6 +102,13 @@ export const ANCHORS: Record<string, { n: number; mode: QfCreateMode }> = {
 
 export function registerAllQfDrawings(chart: QFChart): Record<string, Plugin> {
   const pairs: [string, any, any][] = [
+    ["line", LineRenderer, LineTool],
+    ["horizontal-line", HorizontalLineRenderer, HorizontalLineTool],
+    ["vertical-line", VerticalLineRenderer, VerticalLineTool],
+    ["ray", RayRenderer, RayTool],
+    ["horizontal-ray", HorizontalRayRenderer, HorizontalRayTool],
+    ["vertical-ray", VerticalRayRenderer, VerticalRayTool],
+    ["extended-line", ExtendedLineRenderer, ExtendedLineTool],
     ["arrow", ArrowDrawingRenderer, ArrowTool],
     ["parallelChannel", ParallelChannelRenderer, ParallelChannelTool],
     ["regressionTrend", RegressionTrendRenderer, RegressionTrendTool],
@@ -94,6 +118,7 @@ export function registerAllQfDrawings(chart: QFChart): Record<string, Plugin> {
     ["schiffPitchfork", SchiffPitchforkRenderer, SchiffPitchforkTool],
     ["modifiedSchiffPitchfork", ModifiedSchiffPitchforkRenderer, ModifiedSchiffPitchforkTool],
     ["insidePitchfork", InsidePitchforkRenderer, InsidePitchforkTool],
+    ["fibonacci", FibonacciRetracementRenderer, FibonacciRetracementTool],
     ["fibExtension", FibExtensionRenderer, FibExtensionTool],
     ["fibTimeZone", FibTimeZoneRenderer, FibTimeZoneTool],
     ["fibTimeExtension", FibTimeExtensionRenderer, FibTimeExtensionTool],
@@ -155,6 +180,8 @@ export function registerAllQfDrawings(chart: QFChart): Record<string, Plugin> {
       tool.asksText = true;
       tool.defaultText = label;
     }
+    const defaultColor = DEFAULT_COLORS[name];
+    if (defaultColor) tool.defaultColor = defaultColor;
     chart.registerPlugin(tool);
     map[name] = tool;
   }

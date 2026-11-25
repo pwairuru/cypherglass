@@ -2,10 +2,31 @@
 // Attribution: creation flow mirrors @qfo/qfchart built-in tools
 // (zr click/mousemove + crosshair, pixelToData, addDrawing, disableTools).
 import { graphic } from "echarts";
-import type { ChartContext, Plugin } from "@qfo/qfchart";
+import type { ChartContext, DrawingRenderContext, Plugin } from "@qfo/qfchart";
+import { dashForStyle, defaultDrawingStyle, type QfDrawingStyle } from "./style";
 export function makeId(prefix:string): string { return `${prefix}-${Math.random().toString(36).slice(2,9)}`; }
-export function lineEl(p1:[number,number],p2:[number,number],style:{color?:string;lineWidth?:number;dash?:number[]}={}): any {
-  return { type:"line", shape:{x1:p1[0],y1:p1[1],x2:p2[0],y2:p2[1]}, style:{stroke:style.color??"#2962FF",lineWidth:style.lineWidth??2,...(style.dash?{lineDash:style.dash}:{})} };
+export function lineEl(p1:[number,number],p2:[number,number],style:{color?:string;lineWidth?:number;dash?:number[];opacity?:number;name?:string;silent?:boolean}={}): any {
+  return {
+    type:"line",
+    ...(style.name ? { name: style.name } : {}),
+    shape:{x1:p1[0],y1:p1[1],x2:p2[0],y2:p2[1]},
+    style:{
+      stroke:style.color??"#2962FF",
+      lineWidth:style.lineWidth??2,
+      ...(style.dash?{lineDash:style.dash}:{}),
+      ...(style.opacity !== undefined ? { opacity: style.opacity } : {}),
+    },
+    ...(style.silent !== undefined ? { silent: style.silent } : {}),
+  };
+}
+/** Invisible wide line used for easy hit-testing of thin strokes. */
+export function hitLine(p1:[number,number],p2:[number,number],width=14): any {
+  return { type:"line", name:"line", shape:{x1:p1[0],y1:p1[1],x2:p2[0],y2:p2[1]}, style:{stroke:"rgba(0,0,0,0)",lineWidth:width}, z:1 };
+}
+/** Persistent anchor dot. Draggable point handles are added on top by
+ *  withSelection when the drawing is hovered/selected. */
+export function anchorDot(p:[number,number],color:string,r=3.5): any {
+  return { type:"circle", shape:{cx:p[0],cy:p[1],r}, style:{fill:"#fff",stroke:color,lineWidth:1.5}, z:10 };
 }
 export function circleEl(p:[number,number],r=4,style:{color?:string}={}): any {
   return { type:"circle", shape:{cx:p[0],cy:p[1],r}, style:{fill:style.color??"#fff",stroke:"#2962FF",lineWidth:1} };
@@ -15,9 +36,28 @@ export function labelEl(p:[number,number],text:string,style:{color?:string;font?
 }
 export function groupEl(children:any[]): any { return { type:"group", children }; }
 
-export type QfCreateMode = "click" | "drag";
+/** Drawing-style accessors shared by every renderer. */
+export function ctxStyle(ctx: DrawingRenderContext): QfDrawingStyle {
+  return (ctx.drawing.style ?? {}) as QfDrawingStyle;
+}
+export function ctxColor(ctx: DrawingRenderContext, fallback = "#2962FF"): string {
+  const color = ctxStyle(ctx).color;
+  return typeof color === "string" && color ? color : fallback;
+}
+export function ctxWidth(ctx: DrawingRenderContext, fallback = 2): number {
+  const width = ctxStyle(ctx).lineWidth;
+  return typeof width === "number" && width > 0 ? width : fallback;
+}
+export function ctxDash(ctx: DrawingRenderContext): number[] | undefined {
+  return dashForStyle(ctxStyle(ctx));
+}
+/** Secondary/decoration lines keep their traditional dash only when the
+ *  drawing has not chosen a line style; an explicit Solid wins. */
+export function ctxDashOr(ctx: DrawingRenderContext, fallback: number[]): number[] | undefined {
+  return ctxStyle(ctx).lineStyle ? dashForStyle(ctxStyle(ctx)) : fallback;
+}
 
-const PREVIEW_COLOR = "#2962FF";
+export type QfCreateMode = "click" | "drag";
 
 /** Creation state machine shared by all ported tools.
  * click mode: N clicks (anchorCount; 0 = variable, dblclick finishes, min 2).
@@ -32,6 +72,10 @@ export abstract class QfTool implements Plugin {
    * when unavailable or cancelled, e.g. jsdom). */
   asksText = false;
   defaultText = "Text";
+  /** Semantic factory colour for tools that must start green/red/yellow
+   *  (positions, highlighter). The selected-drawing toolbar can still change
+   *  it per drawing. */
+  defaultColor?: string;
   private state: "idle" | "drawing" = "idle";
   private pts: [number, number][] = [];
   private preview: any = null;
@@ -131,7 +175,8 @@ export abstract class QfTool implements Plugin {
     });
     const drawingType = this.drawingType;
     const pane = data[0]?.paneIndex ?? 0;
-    const style: Record<string, unknown> = { color: PREVIEW_COLOR, lineWidth: 2 };
+    const style: QfDrawingStyle = { ...defaultDrawingStyle() };
+    if (this.defaultColor) style.color = this.defaultColor;
     if (this.asksText) {
       const entered = askText(this.defaultText);
       style.text = entered === null ? this.defaultText : entered;
@@ -174,6 +219,9 @@ export abstract class QfTool implements Plugin {
     const g = this.preview;
     if (!g) return;
     g.removeAll();
+    const previewStyle = defaultDrawingStyle();
+    const previewColor = this.defaultColor ?? previewStyle.color;
+    const previewDash = dashForStyle(previewStyle) ?? [4, 4];
     // Click mode keeps a rubber-band cursor point at the end; drag mode
     // stores only committed points.
     const fixed = this.mode === "click" ? this.pts.slice(0, -1) : this.pts;
@@ -181,14 +229,18 @@ export abstract class QfTool implements Plugin {
     for (let i = 0; i + 1 < all.length; i++) {
       g.add(new graphic.Line({
         shape: { x1: all[i][0], y1: all[i][1], x2: all[i + 1][0], y2: all[i + 1][1] },
-        style: { stroke: PREVIEW_COLOR, lineWidth: 1, lineDash: [4, 4] },
+        style: {
+          stroke: previewColor,
+          lineWidth: previewStyle.lineWidth,
+          lineDash: previewDash,
+        },
         silent: true,
       }));
     }
     for (const p of fixed) {
       g.add(new graphic.Circle({
-        shape: { cx: p[0], cy: p[1], r: 3 },
-        style: { fill: "#fff", stroke: PREVIEW_COLOR, lineWidth: 1 },
+        shape: { cx: p[0], cy: p[1], r: 4 },
+        style: { fill: "#fff", stroke: previewColor, lineWidth: 1.5 },
         silent: true,
       }));
     }

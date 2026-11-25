@@ -1,4 +1,16 @@
 import type { DrawingElement, Plugin, QFChart } from "@qfo/qfchart";
+import {
+  normalizeDrawingStyle,
+  type DrawingLineStyle,
+  type QfDrawingStyle,
+} from "./qfdraw/style";
+
+export interface DrawingStylePatch {
+  color?: string;
+  lineWidth?: number;
+  lineStyle?: DrawingLineStyle;
+  [key: string]: unknown;
+}
 
 // Maps DrawingPanel tool names to the plugin instance registered on a chart.
 // PriceChart/OnchainChart register their plugins here via registerChartTools;
@@ -80,7 +92,20 @@ export function restoreDrawings(chart: QFChart, snapshot: unknown): number {
   for (const entry of snapshot) {
     if (!isRestorable(entry) || present.has(entry.id)) continue;
     try {
-      chart.addDrawing(entry as DrawingElement);
+      // Drawings saved before the style toolbar keep their geometry but get
+      // the current line defaults (old QFChart built-ins wrote #d1d4dc/1px).
+      // Entries without any style stay untouched so round-trip snapshots are
+      // byte-identical for fixtures/integrations that omit style.
+      const restoredEntry = entry.style
+        ? ({
+            ...entry,
+            style: normalizeDrawingStyle(
+              entry.type,
+              entry.style as QfDrawingStyle,
+            ) as DrawingElement["style"],
+          } as DrawingElement)
+        : entry;
+      chart.addDrawing(restoredEntry);
       present.add(entry.id);
       restored += 1;
     } catch {
@@ -115,4 +140,77 @@ export function undoChartDrawing(chart: QFChart): string | null {
     return null;
   }
   return last;
+}
+
+/** Merge style fields into an existing drawing and re-render. The QFChart
+ *  DrawingElement type only advertises color/lineWidth, but renderItem keeps
+ *  the whole object, so lineStyle and future fields survive. */
+export function updateDrawingStyle(
+  chart: QFChart,
+  id: string,
+  patch: DrawingStylePatch,
+): DrawingElement | null {
+  const drawing = chart.getDrawing(id);
+  if (!drawing) return null;
+  const next = {
+    ...drawing,
+    style: {
+      ...(drawing.style ?? {}),
+      ...patch,
+    },
+  } as DrawingElement;
+  chart.updateDrawing(next);
+  return next;
+}
+
+/** Select a drawing through QFChart's own state and re-render, so the drag
+ *  handles and the floating style toolbar follow the new selection. */
+export function selectChartDrawing(chart: QFChart, id: string): boolean {
+  if (!chart.getDrawing(id)) return false;
+  const raw = chart as unknown as {
+    selectedDrawingId?: string | null;
+    render?: () => void;
+  };
+  raw.selectedDrawingId = id;
+  chart.events.emit("drawing:selected", { id });
+  raw.render?.();
+  return true;
+}
+
+/** Clear QFChart's internal drawing selection (the same state a background
+ *  click clears) without synthesising a canvas click that an armed drawing
+ *  tool might consume. */
+export function clearChartDrawingSelection(chart: QFChart): void {
+  const raw = chart as unknown as {
+    selectedDrawingId?: string | null;
+    render?: () => void;
+  };
+  const id = raw.selectedDrawingId;
+  if (typeof id !== "string") return;
+  raw.selectedDrawingId = null;
+  chart.events.emit("drawing:deselected", { id });
+  raw.render?.();
+}
+
+/** Copy a drawing with a cumulative visible offset and select the copy so the
+ *  style toolbar edits the duplicate, not the original. */
+export function duplicateChartDrawing(chart: QFChart, id: string): string | null {
+  const drawing = chart.getDrawing(id);
+  if (!drawing) return null;
+  // Count siblings of the same type: repeated duplicates step further right
+  // instead of stacking on top of each other.
+  const sameType = drawingIds(chart)
+    .map((drawingId) => chart.getDrawing(drawingId))
+    .filter((entry) => entry?.type === drawing.type).length;
+  const offset = Math.max(1, sameType);
+  const copyId = `${drawing.type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  const copy = {
+    ...drawing,
+    id: copyId,
+    points: drawing.points.map((p) => ({ ...p, timeIndex: p.timeIndex + offset })),
+    style: drawing.style ? { ...drawing.style } : undefined,
+  } as DrawingElement;
+  chart.addDrawing(copy);
+  selectChartDrawing(chart, copyId);
+  return copyId;
 }

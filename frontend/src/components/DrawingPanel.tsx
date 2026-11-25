@@ -3,6 +3,7 @@ import {
   Activity,
   AlignLeft,
   ArrowDown,
+  ArrowLeftRight,
   ArrowUp,
   ArrowUpRight,
   AudioWaveform,
@@ -33,7 +34,9 @@ import {
   Minus,
   Moon,
   MoveDiagonal,
+  MoveDown,
   MoveHorizontal,
+  MoveRight,
   MoveUpRight,
   MoveVertical,
   Orbit,
@@ -63,9 +66,13 @@ import {
 } from "lucide-react";
 
 const QUICK: { name: string; label: string; Icon: LucideIcon }[] = [
-  { name: "trend", label: "Trend line", Icon: TrendingUp },
-  { name: "horizontal", label: "Horizontal line", Icon: Minus },
+  { name: "line", label: "Trend line", Icon: TrendingUp },
+  { name: "horizontal-line", label: "Horizontal line", Icon: Minus },
+  { name: "vertical-line", label: "Vertical line", Icon: MoveVertical },
   { name: "ray", label: "Ray", Icon: MoveUpRight },
+  { name: "horizontal-ray", label: "Horizontal ray", Icon: MoveRight },
+  { name: "vertical-ray", label: "Vertical ray", Icon: MoveDown },
+  { name: "extended-line", label: "Extended line", Icon: ArrowLeftRight },
   { name: "fibonacci", label: "Fibonacci retracement", Icon: Percent },
   { name: "measure", label: "Measure", Icon: Ruler },
 ];
@@ -78,7 +85,16 @@ interface Group { id: string; label: string; Icon: LucideIcon; tools: GroupTool[
 const GROUPS: Group[] = [
   {
     id: "lines", label: "Lines", Icon: Spline,
-    tools: [{ name: "arrow", label: "Arrow", Icon: ArrowUpRight }],
+    tools: [
+      { name: "line", label: "Trend line", Icon: TrendingUp },
+      { name: "horizontal-line", label: "Horizontal line", Icon: Minus },
+      { name: "vertical-line", label: "Vertical line", Icon: MoveVertical },
+      { name: "ray", label: "Ray", Icon: MoveUpRight },
+      { name: "horizontal-ray", label: "Horizontal ray", Icon: MoveRight },
+      { name: "vertical-ray", label: "Vertical ray", Icon: MoveDown },
+      { name: "extended-line", label: "Extended line", Icon: ArrowLeftRight },
+      { name: "arrow", label: "Arrow", Icon: ArrowUpRight },
+    ],
   },
   {
     id: "channels", label: "Channels", Icon: MoveHorizontal,
@@ -101,6 +117,7 @@ const GROUPS: Group[] = [
   {
     id: "fibonacci", label: "Fibonacci", Icon: Percent,
     tools: [
+      { name: "fibonacci", label: "Fibonacci retracement", Icon: Percent },
       { name: "fibExtension", label: "Fibonacci extension", Icon: MoveDiagonal },
       { name: "fibTimeZone", label: "Fibonacci time zone", Icon: Clock },
       { name: "fibTimeExtension", label: "Fibonacci time extension", Icon: Calendar },

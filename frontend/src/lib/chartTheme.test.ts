@@ -37,4 +37,9 @@ describe("cypherGlassChartOptions", () => {
   it("exposes distinct metric and price colors", () => {
     expect(metricLineColor()).not.toBe(priceLineColor());
   });
+
+  it("enables X-axis wheel zoom and drag pan", () => {
+    const opts = cypherGlassChartOptions(false);
+    expect(opts.dataZoom).toMatchObject({ zoomOnTouch: true, pannable: true });
+  });
 });

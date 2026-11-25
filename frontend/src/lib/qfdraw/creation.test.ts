@@ -4,17 +4,19 @@ import { describe, it, expect } from "vitest";
 import { ArrowTool } from "./tools/lines/arrow";
 import { TextTool, BrushTool } from "./tools/annotations/annotations";
 import { PolylineTool } from "./tools/shapes/shapes";
+import { LongPositionTool } from "./tools/forecast/forecast";
 import { ANCHORS, TOOL_TYPES, registerAllQfDrawings } from "./registry";
 import type { QfTool } from "./base";
 
 function harness(tool: QfTool, conv?: (x:number,y:number)=>any) {
   const added: any[] = [];
+  const graphics: any[] = [];
   const handlers: Record<string, (e:any)=>void> = {};
   const zr = {
     on: (ev:string, h:(e:any)=>void) => { handlers[ev] = h; },
     off: (ev:string) => { delete handlers[ev]; },
     setCursorStyle: () => {},
-    add: () => {}, remove: () => {},
+    add: (el:any) => { graphics.push(el); }, remove: () => {},
   };
   let disabled = 0, locked = 0, unlocked = 0;
   tool.init({
@@ -26,7 +28,7 @@ function harness(tool: QfTool, conv?: (x:number,y:number)=>any) {
       conv ? conv(x,y) : ({timeIndex:x/10,value:y,paneIndex:0}) },
     getChart:()=>({getZr:()=>zr}),
   } as any);
-  return { added, handlers, zr, disabled: () => disabled, locked: () => locked, unlocked: () => unlocked };
+  return { added, graphics, handlers, zr, disabled: () => disabled, locked: () => locked, unlocked: () => unlocked };
 }
 
 describe("QfTool creation flow", () => {
@@ -156,6 +158,18 @@ describe("QfTool creation flow", () => {
     }
     expect(h.added[0].style.text).toBe("hello");
   });
+  it("uses a tool's semantic default colour in the creation preview", () => {
+    const tool = new LongPositionTool();
+    tool.drawingType = "longPosition"; tool.anchorCount = 2;
+    tool.defaultColor = "#089981";
+    const h = harness(tool);
+    tool.activate();
+    h.handlers.click({ offsetX: 20, offsetY: 50 });
+    const preview = h.graphics[0];
+    const line = preview.children().find((c: any) => c.type === "line");
+    expect(line.style.stroke).toBe("#089981");
+  });
+
   it("keeps default text when prompt is unavailable or dismissed", () => {
     const tool = new TextTool();
     tool.drawingType = "text"; tool.anchorCount = 1;

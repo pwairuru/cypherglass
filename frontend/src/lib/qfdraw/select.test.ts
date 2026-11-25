@@ -29,7 +29,8 @@ describe("withSelection", () => {
     expect(text.silent).toBe(true);
     const handles = g.children.filter((c: any) => String(c.name).startsWith("point-"));
     expect(handles.map((c: any) => c.name)).toEqual(["point-0", "point-1"]);
-    expect(handles[0].shape).toEqual({ cx: 10, cy: 10, r: 4 });
+    expect(handles[0].shape).toEqual({ cx: 10, cy: 10, r: 5 });
+    expect(handles[0].style).toMatchObject({ stroke: "#123456", lineWidth: 2 });
     expect(handles.every((c: any) => c.style.opacity === 0)).toBe(true);
   });
   it("shows handles when selected", () => {
