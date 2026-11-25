@@ -65,14 +65,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+// Only non-line shortcuts live here. Trend/line variants are grouped under
+// the Lines flyout so the toolbar does not become a wall of near-identical
+// line icons.
 const QUICK: { name: string; label: string; Icon: LucideIcon }[] = [
-  { name: "line", label: "Trend line", Icon: TrendingUp },
-  { name: "horizontal-line", label: "Horizontal line", Icon: Minus },
-  { name: "vertical-line", label: "Vertical line", Icon: MoveVertical },
-  { name: "ray", label: "Ray", Icon: MoveUpRight },
-  { name: "horizontal-ray", label: "Horizontal ray", Icon: MoveRight },
-  { name: "vertical-ray", label: "Vertical ray", Icon: MoveDown },
-  { name: "extended-line", label: "Extended line", Icon: ArrowLeftRight },
   { name: "fibonacci", label: "Fibonacci retracement", Icon: Percent },
   { name: "measure", label: "Measure", Icon: Ruler },
 ];

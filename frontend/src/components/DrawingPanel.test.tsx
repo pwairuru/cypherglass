@@ -10,24 +10,32 @@ function setup() {
   return onTool;
 }
 describe("DrawingPanel", () => {
-  it("emits tool activation for the quick line family", () => {
+  it("emits tool activation for the remaining quick tools", () => {
     const onTool = setup();
-    fireEvent.click(screen.getByRole("button", { name: /trend line/i }));
-    expect(onTool).toHaveBeenCalledWith("line");
+    fireEvent.click(screen.getByRole("button", { name: /fibonacci retracement/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^measure$/i }));
+    expect(onTool).toHaveBeenCalledWith("fibonacci");
+    expect(onTool).toHaveBeenCalledWith("measure");
+  });
+
+  it("groups trend line variants behind the Lines flyout", () => {
+    const onTool = setup();
+    expect(screen.queryByRole("button", { name: /^horizontal line$/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /lines tools/i }));
     for (const label of [
-      /horizontal line/i,
-      /vertical line/i,
+      /^trend line$/i,
+      /^horizontal line$/i,
+      /^vertical line$/i,
       /^ray$/i,
-      /horizontal ray/i,
-      /extended line/i,
+      /^horizontal ray$/i,
+      /^vertical ray$/i,
+      /^extended line$/i,
     ]) {
-      fireEvent.click(screen.getByRole("button", { name: label }));
+      expect(screen.getByRole("menuitem", { name: label })).toBeInTheDocument();
     }
+    fireEvent.click(screen.getByRole("menuitem", { name: /^horizontal line$/i }));
     expect(onTool).toHaveBeenCalledWith("horizontal-line");
-    expect(onTool).toHaveBeenCalledWith("vertical-line");
-    expect(onTool).toHaveBeenCalledWith("ray");
-    expect(onTool).toHaveBeenCalledWith("horizontal-ray");
-    expect(onTool).toHaveBeenCalledWith("extended-line");
+    expect(screen.queryByRole("menu", { name: /lines/i })).not.toBeInTheDocument();
   });
   it("activates rectangle/text via QFDraw registry groups", () => {
     const onTool = setup();
