@@ -287,11 +287,28 @@
 .metric-rail {
   width: 280px;
   flex-shrink: 0;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
   background: hsl(var(--card));
   padding: 12px;
+}
+
+.metric-list {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+.metric-list .input,
+.metric-list .metric-total,
+.metric-rail > .btn,
+.metric-rail > .chart-meta {
+  flex-shrink: 0;
 }
 
 .metric-list ul {
@@ -310,8 +327,14 @@
 
 .metric-groups {
   display: grid;
+  grid-auto-rows: max-content;
+  align-content: start;
   gap: 8px;
   margin-top: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .metric-group {
